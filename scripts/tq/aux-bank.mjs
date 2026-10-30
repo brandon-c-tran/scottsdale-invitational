@@ -134,7 +134,7 @@ for (let index = 0; index < songs.length; index++) {
       verified: { by: s.by, at: CHECKED },
       status: "ready",
       ...(s.surprise ? { surprise: true } : {}),
-      tags: { topics: [...s.topics, ...(editorial ? ["editorial"] : [])], likely: [], possible: [], reach: s.reach },
+      tags: { topics: [...s.topics, ...(editorial ? ["editorial"] : [])], likely: s.by === "provided" ? ["Brandon"] : [], possible: [], reach: s.reach },
       ...(notes ? { notes } : {}),
     });
   }

@@ -1,0 +1,1853 @@
+{
+ "about": "You Know This Sound: sound specs. sound.mjs downloads each source into tq-raw/sound, trims, normalises and encodes it.",
+ "sounds": [
+  {
+   "slug": "mc-creeper-hiss",
+   "prompt": "Which Minecraft mob makes this sound?",
+   "answer": "Creeper",
+   "decoys": [
+    "Enderman",
+    "Zombie",
+    "Spider"
+   ],
+   "tier": 1,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Creeper_fuse.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Creeper. The hiss is its fuse lighting.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Creeper_fuse.ogg?2ff0e",
+    "page": "https://minecraft.wiki/w/File:Creeper_fuse.ogg",
+    "sha1": "0335f580523dd78a4846516941e8e71003067a47",
+    "bytes": 43007,
+    "uploaded": "2018-04-30T08:24:04Z"
+   }
+  },
+  {
+   "slug": "mc-tnt-fuse",
+   "prompt": "Which Minecraft block makes this sound once lit?",
+   "answer": "TNT",
+   "decoys": [
+    "End Crystal",
+    "Respawn Anchor",
+    "Bed"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Fuse.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "TNT. Its fuse hisses before it blows.",
+   "note": "A creeper's hiss is a different file but sounds alike; the prompt says block.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Fuse.ogg?64b6b",
+    "page": "https://minecraft.wiki/w/File:Fuse.ogg",
+    "sha1": "a92ba2b8f6abc41aa8d679ad808a81d0aafa04b2",
+    "bytes": 29271,
+    "uploaded": "2021-08-25T15:50:38Z"
+   }
+  },
+  {
+   "slug": "mc-chest-open",
+   "prompt": "Which Minecraft block opens with this sound?",
+   "answer": "Chest",
+   "decoys": [
+    "Barrel",
+    "Shulker Box",
+    "Ender Chest"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Chest_open.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Chest. A trapped chest uses the same sound.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Chest_open.ogg?7adea",
+    "page": "https://minecraft.wiki/w/File:Chest_open.ogg",
+    "sha1": "f993dbcc8cdde669020b9f988f091d997006ce8b",
+    "bytes": 8916,
+    "uploaded": "2019-05-01T11:01:08Z"
+   }
+  },
+  {
+   "slug": "mc-eating",
+   "prompt": "What is the player doing in Minecraft?",
+   "answer": "Eating food",
+   "decoys": [
+    "Drinking a potion",
+    "Equipping armor",
+    "Breaking a block"
+   ],
+   "tier": 1,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Eat1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Eating food.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Eat1.ogg?20ed5",
+    "page": "https://minecraft.wiki/w/File:Eat1.ogg",
+    "sha1": "dfee39084c771182f6b9e7cfb8c8bc4e255747bc",
+    "bytes": 5678,
+    "uploaded": "2021-04-19T09:58:04Z"
+   }
+  },
+  {
+   "slug": "mc-nether-portal",
+   "prompt": "Which Minecraft block makes this ambient hum?",
+   "answer": "Nether portal",
+   "decoys": [
+    "Beacon",
+    "Conduit",
+    "Respawn Anchor"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Portal_portal.wav",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Nether portal.",
+   "max": 8,
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Portal_portal.wav?27f25",
+    "page": "https://minecraft.wiki/w/File:Portal_portal.wav",
+    "sha1": "23777e81cc972c0d15ccc795cfe091feb4bb6e9a",
+    "bytes": 827864,
+    "uploaded": "2024-01-18T00:30:27Z"
+   }
+  },
+  {
+   "slug": "mc-ghast",
+   "prompt": "Which Nether mob makes this sound?",
+   "answer": "Ghast",
+   "decoys": [
+    "Blaze",
+    "Piglin",
+    "Hoglin"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Ghast_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Ghast.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Ghast_idle1.ogg?6400a",
+    "page": "https://minecraft.wiki/w/File:Ghast_idle1.ogg",
+    "sha1": "882d092b05faef1cfa6af43d642b9e8843f22756",
+    "bytes": 7986,
+    "uploaded": "2019-10-04T17:46:10Z"
+   }
+  },
+  {
+   "slug": "mc-enderman-scream",
+   "prompt": "Which Minecraft mob makes this sound?",
+   "answer": "Enderman",
+   "decoys": [
+    "Ghast",
+    "Phantom",
+    "Vex"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Enderman_scream1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Enderman. It screams when angered.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Enderman_scream1.ogg?636d2",
+    "page": "https://minecraft.wiki/w/File:Enderman_scream1.ogg",
+    "sha1": "c4b5265bbafbe058347058a257abe33a0afb5ab7",
+    "bytes": 11231,
+    "uploaded": "2019-11-18T23:39:16Z"
+   }
+  },
+  {
+   "slug": "mc-villager",
+   "prompt": "Which Minecraft mob makes this sound?",
+   "answer": "Villager",
+   "decoys": [
+    "Witch",
+    "Iron Golem",
+    "Pillager"
+   ],
+   "tier": 1,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Villager_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Villager.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Villager_idle1.ogg?bfbee",
+    "page": "https://minecraft.wiki/w/File:Villager_idle1.ogg",
+    "sha1": "a772db3c8ac37dfeb3a761854fb96297257930ab",
+    "bytes": 8605,
+    "uploaded": "2013-07-22T14:38:34Z"
+   }
+  },
+  {
+   "slug": "mc-pig",
+   "prompt": "Which Minecraft animal makes this sound?",
+   "answer": "Pig",
+   "decoys": [
+    "Cow",
+    "Sheep",
+    "Chicken"
+   ],
+   "tier": 1,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Pig_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Pig.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Pig_idle1.ogg?88ae8",
+    "page": "https://minecraft.wiki/w/File:Pig_idle1.ogg",
+    "sha1": "a99bf88163bcb576e31e6e2275145afba6d1b4c7",
+    "bytes": 5645,
+    "uploaded": "2019-11-13T17:05:40Z"
+   }
+  },
+  {
+   "slug": "mc-zombie",
+   "prompt": "Which Minecraft mob groans like this?",
+   "answer": "Zombie",
+   "decoys": [
+    "Skeleton",
+    "Creeper",
+    "Spider"
+   ],
+   "tier": 1,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Zombie_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Zombie.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Zombie_idle1.ogg?5d58f",
+    "page": "https://minecraft.wiki/w/File:Zombie_idle1.ogg",
+    "sha1": "b5bc9775243437d87317ab3a66ec8a4d5b96c83d",
+    "bytes": 16877,
+    "uploaded": "2019-11-20T14:23:39Z"
+   }
+  },
+  {
+   "slug": "mc-skeleton",
+   "prompt": "Which Minecraft mob makes this sound?",
+   "answer": "Skeleton",
+   "decoys": [
+    "Zombie",
+    "Stray",
+    "Wither Skeleton"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Skeleton_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Skeleton.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Skeleton_idle1.ogg?b0f88",
+    "page": "https://minecraft.wiki/w/File:Skeleton_idle1.ogg",
+    "sha1": "199c9f150822950385b9bc1d840605a6a795bd27",
+    "bytes": 8727,
+    "uploaded": "2018-06-12T01:30:25Z"
+   }
+  },
+  {
+   "slug": "mc-anvil",
+   "prompt": "Which Minecraft block makes this sound?",
+   "answer": "Anvil",
+   "decoys": [
+    "Grindstone",
+    "Smithing Table",
+    "Enchanting Table"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Anvil_use.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Anvil.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Anvil_use.ogg?e0955",
+    "page": "https://minecraft.wiki/w/File:Anvil_use.ogg",
+    "sha1": "c6c6b57d2aa7dae23a5f0c380a453adc7be05877",
+    "bytes": 17788,
+    "uploaded": "2018-11-30T06:15:27Z"
+   }
+  },
+  {
+   "slug": "mc-bell",
+   "prompt": "Which Minecraft block rings like this?",
+   "answer": "Bell",
+   "decoys": [
+    "Note Block",
+    "Jukebox",
+    "Lectern"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Bell_use1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Bell. Villagers ring it to hide during a raid.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Bell_use1.ogg?f7786",
+    "page": "https://minecraft.wiki/w/File:Bell_use1.ogg",
+    "sha1": "503833660c919c6a48c885b601fc95f66c56db1e",
+    "bytes": 10846,
+    "uploaded": "2019-05-01T08:19:21Z"
+   }
+  },
+  {
+   "slug": "mc-totem",
+   "prompt": "Which Minecraft item makes this sound when it saves you?",
+   "answer": "Totem of Undying",
+   "decoys": [
+    "Golden Apple",
+    "Ender Pearl",
+    "Elytra"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Totem_of_Undying.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Totem of Undying.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Totem_of_Undying.ogg?3d2c6",
+    "page": "https://minecraft.wiki/w/File:Totem_of_Undying.ogg",
+    "sha1": "e7f0337931cdb05c4234d2a9bc1f38ead675db26",
+    "bytes": 35952,
+    "uploaded": "2018-07-21T01:33:48Z"
+   }
+  },
+  {
+   "slug": "mc-wither-spawn",
+   "prompt": "Which Minecraft boss spawns with this sound?",
+   "answer": "Wither",
+   "decoys": [
+    "Ender Dragon",
+    "Warden",
+    "Elder Guardian"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Wither_spawn.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Wither.",
+   "max": 9,
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Wither_spawn.ogg?d59c2",
+    "page": "https://minecraft.wiki/w/File:Wither_spawn.ogg",
+    "sha1": "d8caaead680c20a4f51361587aeddd57a3357a72",
+    "bytes": 151896,
+    "uploaded": "2018-04-12T09:09:01Z"
+   }
+  },
+  {
+   "slug": "mc-dragon-growl",
+   "prompt": "Which Minecraft boss growls like this?",
+   "answer": "Ender Dragon",
+   "decoys": [
+    "Wither",
+    "Warden",
+    "Ravager"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Ender_dragon_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Ender Dragon.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Ender_dragon_idle1.ogg?adb06",
+    "page": "https://minecraft.wiki/w/File:Ender_dragon_idle1.ogg",
+    "sha1": "049a3049a5ac8631a6c5f367b7d824fc0d8de39b",
+    "bytes": 26384,
+    "uploaded": "2018-07-19T07:45:42Z"
+   }
+  },
+  {
+   "slug": "mc-level-up",
+   "prompt": "What just happened in Minecraft?",
+   "answer": "Level up",
+   "decoys": [
+    "Advancement made",
+    "Item broke",
+    "Potion splashed"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Random_levelup.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Level up.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Random_levelup.ogg?3bb41",
+    "page": "https://minecraft.wiki/w/File:Random_levelup.ogg",
+    "sha1": "b9c60e807ba770e8c4a2b1bae81d51813dc64b6c",
+    "bytes": 15799,
+    "uploaded": "2019-09-21T14:58:55Z"
+   }
+  },
+  {
+   "slug": "mc-witch",
+   "prompt": "Which Minecraft mob cackles like this?",
+   "answer": "Witch",
+   "decoys": [
+    "Evoker",
+    "Illusioner",
+    "Pillager"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Witch_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Witch.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Witch_idle1.ogg?0fb18",
+    "page": "https://minecraft.wiki/w/File:Witch_idle1.ogg",
+    "sha1": "166af5d48f1f67a4608be9d23fd27f8c16269893",
+    "bytes": 11349,
+    "uploaded": "2019-11-19T07:14:22Z"
+   }
+  },
+  {
+   "slug": "mc-evoker",
+   "prompt": "Which Minecraft mob chants this?",
+   "answer": "Evoker",
+   "decoys": [
+    "Witch",
+    "Illusioner",
+    "Vindicator"
+   ],
+   "tier": 5,
+   "reach": "deep",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Evoker_prepare_wololo.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Evoker. It chants as it turns sheep a new color.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Evoker_prepare_wololo.ogg?b49e1",
+    "page": "https://minecraft.wiki/w/File:Evoker_prepare_wololo.ogg",
+    "sha1": "bad476e071c0e0d9cd6417bc636385e171578aae",
+    "bytes": 21496,
+    "uploaded": "2018-09-30T21:48:01Z"
+   }
+  },
+  {
+   "slug": "mc-warden",
+   "prompt": "Which Minecraft mob makes this sound?",
+   "answer": "Warden",
+   "decoys": [
+    "Elder Guardian",
+    "Ravager",
+    "Sniffer"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Warden_ambient1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Warden.",
+   "max": 8,
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Warden_ambient1.ogg?c4b75",
+    "page": "https://minecraft.wiki/w/File:Warden_ambient1.ogg",
+    "sha1": "08f4163bcc82acd2bec812652bb769e572c611d7",
+    "bytes": 61776,
+    "uploaded": "2022-02-18T05:53:52Z"
+   }
+  },
+  {
+   "slug": "mc-elder-guardian",
+   "prompt": "Which Minecraft mob makes this sound?",
+   "answer": "Elder Guardian",
+   "decoys": [
+    "Guardian",
+    "Drowned",
+    "Warden"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Elder_guardian_idle1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Elder Guardian.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Elder_guardian_idle1.ogg?1085a",
+    "page": "https://minecraft.wiki/w/File:Elder_guardian_idle1.ogg",
+    "sha1": "f18e291d84d108d02fa1170e1ccaedafdfb922f5",
+    "bytes": 17095,
+    "uploaded": "2014-06-21T20:47:38Z"
+   }
+  },
+  {
+   "slug": "mc-beacon",
+   "prompt": "Which Minecraft block makes this sound when it turns on?",
+   "answer": "Beacon",
+   "decoys": [
+    "Conduit",
+    "Respawn Anchor",
+    "Enchanting Table"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Beacon_activate.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Beacon.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Beacon_activate.ogg?df06a",
+    "page": "https://minecraft.wiki/w/File:Beacon_activate.ogg",
+    "sha1": "191510085f615e2d44136f45c41dd19aecf601e5",
+    "bytes": 39927,
+    "uploaded": "2018-07-31T02:09:50Z"
+   }
+  },
+  {
+   "slug": "lol-flash",
+   "prompt": "Which League of Legends summoner spell is this?",
+   "answer": "Flash",
+   "decoys": [
+    "Ghost",
+    "Teleport",
+    "Cleanse"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Flash_SFX.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Flash.",
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Flash_SFX.ogg?b49b5",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Flash_SFX.ogg",
+    "sha1": "3f1194240aec89e8d45e400ce7eed3dba2cb3f10",
+    "bytes": 26863,
+    "uploaded": "2022-07-03T04:56:31Z"
+   }
+  },
+  {
+   "slug": "lol-teleport",
+   "prompt": "Which League of Legends summoner spell is this?",
+   "answer": "Teleport",
+   "decoys": [
+    "Flash",
+    "Ghost",
+    "Exhaust"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Teleport_SFX.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Teleport.",
+   "max": 8,
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Teleport_SFX.ogg?f552d",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Teleport_SFX.ogg",
+    "sha1": "23ce7bc060356e01f6967586217ef5e58885c985",
+    "bytes": 70119,
+    "uploaded": "2022-07-03T04:57:21Z"
+   }
+  },
+  {
+   "slug": "lol-ghost",
+   "prompt": "Which League of Legends summoner spell is this?",
+   "answer": "Ghost",
+   "decoys": [
+    "Flash",
+    "Teleport",
+    "Ignite"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Ghost_SFX.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Ghost.",
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Ghost_SFX.ogg?bbb26",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Ghost_SFX.ogg",
+    "sha1": "d3691def36c44361c5c9d058f23e52275eb9eee1",
+    "bytes": 28107,
+    "uploaded": "2022-07-03T04:56:33Z"
+   }
+  },
+  {
+   "slug": "lol-cleanse",
+   "prompt": "Which League of Legends summoner spell is this?",
+   "answer": "Cleanse",
+   "decoys": [
+    "Heal",
+    "Barrier",
+    "Exhaust"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Cleanse_SFX.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Cleanse.",
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Cleanse_SFX.ogg?bef02",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Cleanse_SFX.ogg",
+    "sha1": "7d3d0131e71c106365cf1b758cef3e442d39d269",
+    "bytes": 50717,
+    "uploaded": "2022-07-03T04:56:15Z"
+   }
+  },
+  {
+   "slug": "lol-ignite",
+   "prompt": "Which League of Legends summoner spell is this?",
+   "answer": "Ignite",
+   "decoys": [
+    "Heal",
+    "Exhaust",
+    "Smite"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Ignite_SFX.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Ignite.",
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Ignite_SFX.ogg?22681",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Ignite_SFX.ogg",
+    "sha1": "4f6f202fe4907422c41e3295ec586d70d5ad9b98",
+    "bytes": 29305,
+    "uploaded": "2022-07-03T04:56:58Z"
+   }
+  },
+  {
+   "slug": "lol-teemo-laugh",
+   "prompt": "Which League of Legends champion laughs like this?",
+   "answer": "Teemo",
+   "decoys": [
+    "Veigar",
+    "Ziggs",
+    "Gnar"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Teemo_Classic_Laugh_0.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Teemo, base skin.",
+   "note": "Base (Classic) skin line; skins change voice lines.",
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Teemo_Classic_Laugh_0.ogg?764e0",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Teemo_Classic_Laugh_0.ogg",
+    "sha1": "4cbdb2f993c3f6bab8baaca01b5b952c728dc528",
+    "bytes": 12879,
+    "uploaded": "2026-08-01T18:45:53Z"
+   }
+  },
+  {
+   "slug": "lol-karthus-laugh",
+   "prompt": "Which League of Legends champion laughs like this?",
+   "answer": "Karthus",
+   "decoys": [
+    "Fiddlesticks",
+    "Mordekaiser",
+    "Evelynn"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Karthus_Classic_Laugh_0.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Karthus, base skin.",
+   "note": "Base (Classic) skin line; skins change voice lines.",
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Karthus_Classic_Laugh_0.ogg?422e1",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Karthus_Classic_Laugh_0.ogg",
+    "sha1": "c97fd329e69770f04714ed0efffed726291b1055",
+    "bytes": 49806,
+    "uploaded": "2026-08-01T18:30:50Z"
+   }
+  },
+  {
+   "slug": "lol-fiddlesticks-laugh",
+   "prompt": "Which League of Legends champion laughs like this?",
+   "answer": "Fiddlesticks",
+   "decoys": [
+    "Karthus",
+    "Shaco",
+    "Evelynn"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "league"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://wiki.leagueoflegends.com/en-us/api.php",
+    "file": "Fiddlesticks_Classic_Laugh_0.ogg",
+    "label": "League of Legends Wiki"
+   },
+   "reveal": "Fiddlesticks, base skin.",
+   "note": "Base (Classic) skin line; skins change voice lines.",
+   "fetched": {
+    "url": "https://wiki.leagueoflegends.com/en-us/images/Fiddlesticks_Classic_Laugh_0.ogg?6626a",
+    "page": "https://wiki.leagueoflegends.com/en-us/File:Fiddlesticks_Classic_Laugh_0.ogg",
+    "sha1": "0da7256639c2e3f7f6169130c2e1f21f0213b591",
+    "bytes": 27640,
+    "uploaded": "2026-08-01T18:25:41Z"
+   }
+  },
+  {
+   "slug": "os-xp-startup",
+   "prompt": "Which Windows version plays this at startup?",
+   "answer": "Windows XP",
+   "decoys": [
+    "Windows 95",
+    "Windows 98",
+    "Windows Vista / 7"
+   ],
+   "tier": 1,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "windows"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "MicrosoftWindowsXPStartupSound",
+    "file": "Microsoft Windows XP Startup Sound.mp3",
+    "label": "Internet Archive item MicrosoftWindowsXPStartupSound"
+   },
+   "reveal": "Windows XP, 2001.",
+   "fetched": {
+    "url": "https://archive.org/download/MicrosoftWindowsXPStartupSound/Microsoft%20Windows%20XP%20Startup%20Sound.mp3",
+    "page": "https://archive.org/details/MicrosoftWindowsXPStartupSound",
+    "sha1": "610b805b4781f67e2ba28119c866207d3c7791e4",
+    "bytes": 77640
+   }
+  },
+  {
+   "slug": "os-xp-shutdown",
+   "prompt": "Which Windows version plays this at shutdown?",
+   "answer": "Windows XP",
+   "decoys": [
+    "Windows 98",
+    "Windows Vista / 7",
+    "Windows 95"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "windows"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "MicrosoftWindowsXPShutdownSound",
+    "file": "Microsoft Windows XP Shutdown Sound.mp3",
+    "label": "Internet Archive item MicrosoftWindowsXPShutdownSound"
+   },
+   "reveal": "Windows XP shutdown sound.",
+   "fetched": {
+    "url": "https://archive.org/download/MicrosoftWindowsXPShutdownSound/Microsoft%20Windows%20XP%20Shutdown%20Sound.mp3",
+    "page": "https://archive.org/details/MicrosoftWindowsXPShutdownSound",
+    "sha1": "cd4df1cfbfad9ef28219b4449b3dd397949f995c",
+    "bytes": 55620
+   }
+  },
+  {
+   "slug": "os-xp-error",
+   "prompt": "Which Windows version beeps with this error?",
+   "answer": "Windows XP",
+   "decoys": [
+    "Windows 95",
+    "Windows Vista / 7",
+    "Windows 98"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "windows"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "windowsxperror1",
+    "file": "windows_xp_error (1).mp3",
+    "label": "Internet Archive item windowsxperror1"
+   },
+   "reveal": "Windows XP error sound.",
+   "fetched": {
+    "url": "https://archive.org/download/windowsxperror1/windows_xp_error%20(1).mp3",
+    "page": "https://archive.org/details/windowsxperror1",
+    "sha1": "ff07aaa3dd57cf3c89b3f9482c33455ac05767fe",
+    "bytes": 17553
+   }
+  },
+  {
+   "slug": "os-95-startup",
+   "prompt": "Which Windows version plays this at startup?",
+   "answer": "Windows 95",
+   "decoys": [
+    "Windows 98",
+    "Windows XP",
+    "Windows Me"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "nostalgia",
+    "windows"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "the-microsoft-sound_202601",
+    "file": "The Microsoft Sound.wav",
+    "label": "Internet Archive item the-microsoft-sound_202601"
+   },
+   "reveal": "Windows 95. Brian Eno composed it.",
+   "fetched": {
+    "url": "https://archive.org/download/the-microsoft-sound_202601/The%20Microsoft%20Sound.wav",
+    "page": "https://archive.org/details/the-microsoft-sound_202601",
+    "sha1": "2eefab9ff78aefdcef361e4919de311f827bb3db",
+    "bytes": 135876
+   }
+  },
+  {
+   "slug": "os-98-startup",
+   "prompt": "Which Windows version plays this at startup?",
+   "answer": "Windows 98",
+   "decoys": [
+    "Windows 95",
+    "Windows Me",
+    "Windows XP"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "nostalgia",
+    "windows"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "windows-98-startup",
+    "file": "Windows 98 Startup.mp3",
+    "label": "Internet Archive item windows-98-startup"
+   },
+   "reveal": "Windows 98.",
+   "max": 8,
+   "fetched": {
+    "url": "https://archive.org/download/windows-98-startup/Windows%2098%20Startup.mp3",
+    "page": "https://archive.org/details/windows-98-startup",
+    "sha1": "f214a7c7d1657e4370d763bb6a749b2d534da953",
+    "bytes": 398230
+   }
+  },
+  {
+   "slug": "os-vista7-startup",
+   "prompt": "Which Windows version plays this at startup?",
+   "answer": "Windows Vista / 7",
+   "decoys": [
+    "Windows XP",
+    "Windows 8",
+    "Windows 10"
+   ],
+   "tier": 3,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "windows"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "windows-vista-7-startup-sound",
+    "file": "Windows Vista+7 Startup Sound.mp3",
+    "label": "Internet Archive item windows-vista-7-startup-sound"
+   },
+   "reveal": "Windows Vista and Windows 7 share this startup sound.",
+   "note": "Vista and 7 share this startup; the answer names both.",
+   "fetched": {
+    "url": "https://archive.org/download/windows-vista-7-startup-sound/Windows%20Vista%2B7%20Startup%20Sound.mp3",
+    "page": "https://archive.org/details/windows-vista-7-startup-sound",
+    "sha1": "f19d8e1d6daaa9299337752f33959617d3a87291",
+    "bytes": 81116
+   }
+  },
+  {
+   "slug": "os-mac-chime",
+   "prompt": "Which computer plays this startup chime?",
+   "answer": "Apple Mac",
+   "decoys": [
+    "Windows PC",
+    "Amiga",
+    "Atari ST"
+   ],
+   "tier": 1,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "apple"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://en.wikipedia.org/w/api.php",
+    "file": "MacStartupChime.ogg",
+    "label": "Wikipedia file MacStartupChime.ogg"
+   },
+   "reveal": "Apple Mac.",
+   "fetched": {
+    "url": "https://upload.wikimedia.org/wikipedia/en/a/a4/MacStartupChime.ogg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://en.wikipedia.org/wiki/File:MacStartupChime.ogg",
+    "sha1": "d8e05cb83d98443297f6601bbec63d88baabe229",
+    "bytes": 27724,
+    "uploaded": "2026-09-18T07:45:48Z"
+   }
+  },
+  {
+   "slug": "app-skype-call",
+   "prompt": "Which app is calling?",
+   "answer": "Skype",
+   "decoys": [
+    "Discord",
+    "MSN Messenger",
+    "TeamSpeak"
+   ],
+   "tier": 1,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "SkypeSounds",
+    "file": "CALL_IN.WAV",
+    "label": "Internet Archive item SkypeSounds (Pre-Metro Skype Sounds Dump)"
+   },
+   "reveal": "Skype incoming call (the classic version).",
+   "fetched": {
+    "url": "https://archive.org/download/SkypeSounds/CALL_IN.WAV",
+    "page": "https://archive.org/details/SkypeSounds",
+    "sha1": "0187324b695705f1ef8720582bc4aefc1906a83c",
+    "bytes": 117970
+   }
+  },
+  {
+   "slug": "app-skype-message",
+   "prompt": "Which app just received a message?",
+   "answer": "Skype",
+   "decoys": [
+    "Discord",
+    "MSN Messenger",
+    "ICQ"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "nostalgia",
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "SkypeSounds",
+    "file": "IM.WAV",
+    "label": "Internet Archive item SkypeSounds (Pre-Metro Skype Sounds Dump)"
+   },
+   "reveal": "Skype message (the classic version).",
+   "fetched": {
+    "url": "https://archive.org/download/SkypeSounds/IM.WAV",
+    "page": "https://archive.org/details/SkypeSounds",
+    "sha1": "79f36413ac726b7e9fe372bb7150910d0b5d91a8",
+    "bytes": 27564
+   }
+  },
+  {
+   "slug": "app-discord-ring",
+   "prompt": "Which app is ringing?",
+   "answer": "Discord",
+   "decoys": [
+    "Skype",
+    "Messenger",
+    "Zoom"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "discord-incoming-ring",
+    "file": "Discord Incoming Ring.mp3",
+    "label": "Internet Archive item discord-incoming-ring"
+   },
+   "reveal": "Discord incoming call.",
+   "max": 6,
+   "fetched": {
+    "url": "https://archive.org/download/discord-incoming-ring/Discord%20Incoming%20Ring.mp3",
+    "page": "https://archive.org/details/discord-incoming-ring",
+    "sha1": "f071b229b3a4dd63c36b2eac4dbbb600941e4a40",
+    "bytes": 119988
+   }
+  },
+  {
+   "slug": "app-discord-message",
+   "prompt": "Which app sent this notification?",
+   "answer": "Discord",
+   "decoys": [
+    "Slack",
+    "Messenger",
+    "Telegram"
+   ],
+   "tier": 3,
+   "reach": "broad",
+   "topics": [
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "discord-incoming-ring",
+    "file": "Discord Message.mp3",
+    "label": "Internet Archive item discord-incoming-ring"
+   },
+   "reveal": "Discord message.",
+   "fetched": {
+    "url": "https://archive.org/download/discord-incoming-ring/Discord%20Message.mp3",
+    "page": "https://archive.org/details/discord-incoming-ring",
+    "sha1": "f176cd849e7bfb0542c89f898a7024d52809b7a7",
+    "bytes": 7884
+   }
+  },
+  {
+   "slug": "app-discord-join",
+   "prompt": "What just happened in the Discord voice channel?",
+   "answer": "Someone joined",
+   "decoys": [
+    "Someone left",
+    "You muted",
+    "You were disconnected"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "discord-incoming-ring",
+    "file": "Discord User Join.mp3",
+    "label": "Internet Archive item discord-incoming-ring"
+   },
+   "reveal": "Someone joined the channel.",
+   "fetched": {
+    "url": "https://archive.org/download/discord-incoming-ring/Discord%20User%20Join.mp3",
+    "page": "https://archive.org/details/discord-incoming-ring",
+    "sha1": "c9fcc39228679d4778543d3f68919afaaf443ae3",
+    "bytes": 23387
+   }
+  },
+  {
+   "slug": "app-discord-leave",
+   "prompt": "What just happened in the Discord voice channel?",
+   "answer": "Someone left",
+   "decoys": [
+    "Someone joined",
+    "You deafened",
+    "You were moved"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "discord-incoming-ring",
+    "file": "Discord User Leave.mp3",
+    "label": "Internet Archive item discord-incoming-ring"
+   },
+   "reveal": "Someone left the channel.",
+   "fetched": {
+    "url": "https://archive.org/download/discord-incoming-ring/Discord%20User%20Leave.mp3",
+    "page": "https://archive.org/details/discord-incoming-ring",
+    "sha1": "76f91b9c9d7c7aa97e1d89f4b4077a05fefaf309",
+    "bytes": 19232
+   }
+  },
+  {
+   "slug": "app-discord-mute",
+   "prompt": "What did you just do in Discord?",
+   "answer": "Muted yourself",
+   "decoys": [
+    "Unmuted yourself",
+    "Deafened yourself",
+    "Started push to talk"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "discord-incoming-ring",
+    "file": "Discord Mute.mp3",
+    "label": "Internet Archive item discord-incoming-ring"
+   },
+   "reveal": "Muted yourself.",
+   "fetched": {
+    "url": "https://archive.org/download/discord-incoming-ring/Discord%20Mute.mp3",
+    "page": "https://archive.org/details/discord-incoming-ring",
+    "sha1": "b72b6144ece3a9db69e708b7ecfc0b99878701fe",
+    "bytes": 10493
+   }
+  },
+  {
+   "slug": "app-msn-nudge",
+   "prompt": "Which app sends this nudge?",
+   "answer": "MSN Messenger",
+   "decoys": [
+    "Skype",
+    "ICQ",
+    "AIM"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "nudge_202411",
+    "file": "nudge.wav",
+    "label": "Internet Archive item nudge_202411 (MSN Messenger 7.0 sounds)"
+   },
+   "reveal": "MSN Messenger nudge.",
+   "fetched": {
+    "url": "https://archive.org/download/nudge_202411/nudge.wav",
+    "page": "https://archive.org/details/nudge_202411",
+    "sha1": "98b23606737193ce46d952227de40798f3e4a728",
+    "bytes": 172252
+   }
+  },
+  {
+   "slug": "app-msn-online",
+   "prompt": "A friend just signed in on which app?",
+   "answer": "MSN Messenger",
+   "decoys": [
+    "AIM",
+    "Skype",
+    "ICQ"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "nostalgia",
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "nudge_202411",
+    "file": "online.wav",
+    "label": "Internet Archive item nudge_202411 (MSN Messenger 7.0 sounds)"
+   },
+   "reveal": "MSN Messenger contact sign-in.",
+   "fetched": {
+    "url": "https://archive.org/download/nudge_202411/online.wav",
+    "page": "https://archive.org/details/nudge_202411",
+    "sha1": "7fea2f5749fea6cc09aabd685cc7ac407cf8df2b",
+    "bytes": 30820
+   }
+  },
+  {
+   "slug": "app-icq-message",
+   "prompt": "Which app plays this message alert?",
+   "answer": "ICQ",
+   "decoys": [
+    "AIM",
+    "MSN Messenger",
+    "Skype"
+   ],
+   "tier": 2,
+   "reach": "shared",
+   "topics": [
+    "nostalgia",
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "single-sound-message-icq-ooh",
+    "file": "single-sound-message-icq-ooh.mp3",
+    "label": "Internet Archive item single-sound-message-icq-ooh"
+   },
+   "reveal": "ICQ message alert.",
+   "fetched": {
+    "url": "https://archive.org/download/single-sound-message-icq-ooh/single-sound-message-icq-ooh.mp3",
+    "page": "https://archive.org/details/single-sound-message-icq-ooh",
+    "sha1": "5080de4d5cd4dafdbf4aea1d1c2a628bbfa48fe6",
+    "bytes": 19248
+   }
+  },
+  {
+   "slug": "con-ps1",
+   "prompt": "Which console starts up with this sound?",
+   "answer": "PlayStation",
+   "decoys": [
+    "Nintendo 64",
+    "Sega Dreamcast",
+    "Xbox"
+   ],
+   "tier": 1,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "consoles"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "ps1-startup-recorded",
+    "file": "PS1-Startup_Full.wav",
+    "label": "Internet Archive item ps1-startup-recorded"
+   },
+   "reveal": "PlayStation (1994).",
+   "max": 8,
+   "fetched": {
+    "url": "https://archive.org/download/ps1-startup-recorded/PS1-Startup_Full.wav",
+    "page": "https://archive.org/details/ps1-startup-recorded",
+    "sha1": "628c5e242d3dd121249d4a5ff2b2d4554ffb06f5",
+    "bytes": 6646268
+   }
+  },
+  {
+   "slug": "con-ps2",
+   "prompt": "Which console starts up with this sound?",
+   "answer": "PlayStation 2",
+   "decoys": [
+    "Xbox",
+    "GameCube",
+    "Sega Dreamcast"
+   ],
+   "tier": 1,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "consoles"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "playstation2startup60fps",
+    "file": "PlayStation 2 Startup (60fps).mp4",
+    "label": "Internet Archive item playstation2startup60fps"
+   },
+   "reveal": "PlayStation 2.",
+   "max": 8,
+   "fetched": {
+    "url": "https://archive.org/download/playstation2startup60fps/PlayStation%202%20Startup%20(60fps).mp4",
+    "page": "https://archive.org/details/playstation2startup60fps",
+    "sha1": "9b589640fc269b73588705811daddd73123cac3b",
+    "bytes": 2530746
+   }
+  },
+  {
+   "slug": "con-xbox360",
+   "prompt": "Which console starts up with this sound?",
+   "answer": "Xbox 360",
+   "decoys": [
+    "Xbox One",
+    "Wii",
+    "PlayStation 3"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "consoles"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "xbox-360-classic-startup",
+    "file": "Xbox 360 Classic Startup.mp4",
+    "label": "Internet Archive item xbox-360-classic-startup"
+   },
+   "reveal": "Xbox 360.",
+   "max": 8,
+   "fetched": {
+    "url": "https://archive.org/download/xbox-360-classic-startup/Xbox%20360%20Classic%20Startup.mp4",
+    "page": "https://archive.org/details/xbox-360-classic-startup",
+    "sha1": "3190def139e869624b188422a2a7bab7ccbf0cb1",
+    "bytes": 10452708
+   }
+  },
+  {
+   "slug": "con-wii",
+   "prompt": "Which console starts up with this sound?",
+   "answer": "Wii",
+   "decoys": [
+    "GameCube",
+    "Nintendo DS",
+    "Nintendo Switch"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "consoles"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "wii-startup-sound",
+    "file": "wii-startup-sound.mp3",
+    "label": "Internet Archive item wii-startup-sound"
+   },
+   "reveal": "Wii.",
+   "status": "confirm",
+   "note": "Archive upload by an individual; listen to confirm it is the console's own sound.",
+   "fetched": {
+    "url": "https://archive.org/download/wii-startup-sound/wii-startup-sound.mp3",
+    "page": "https://archive.org/details/wii-startup-sound",
+    "sha1": "3eecdce0012609d376a003b43571324d369ba939",
+    "bytes": 54981
+   }
+  },
+  {
+   "slug": "con-ds",
+   "prompt": "Which handheld starts up with this sound?",
+   "answer": "Nintendo DS",
+   "decoys": [
+    "Game Boy Advance",
+    "Nintendo 3DS",
+    "PlayStation Portable"
+   ],
+   "tier": 3,
+   "reach": "shared",
+   "topics": [
+    "nostalgia",
+    "consoles"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "001-start-up",
+    "file": "001 - Start up.mp3",
+    "label": "Internet Archive item 001-start-up"
+   },
+   "reveal": "Nintendo DS.",
+   "fetched": {
+    "url": "https://archive.org/download/001-start-up/001%20-%20Start%20up.mp3",
+    "page": "https://archive.org/details/001-start-up",
+    "sha1": "db08db3aca1de454a86629593d67dcb076afb8d6",
+    "bytes": 51328
+   }
+  },
+  {
+   "slug": "game-wasted",
+   "prompt": "Which game plays this when you die?",
+   "answer": "Grand Theft Auto V",
+   "decoys": [
+    "Grand Theft Auto IV",
+    "Red Dead Redemption 2",
+    "Max Payne 3"
+   ],
+   "tier": 1,
+   "reach": "shared",
+   "topics": [
+    "gta"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "Gta5WastedSoundEffect",
+    "file": "Gta 5 Wasted Sound effect.mp3",
+    "label": "Internet Archive item Gta5WastedSoundEffect"
+   },
+   "reveal": "Grand Theft Auto V. The Wasted screen.",
+   "max": 7.5,
+   "status": "confirm",
+   "note": "Archive upload with no named creator; listen to confirm it is the game's own sound.",
+   "fetched": {
+    "url": "https://archive.org/download/Gta5WastedSoundEffect/Gta%205%20Wasted%20Sound%20effect.mp3",
+    "page": "https://archive.org/details/Gta5WastedSoundEffect",
+    "sha1": "b5f4813bb16ef542826d4e826866375c3b4c9d68",
+    "bytes": 217526
+   }
+  },
+  {
+   "slug": "game-maplestory-login",
+   "prompt": "Which game's login theme is this?",
+   "answer": "MapleStory",
+   "decoys": [
+    "Grand Chase",
+    "Rumble Fighter",
+    "Audition Online"
+   ],
+   "tier": 3,
+   "reach": "deep",
+   "topics": [
+    "maplestory",
+    "nostalgia"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://maplestory.fandom.com/api.php",
+    "file": "Title_old.ogg",
+    "label": "MapleStory Wiki, Music page: Title (2010 - 2023)"
+   },
+   "reveal": "MapleStory's login theme from 2010 to 2023.",
+   "max": 10,
+   "fetched": {
+    "url": "https://static.wikia.nocookie.net/maplestory/images/3/3e/Title_old.ogg/revision/latest?cb=20110414130621",
+    "page": "https://maplestory.fandom.com/wiki/File:Title_old.ogg",
+    "sha1": "e759b1f11461cb0ae0f8dc5629dc5e7af52611f2",
+    "bytes": 5004120,
+    "uploaded": "2011-04-14T13:06:21Z"
+   }
+  },
+  {
+   "slug": "game-mario-coin",
+   "prompt": "Which game makes this sound?",
+   "answer": "Super Mario Bros.",
+   "decoys": [
+    "Sonic the Hedgehog",
+    "Kirby's Dream Land",
+    "Pac-Man"
+   ],
+   "tier": 1,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "nintendo"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "11SuperMarioBros.",
+    "file": "11 Super Mario Bros. _ コイン.m4a",
+    "label": "Internet Archive item 11SuperMarioBros."
+   },
+   "reveal": "Super Mario Bros. The coin.",
+   "fetched": {
+    "url": "https://archive.org/download/11SuperMarioBros./11%20Super%20Mario%20Bros.%20_%20%E3%82%B3%E3%82%A4%E3%83%B3.m4a",
+    "page": "https://archive.org/details/11SuperMarioBros.",
+    "sha1": "61a95c0bad50adbc01af52b1f2f638d01b47c917",
+    "bytes": 21938
+   }
+  },
+  {
+   "slug": "game-zelda-chest",
+   "prompt": "Which game plays this when you open a chest?",
+   "answer": "The Legend of Zelda",
+   "decoys": [
+    "Metroid",
+    "Kid Icarus",
+    "Star Fox"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "nintendo"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "TheLegendOfZeldaOcarinaOfTime-TreasureChest",
+    "file": "ZeldaOcarinaOfTimeTreasureChest.mp3",
+    "label": "Internet Archive item TheLegendOfZeldaOcarinaOfTime-TreasureChest"
+   },
+   "reveal": "The Legend of Zelda: Ocarina of Time.",
+   "max": 5.7,
+   "fetched": {
+    "url": "https://archive.org/download/TheLegendOfZeldaOcarinaOfTime-TreasureChest/ZeldaOcarinaOfTimeTreasureChest.mp3",
+    "page": "https://archive.org/details/TheLegendOfZeldaOcarinaOfTime-TreasureChest",
+    "sha1": "00d8eb4fbc9e46ddee6f15f86634e6ec95147d8a",
+    "bytes": 320098
+   }
+  },
+  {
+   "slug": "game-pokemon-heal",
+   "prompt": "Which game plays this when your team is healed?",
+   "answer": "Pokémon",
+   "decoys": [
+    "Kirby",
+    "Animal Crossing",
+    "Fire Emblem"
+   ],
+   "tier": 2,
+   "reach": "broad",
+   "topics": [
+    "nostalgia",
+    "nintendo"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "pokemon-center-healing-sound-effect-sounds-me-mes",
+    "file": "Pokemon Center Healing Sound Effect - Sounds MeMes.mp3",
+    "label": "Internet Archive item pokemon-center-healing-sound-effect-sounds-me-mes"
+   },
+   "reveal": "Pokémon. The Pokémon Center healing jingle.",
+   "max": 6,
+   "status": "confirm",
+   "note": "Archive upload; listen to confirm which game's version it is.",
+   "fetched": {
+    "url": "https://archive.org/download/pokemon-center-healing-sound-effect-sounds-me-mes/Pokemon%20Center%20Healing%20Sound%20Effect%20-%20Sounds%20MeMes.mp3",
+    "page": "https://archive.org/details/pokemon-center-healing-sound-effect-sounds-me-mes",
+    "sha1": "b7ecc55ab53b56a236df99cd600cfb1538256b89",
+    "bytes": 82675
+   }
+  },
+  {
+   "slug": "game-roblox-oof",
+   "prompt": "Which game's old death sound is this?",
+   "answer": "Roblox",
+   "decoys": [
+    "Minecraft",
+    "Fortnite",
+    "Terraria"
+   ],
+   "tier": 1,
+   "reach": "shared",
+   "topics": [
+    "roblox"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "uuhhh",
+    "file": "uuhhh.mp3",
+    "label": "Internet Archive item uuhhh (Classic Roblox OOF)"
+   },
+   "reveal": "Roblox. The classic oof, replaced in 2022.",
+   "note": "Brandon works at Roblox (provided); the sound is editorial.",
+   "fetched": {
+    "url": "https://archive.org/download/uuhhh/uuhhh.mp3",
+    "page": "https://archive.org/details/uuhhh",
+    "sha1": "8f4e7b8a7fffbd939a867d4059df5a3dac8b8d22",
+    "bytes": 5461
+   }
+  },
+  {
+   "slug": "mc-piglin-admire",
+   "prompt": "Which Nether mob makes this sound?",
+   "answer": "Piglin",
+   "decoys": [
+    "Hoglin",
+    "Zombified Piglin",
+    "Strider"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Piglin_admire1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Piglin. It admires gold.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Piglin_admire1.ogg?6e43c",
+    "page": "https://minecraft.wiki/w/File:Piglin_admire1.ogg",
+    "sha1": "2b74d5b8a848140282c049e707450275d02adda3",
+    "bytes": 26576,
+    "uploaded": "2020-02-29T04:47:46Z"
+   }
+  },
+  {
+   "slug": "mc-shulker-box",
+   "prompt": "Which Minecraft block opens with this sound?",
+   "answer": "Shulker Box",
+   "decoys": [
+    "Chest",
+    "Barrel",
+    "Ender Chest"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Shulker_box_open.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Shulker Box.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Shulker_box_open.ogg?69091",
+    "page": "https://minecraft.wiki/w/File:Shulker_box_open.ogg",
+    "sha1": "0fadce9827b247d2da715d8e5a8213db83fbe44f",
+    "bytes": 9352,
+    "uploaded": "2018-07-21T03:15:01Z"
+   }
+  },
+  {
+   "slug": "mc-conduit",
+   "prompt": "Which Minecraft block hums like this?",
+   "answer": "Conduit",
+   "decoys": [
+    "Beacon",
+    "Nether portal",
+    "Respawn Anchor"
+   ],
+   "tier": 5,
+   "reach": "deep",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Conduit_ambient.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Conduit.",
+   "max": 8,
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Conduit_ambient.ogg?b16bd",
+    "page": "https://minecraft.wiki/w/File:Conduit_ambient.ogg",
+    "sha1": "671d9e39c2cba136acb965e55686603ad5869ecf",
+    "bytes": 69364,
+    "uploaded": "2018-09-13T13:17:05Z"
+   }
+  },
+  {
+   "slug": "mc-trident-thunder",
+   "prompt": "Which Trident enchantment makes this sound?",
+   "answer": "Channeling",
+   "decoys": [
+    "Riptide",
+    "Loyalty",
+    "Impaling"
+   ],
+   "tier": 5,
+   "reach": "deep",
+   "topics": [
+    "minecraft"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://minecraft.wiki/api.php",
+    "file": "Trident_thunder1.ogg",
+    "label": "Minecraft Wiki"
+   },
+   "reveal": "Channeling. It calls lightning in a thunderstorm.",
+   "fetched": {
+    "url": "https://minecraft.wiki/images/Trident_thunder1.ogg?7583d",
+    "page": "https://minecraft.wiki/w/File:Trident_thunder1.ogg",
+    "sha1": "312a6d306ea9b10281840f17991f210ba2e27e2e",
+    "bytes": 105598,
+    "uploaded": "2019-11-21T07:22:18Z"
+   }
+  },
+  {
+   "slug": "app-skype-login",
+   "prompt": "Which app is signing you in?",
+   "answer": "Skype",
+   "decoys": [
+    "MSN Messenger",
+    "Discord",
+    "ICQ"
+   ],
+   "tier": 4,
+   "reach": "shared",
+   "topics": [
+    "nostalgia",
+    "apps"
+   ],
+   "source": {
+    "type": "archive",
+    "item": "SkypeSounds",
+    "file": "LOGIN.WAV",
+    "label": "Internet Archive item SkypeSounds (Pre-Metro Skype Sounds Dump)"
+   },
+   "reveal": "Skype sign-in (the classic version).",
+   "fetched": {
+    "url": "https://archive.org/download/SkypeSounds/LOGIN.WAV",
+    "page": "https://archive.org/details/SkypeSounds",
+    "sha1": "08d7db06a53fac942edcc8905eccbadcfb8f3c81",
+    "bytes": 73244
+   }
+  }
+ ]
+}

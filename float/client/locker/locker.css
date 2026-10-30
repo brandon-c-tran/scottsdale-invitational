@@ -171,9 +171,6 @@
 .fll-tile:active { transform: scale(0.94); }
 .fll-tile.is-on { background: color-mix(in srgb, var(--fll-c) 22%, rgba(247, 240, 225, 0.05)); box-shadow: inset 0 0 0 2.5px var(--fll-c); }
 .fll-tile-art { position: relative; display: grid; }
-/* a hat or a pair of glasses is the point of its tile: the portrait closes in on the head */
-.fll-tile.is-hat .flp img { transform: scale(1.75); transform-origin: 50% 12%; }
-.fll-tile.is-shades .flp img { transform: scale(1.7); transform-origin: 50% 44%; }
 .fll-tile.is-on .flp { animation: fll-pop 420ms var(--fll-spring); }
 @keyframes fll-pop { 0% { transform: scale(0.82); } 100% { transform: scale(1); } }
 .fll-tile-name {
@@ -328,3 +325,6 @@
   .fll-root *, .fll-root *::before, .fll-root *::after, .fll-floatie * { animation-duration: 1ms !important; animation-delay: 0ms !important; }
   .fll-tab-ink { transition: none; }
 }
+/* a hat or glasses chip stays neutral on the light paper too (portrait.css .is-neutral) */
+.fll-light .flp.is-neutral, .fll-root .flp.is-neutral { background: radial-gradient(circle at 50% 38%, #ffffff 0%, transparent 72%), #dcdbe3;
+  box-shadow: inset 0 0 0 calc(var(--flp-size, 64px) * 0.045) #b9b6c6; }

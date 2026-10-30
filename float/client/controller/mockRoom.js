@@ -84,7 +84,7 @@ const zeroGhost = (r, chug = 2000) => ({ ...GHOSTS.practice, chug, r:(cue, offse
   : GHOSTS.practice.r(cue, offset) });
 
 export function createMockRoom({ hello = null, scene = null, freeze = false, timers = globalThis, now:realNow = () => Date.now(),
-  perf = () => globalThis.performance?.now?.() ?? Date.now(), lag = 40, expose = false, bots = 12 } = {}) {
+  perf = () => globalThis.performance?.now?.() ?? Date.now(), lag = 40, expose = false, bots = 12, extra:riderExtra = null } = {}) {
   const later = (fn, ms) => timers.setTimeout(fn, ms);
   const listeners = new Map(), statusFns = new Set(), sent = [];
   const device = "mock-phone";
@@ -103,7 +103,9 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
   const rider = () => {
     let extra = null;
     try { extra = typeof hello === "function" ? hello() : hello; } catch {}
-    return { ...(extra?.rider || {}), ...(riderPatch || {}) };
+    const base = { ...(extra?.rider || {}), ...(riderExtra || {}) };
+    if (riderExtra?.look) base.look = { ...(extra?.rider?.look || {}), ...riderExtra.look };
+    return { ...base, ...(riderPatch || {}) };
   };
   const meIndex = () => room?.entrantIndex(device) ?? -1;
 

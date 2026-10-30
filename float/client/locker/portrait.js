@@ -28,17 +28,18 @@ export function portraitEntrant({ name = "", color = "#9aa39e", look = {}, photo
     ...(groom ? { groom:true } : {}) };
 }
 
-export function portraitKey(entrant = {}, size = 128) {
+/* frame "head" crops to the head (a hat or glasses chip); "full" is the whole rider */
+export function portraitKey(entrant = {}, size = 128, frame = "full") {
   const look = entrant.look || {};
-  return [size, entrant.color || "", look.critter || "", look.floatie || "", look.hat || "", look.shades || "", look.shirt || "", look.pose || "",
+  return [size, frame === "head" ? "h" : "", entrant.color || "", look.critter || "", look.floatie || "", look.hat || "", look.shades || "", look.shirt || "", look.pose || "",
     entrant.photo ? hash(String(entrant.photo)) : "", entrant.number ?? "", entrant.skin || "", entrant.groom ? 1 : 0].join("|");
 }
 
-export const cachedPortrait = (entrant, size) => cache.get(portraitKey(entrant, size))?.url || null;
+export const cachedPortrait = (entrant, size, frame = "full") => cache.get(portraitKey(entrant, size, frame))?.url || null;
 
 /* resolves to a PNG data URL, or null if the art cannot draw it */
-export function requestPortrait(entrant, size = 128) {
-  const key = portraitKey(entrant, size);
+export function requestPortrait(entrant, size = 128, frame = "full") {
+  const key = portraitKey(entrant, size, frame);
   const hit = cache.get(key);
   if (hit) {
     cache.delete(key);
@@ -47,7 +48,7 @@ export function requestPortrait(entrant, size = 128) {
   }
   const entry = { url:null, promise:null };
   const subject = portraitEntrant(entrant);
-  entry.promise = chain = chain.then(breathe).then(loadArt).then(mod => mod.riderPortrait(subject, { size })).then(url => {
+  entry.promise = chain = chain.then(breathe).then(loadArt).then(mod => mod.riderPortrait(subject, frame === "head" ? { size, frame:"head" } : { size })).then(url => {
     entry.url = typeof url === "string" && url ? url : null;
     if (!entry.url) cache.delete(key);
     return entry.url;

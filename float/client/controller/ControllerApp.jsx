@@ -21,15 +21,18 @@ export default function ControllerApp() {
   const mock = params.get("mock") === "1";
   const scene = params.get("at");
   const freeze = params.get("freeze") === "1";
+  /* &photo=1: the rider has a profile photo and wears the photo tee (the photo rides on the kayak) */
+  const photo = params.get("photo") === "1";
   const [connect, setConnect] = useState(null);
   useEffect(() => {
     if (!mock) return undefined;
     let live = true;
     import("./mockRoom.js").then(({ createMockRoom }) => {
-      if (live) setConnect(() => options => createMockRoom({ ...options, scene, freeze, expose:true }));
+      if (live) setConnect(() => options => createMockRoom({ ...options, scene, freeze, expose:true,
+        extra:photo ? { photo:"/share.png", look:{ shirt:"photo" } } : null }));
     });
     return () => { live = false; };
-  }, [mock, scene, freeze]);
+  }, [mock, scene, freeze, photo]);
   if (mock && !connect) return null;
   if (mock) return <JoinFlow initialRoom={params.get("join") === "code" ? null : roomFromSearch(search) || "mock"} connect={connect}
     skip={!!scene} defaultRider={MOCK_RIDER} />;

@@ -15,6 +15,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { launchChrome } from "./headless-chrome.mjs";
+import { HATS, SHADES } from "../float/shared/looks.js";
+
+/* the Locker check taps each rack's second tile (the first after None): what that is in the rack as it stands */
+const SECOND_HAT = HATS.filter(hat => !hat.groom)[1]?.id;
+const SECOND_SHADES = SHADES[1]?.id;
 
 const args = process.argv.slice(2);
 const arg = (name, fallback) => {
@@ -285,7 +290,7 @@ async function joinChecks(page, size) {
   await sleep(600);
   await shot(page, size, "join-lobby");
   const saved = await page.evaluate("JSON.parse(localStorage.getItem('float-rider') || 'null')");
-  check(saved?.look?.critter === "jackrabbit" && saved?.look?.hat && saved.look.hat !== "none" && saved?.look?.shades && saved.look.shades !== "none" && saved?.drinks === true,
+  check(saved?.look?.critter === "jackrabbit" && saved?.look?.hat === SECOND_HAT && saved?.look?.shades === SECOND_SHADES && saved?.drinks === true,
     `${size}: the rider is kept (${JSON.stringify(saved)})`);
   /* the lobby's own Locker, and a pick there goes to the room */
   await tapElement(page, ".flc-lobby .flc-pill");

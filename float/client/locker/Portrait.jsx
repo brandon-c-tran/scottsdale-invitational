@@ -10,25 +10,26 @@ const pixelRatio = () => {
   try { return Math.min(2, Math.max(1, Number(globalThis.devicePixelRatio) || 1)); } catch { return 1; }
 };
 
-export function usePortrait(entrant, size) {
+export function usePortrait(entrant, size, frame = "full") {
   const px = Math.round(size * pixelRatio());
-  const key = portraitKey(entrant, px);
-  const [state, setState] = useState(() => ({ key, url:cachedPortrait(entrant, px) }));
+  const key = portraitKey(entrant, px, frame);
+  const [state, setState] = useState(() => ({ key, url:cachedPortrait(entrant, px, frame) }));
   useEffect(() => {
     let live = true;
-    const ready = cachedPortrait(entrant, px);
+    const ready = cachedPortrait(entrant, px, frame);
     if (ready) setState({ key, url:ready });
-    else requestPortrait(entrant, px).then(url => { if (live) setState({ key, url }); });
+    else requestPortrait(entrant, px, frame).then(url => { if (live) setState({ key, url }); });
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   /* the current still, else the last one while the new one draws */
-  return state.key === key ? state.url : (cachedPortrait(entrant, px) || state.url);
+  return state.key === key ? state.url : (cachedPortrait(entrant, px, frame) || state.url);
 }
 
-export default function Portrait({ entrant, size = 64, className = "", label = null }) {
-  const url = usePortrait(entrant || {}, size);
+/* frame "head": the head close up (a hat or glasses chip); neutral: a grey disc, so a hat in the rider's colour never vanishes into it */
+export default function Portrait({ entrant, size = 64, className = "", label = null, frame = "full", neutral = false }) {
+  const url = usePortrait(entrant || {}, size, frame);
   const initial = String(entrant?.name || "").trim().charAt(0).toUpperCase();
-  return <span className={`flp${url ? " is-drawn" : ""}${className ? ` ${className}` : ""}`}
+  return <span className={`flp${url ? " is-drawn" : ""}${neutral ? " is-neutral" : ""}${className ? ` ${className}` : ""}`}
     style={{ "--flp-c":entrant?.color || "#9aa39e", "--flp-size":`${size}px` }}
     role={label ? "img" : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : "true"}>
     {url ? <img src={url} alt="" draggable="false" decoding="async" />

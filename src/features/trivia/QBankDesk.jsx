@@ -448,7 +448,8 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
       </div>
       <div className="fd-qb-summary">
         <span className="fd-qb-reel" aria-label={`${summary.ready} of ${summary.total} ready`}><b>{summary.ready}</b>/{summary.total}</span>
-        <span className="fd-qb-sumtext">ready{summary.total - summary.filled > 0 ? ` · ${summary.total - summary.filled} empty` : ""}</span>
+        <span className="fd-qb-sumtext">{["ready", summary.total - summary.filled > 0 && `${summary.total - summary.filled} empty`,
+          summary.filled - summary.ready > 0 && `${summary.filled - summary.ready} not ready`].filter(Boolean).join(" · ")}</span>
         <button type="button" className={`fd-qb-warnbtn${problems ? " is-on" : ""}`} aria-expanded={showWarnings}
           onClick={() => setShowWarnings(on => !on)} disabled={!problems}>
           {problems ? <><b className="fd-qb-dot" aria-hidden="true" />{plural(problems, "warning")}</> : "No warnings"}</button>

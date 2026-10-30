@@ -49,7 +49,7 @@ export function windowLabel(media) {
    the host's); else the prompt's start, cut at a word */
 export function slotLabel(record, max = LABEL_MAX) {
   if (!record) return "";
-  const source = String(record.label || record.subject || (record.media && answerOption(record)?.text) || record.prompt || "")
+  const source = String(record.subject || (record.media && answerOption(record)?.text) || record.prompt || "")
     .replace(/\s+/g, " ").trim();
   if (source.length <= max) return source;
   const cut = source.slice(0, max + 1);
@@ -240,7 +240,8 @@ export function boardView(plan, byId, warnings) {
       const own = (warned.get(slotKey(col, slot)) || []).filter(warning => kindOf(warning) !== "empty");
       return { col, slot, qid, record, value:QBANK_VALUES[slot], label:record ? slotLabel(record) : qid ? "Missing" : "",
         short:record ? slotLabel(record, LABEL_SHORT) : qid ? "Missing" : "",
-        lamp:!qid ? "empty" : !record ? "rejected" : record.mark === "reject" ? "rejected" : record.status,
+        lamp:!qid ? "empty" : !record ? "rejected" : record.mark === "reject" ? "rejected"
+          : plan?.forced?.[qid] === true && qbankPlayable(record, plan) ? "ready" : record.status,
         forced:!!record && plan?.forced?.[qid] === true, warnings:own };
     }),
   }));

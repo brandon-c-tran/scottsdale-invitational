@@ -94,7 +94,7 @@ test("the board: seven columns of five, labels, lamps and warning dots by slot",
   assert.equal(qbankRowValue(state), "34 of 35");
   assert.equal(qbankRowValue({}), null);
   assert.equal(slotLabel(null), "");
-  assert.equal(slotLabel({ label:"Own label", subject:"S", prompt:"P" }), "Own label");
+  assert.equal(slotLabel({ subject:"S", prompt:"P" }), "S");
 });
 
 test("warnings: every kind the bank names, dotted by slot, one summary line each", () => {
@@ -246,6 +246,7 @@ test("the desk's writes on the bank's real reducers: assign, play anyway, clear,
   const response = qbankFixtureResponse(state);
   const records = deskRecords(response.records, { plan:state.triviaPlan });
   assert.equal(records.find(record => record.id === "nba-fixture-4").forced, true);
+  assert.equal(boardView(state.triviaPlan, recordsById(records), [])[0].cells[2].lamp, "ready", "a clue played anyway lights as one that plays");
   assert.equal(planSummary(state.triviaPlan, recordsById(records)).ready, 34, "played anyway counts; the clue waiting on Brandon never does");
   assert.equal(deskWrite(state, "qbankAssign", { col:0, slot:2, qid:null }).ok, true);
   assert.equal(state.triviaPlan.columns[0].slots[2], null);
@@ -321,7 +322,7 @@ test("the desk renders the board, the bank's cards and a slot's alternatives", a
   assert.equal((html.match(/class="fd-qb-cell( is-[a-z]+)*"/g) || []).length, 35);
   /* what the board can deal, and what is missing */
   assert.match(html, /31<\/b>\/35/);
-  assert.match(html, /ready · 1 empty/);
+  assert.match(html, /ready · 1 empty · 3 not ready/);
   /* the warnings the bank finds, counted as the summary says them, dotted only where they are */
   const { warnings } = desk("worked");
   assert.ok(html.includes(`${warningCount(warningLines(warnings))} warnings`));

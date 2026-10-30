@@ -2051,10 +2051,12 @@ const FL_MIX = Object.freeze({
   floatDip:1.25, floatYouFlip:1.6, floatYouArrive:1, floatYouDrink:1, floatYouThrough:1.1, floatYouThrow:2.1, floatYouSplat:0.9, floatYouHit:1.5,
   floatYouPodium:1.3, floatYouLevel:1.2,
   /* the Groove: the band under the host and the answers (the render's stems set these) */
-  floatGroove:0.6, floatLobby:0.6, floatVoice:2.2, floatWhirl:1.2, floatAnswer:1.15, floatFlub:0.75,
+  /* v4 polish: the host was 14 LU over the band and peaking alone (the master's compressor pumped the band
+     under every call); the voice down 2.7 dB and the band up 1.1 dB leave the calls about 11 LU on top */
+  floatGroove:0.68, floatLobby:0.6, floatVoice:1.6, floatWhirl:1.2, floatAnswer:1.15, floatFlub:0.75,
   floatSting:0.8, floatOpen:0.8, floatRoll:0.8, floatGone:1.1, floatFanfare:0.8, floatCheer:1, floatDone:1, floatHello:1.4, floatSet:1.4, floatClip:1,
   floatBar:0.6, floatDrinks:0.85, floatEcho:1.1, floatGrades:1, floatAward:0.9, floatExit:1.1, floatChugGo:0.8, floatChant:0.72, floatKeep:0.75,
-  floatBarVoice:2, floatTick:1, floatTrick:1.1, floatZero:1.1, floatYouGrade:1.1,
+  floatBarVoice:1.6, floatTick:1, floatTrick:1.1, floatZero:1.1, floatYouGrade:1.1,
   floatFuse:1.1, floatBurst:0.9, floatFizzle:0.9, floatSky:0.85, floatYouMiss:1.1, floatYouBreak:1, floatYouStreak:1.05,
   floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1, floatYouGulp:1.1,
 });
@@ -4280,7 +4282,7 @@ function grooveAnswer(E, t0, o = {}) {
   }
   if (kind === "hop") {
     const f = gHz(grooveBaNote(o.song, o.k, o.n, o.of) + 12);
-    gBoing(E, voice(E, { pan:0.4, send:0.22, bright:0.9, gain:1 }), at, f, 0.24);
+    gBoing(E, voice(E, { pan:0.4, send:0.22, bright:0.9, gain:1 }), at, f, 0.36);
     M.felt(E, at, { gain:0.35 });
     return;
   }
@@ -4343,10 +4345,11 @@ function gLaunch(E, at, n = 0) {
    the seconds to the next call, which cuts it short) */
 function grooveFuse(E, t0, o = {}) {
   const at = t0 + GROOVE_PRE_S, len = Math.min(0.9, gNum(o.after, 0.15, 4, 0.9));
-  const v = voice(E, { pan:-0.22, send:0.22, bright:1, gain:1 });
-  burst(E, v, at, { type:"highpass", f:3600, q:0.8, d:0.025, peak:0.5 });
-  burst(E, v, at, { f:2100, q:1.2, d:0.07, peak:0.3 });
-  flSweep(E, v, at + 0.02, { type:"highpass", f0:4200, f1:7000, q:0.7, d:len, peak:0.07, a:0.02 });
+  /* soft: a host's voice is on it (a "Ready?" a beat before): the strike smaller and up out of the voice's band */
+  const soft = !!o.soft, v = voice(E, { pan:-0.22, send:0.22, bright:1, gain:soft ? 0.7 : 1 });
+  burst(E, v, at, { type:"highpass", f:soft ? 5200 : 3600, q:0.8, d:0.025, peak:0.5 });
+  if (!soft) burst(E, v, at, { f:2100, q:1.2, d:0.07, peak:0.3 });
+  flSweep(E, v, at + 0.02, { type:"highpass", f0:4200, f1:7000, q:0.7, d:len, peak:soft ? 0.05 : 0.07, a:0.02 });
   const n = Math.round(len * 46);
   for (let i = 0; i < n; i++) burst(E, v, at + 0.03 + (i / n) * len + rnd(0, 0.012), { type:"highpass", f:rnd(3500, 8000), q:0.9, d:0.004, peak:rnd(0.05, 0.15) });
 }

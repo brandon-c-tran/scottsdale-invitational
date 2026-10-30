@@ -660,7 +660,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
   }, [driver, store, entrants, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* a name's width is read once it is drawn (the nudge needs it) */
-  useEffect(() => { nameWidths.current = new Map(); }, [entrants]);
+  useEffect(() => { nameWidths.current = new Map(); }, [entrants, phase]);
 
   const exiting = phase === "cut" || phase === "chugoff";
   return <>
@@ -677,7 +677,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         <RiderPop i={i} setters={popSetters} />
       </div>)}
     </div>
-    <div className="fl-names">
+    <div className="fl-names" data-big={(phase === "chugoff" || (phase === "song" && (room?.field?.length || 0) <= 3)) ? "1" : undefined}>
       {entrants.map((e, i) => e && <span key={i} className={`fl-name${e.ready ? " is-ready" : ""}`}
         style={{ "--c":e.color || "#7fb8ff", "--tag":inkOn(e.color || "#7fb8ff") }}
         ref={node => { if (node) nameRefs.current.set(i, node); else nameRefs.current.delete(i); }}>{e.name}</span>)}

@@ -154,6 +154,8 @@
 .fl-name { position:absolute; left:0; top:0; padding:3px 10px 6px; border-radius:11px; background:var(--c); color:var(--tag, var(--ink));
   border:3px solid var(--ink); box-shadow:0 3px 0 var(--ink); font-family:var(--px); font-weight:700; font-size:24px; line-height:1;
   white-space:nowrap; letter-spacing:0.02em; opacity:0; will-change:transform; }
+/* two or three on stage (the chug-off, the final): their tags letter bigger */
+.fl-names[data-big="1"] .fl-name { font-size:36px; padding:4px 14px 8px; border-width:4px; border-radius:14px; }
 .fs-root[data-phase="lobby"] .fl-name.is-ready::after { content:""; display:inline-block; width:14px; height:8px; margin-left:8px; margin-bottom:5px;
   border-left:4px solid currentColor; border-bottom:4px solid currentColor; transform:rotate(-45deg); }
 
@@ -199,12 +201,12 @@
 @keyframes hd-card { from { opacity:0; transform:translateX(-50%) translateY(-60px) scale(0.8); } to { opacity:1; transform:translateX(-50%); } }
 @keyframes hd-drop { from { opacity:0; transform:translateX(-50%) translateY(-40px); } to { opacity:1; transform:translateX(-50%); } }
 /* the count-in: a big pixel number popping on each beat */
-.hd-count { position:absolute; left:0; right:0; top:150px; display:flex; justify-content:center; animation:hd-count 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
-.hd-count span { font-size:240px; font-weight:700; line-height:1; color:var(--bone); -webkit-text-stroke:20px var(--ink); paint-order:stroke fill;
+.hd-count { position:absolute; left:0; right:0; top:268px; display:flex; justify-content:center; animation:hd-count 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.hd-count span { font-size:200px; font-weight:700; line-height:1; color:var(--bone); -webkit-text-stroke:20px var(--ink); paint-order:stroke fill;
   text-shadow:0 14px 0 var(--ink); }
 @keyframes hd-count { 0% { opacity:0; transform:scale(0.35); } 40% { opacity:1; transform:scale(1.18); } 70% { transform:scale(0.96); } 100% { transform:scale(1); } }
-.hd-shout { position:absolute; left:0; right:0; top:170px; display:flex; justify-content:center; animation:hd-shout 0.75s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
-.hd-shout span { font-size:220px; font-weight:700; line-height:1; color:var(--yellow); -webkit-text-stroke:18px var(--ink); paint-order:stroke fill;
+.hd-shout { position:absolute; left:0; right:0; top:226px; display:flex; justify-content:center; animation:hd-shout 0.75s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.hd-shout span { font-size:180px; font-weight:700; line-height:1; color:var(--yellow); -webkit-text-stroke:18px var(--ink); paint-order:stroke fill;
   text-shadow:0 14px 0 var(--ink); }
 @keyframes hd-shout { 0% { opacity:0; transform:scale(0.4); } 45% { opacity:1; transform:scale(1.12); } 70% { transform:scale(0.97); } 100% { transform:scale(1); } }
 .hd-strip { position:absolute; left:640px; top:34px; width:640px; height:20px; border-radius:99px; background:rgba(255, 253, 248, 0.6);
@@ -294,6 +296,7 @@
 .hd-confetti i { position:absolute; top:-60px; display:block; border-radius:3px; box-shadow:0 0 0 2px rgba(29, 26, 36, 0.55);
   animation-name:hd-fall; animation-timing-function:linear; animation-iteration-count:infinite; animation-fill-mode:both; will-change:transform; }
 @keyframes hd-fall { from { transform:translate3d(0, 0, 0) rotate(0deg); } to { transform:translate3d(var(--sway), 1180px, 0) rotate(var(--turn)); } }
+.fs-root[data-phase="feedback"] .hd-rest { animation:none; }
 .hd-rest { position:absolute; right:40px; top:60px; width:330px; padding:18px 22px; border-radius:30px; background:var(--bone);
   box-shadow:0 0 0 6px var(--ink), 0 10px 0 0 var(--ink); display:flex; flex-direction:column; gap:4px; animation:hd-rest 0.6s 6.4s both; }
 @keyframes hd-rest { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:none; } }

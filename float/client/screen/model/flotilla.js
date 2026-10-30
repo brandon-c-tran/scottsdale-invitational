@@ -39,7 +39,7 @@ const FINAL_SHAPE = Object.freeze([{ y:860, scale:0.9, lo:300, hi:1840 }]);
 const LOBBY_SHAPES = Object.freeze({
   1:[{ y:760, scale:0.62, lo:720, hi:1880 }],
   2:[{ y:640, scale:0.44, lo:720, hi:1890 }, { y:840, scale:0.54, lo:700, hi:1880 }],
-  3:[{ y:600, scale:0.36, lo:720, hi:1890 }, { y:728, scale:0.43, lo:700, hi:1890 }, { y:862, scale:0.48, lo:690, hi:1880 }],
+  3:[{ y:566, scale:0.34, lo:720, hi:1890 }, { y:724, scale:0.4, lo:700, hi:1890 }, { y:884, scale:0.45, lo:690, hi:1880 }],
 });
 /* the formation's middle, a little right of the stage's (the host stands
    left); the lobby's, right of its card */

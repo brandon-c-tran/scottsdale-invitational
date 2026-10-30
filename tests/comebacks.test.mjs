@@ -247,6 +247,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { resolveDirector } from "../shared/show.js";
 import { directorPill } from "../src/features/director/directorPill.js";
 import { crewCheckModel, crewCheckRun, cycleRole, seatChoices, setCrewRole, suggestedCrew, toggleCrew } from "../src/features/director/crewCheck.js";
+import { firstUp } from "./support/first-up.mjs";
 
 const ui = (() => {
   const root = fileURLToPath(new URL("../", import.meta.url));
@@ -264,7 +265,7 @@ const ui = (() => {
   return mod.exports;
 })();
 const pillOf = (state, events = allEventsOf(state)) => directorPill(state, events, resolveDirector(state, events, { showControl:false }));
-const ordered = ids => ({ ...fresh(), eventOrder:ids });
+const ordered = ids => firstUp(fresh(), ids);
 const runs = model => [model.run, ...model.extras.map(extra => extra.run)];
 const drawsWithoutCheck = run => run?.write === "announceAndDraw" && Array.isArray(run.payload?.players)
   || run?.open === "draft";

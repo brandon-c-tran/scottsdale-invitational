@@ -14,6 +14,7 @@ import { resolveDirector } from "../shared/show.js";
 import { commissionerMenu, moreMenu, settingsMenu, settingsOff } from "../src/features/director/menuModel.js";
 import { deviceLabel, speakerNote, speakerRows, speakerStage, speakerValue } from "../src/features/speaker/speakerModel.js";
 import { directorPill } from "../src/features/director/directorPill.js";
+import { firstUp } from "./support/first-up.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
@@ -187,7 +188,7 @@ test("one renderer: sections with icon heads, 52px rows, values on the right", (
 });
 
 test("the pill: Skip and the alternatives ride in the more tray, never beside the pill", () => {
-  const state = { ...structuredClone(EMPTY_STATE), eventOrder:["volley", "pickleball"] };
+  const state = firstUp(structuredClone(EMPTY_STATE), ["volley", "pickleball"]);
   const events = allEventsOf(state);
   const model = directorPill(state, events, resolveDirector(state, events, { showControl:false }));
   assert.ok(model.extras.length >= 2);

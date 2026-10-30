@@ -13,11 +13,12 @@ import {
 import { resolveDirector } from "../shared/show.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { withLegacyEvents } from "./support/legacy-events.mjs";
+import { firstUp } from "./support/first-up.mjs";
 import { Tournament } from "../worker/tournament.js";
 import { pendingReveal, revealReady } from "../src/features/weekend/drawReveal.js";
 
 let serial = 0;
-const fresh = (order = []) => ({ ...structuredClone(EMPTY_STATE), eventOrder:order });
+const fresh = (order = []) => firstUp(structuredClone(EMPTY_STATE), order);
 const eventOf = (s, id) => allEventsOf(s).find(ev => ev.id === id);
 const current = (s, id) => resolveCurrentContest(s, eventOf(s, id));
 const refs = contest => ({ contestId:contest.id, contestRevision:contest.revision });

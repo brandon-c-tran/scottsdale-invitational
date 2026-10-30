@@ -16,6 +16,7 @@ import {
 } from "../shared/core.js";
 import { resolveDirector, postedFinalUndo, contestName } from "../shared/show.js";
 import { applyAction } from "../worker/actions.js";
+import { firstUp } from "./support/first-up.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
@@ -36,7 +37,7 @@ const { DirectorPill, UNDO_WINDOW_MS, directorPill, PokerSetupSheet, CrownSheet,
   PlayerIdentityProvider } = componentModule.exports;
 
 let serial = 0;
-const fresh = (order = []) => ({ ...structuredClone(EMPTY_STATE), eventOrder:order });
+const fresh = (order = []) => firstUp(structuredClone(EMPTY_STATE), order);
 const eventOf = (s, id) => allEventsOf(s).find(ev => ev.id === id);
 const current = (s, id) => resolveCurrentContest(s, eventOf(s, id));
 const refs = contest => ({ contestId:contest.id, contestRevision:contest.revision });

@@ -176,7 +176,8 @@ test("the riders turn: every rider coming, a turn of the gap while Float is ahea
   assert.deepEqual([rosterLayout(10).col, rosterLayout(10).width], [200, 5 * 200 + 4 * 28 + 2 * 64], "a short roster's panel fits its riders");
 
   /* the TV: the turn in the rotation only with the room, one rider a figure, each their chip until the art is in */
-  const base = Math.ceil(Date.now() / (TV_AMBIENT_TURN_MS * 2520)) * TV_AMBIENT_TURN_MS * 2520;
+  /* a fixed week before the weekend: from Friday midnight the arrivals lobby holds the TV (and the rounding reaches hours ahead) */
+  const base = Math.ceil(Date.UTC(2026, 9, 20) / (TV_AMBIENT_TURN_MS * 2520)) * TV_AMBIENT_TURN_MS * 2520;
   const turns = props => Array.from({ length:8 }, (_, turn) => tv(state, { now:base + turn * TV_AMBIENT_TURN_MS + 4000, ...props }));
   assert.ok(turns({}).every(html => !/data-float-roster/.test(html)), "no turn without the room");
   const drawn = turns({ float:true }).filter(html => /data-float-roster/.test(html));

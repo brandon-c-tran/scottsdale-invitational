@@ -396,8 +396,11 @@ test("a progress reset keeps the board, edits and marks; the recommended board l
   const none = hydrateStoredState(fresh());
   assert.equal(none.triviaPlan.from, "recommended");
   assert.equal(none.triviaPlan.columns.length, QBANK_COLUMNS);
-  assert.ok(none.triviaPlan.columns.every(column => column.slots.length === QBANK_SLOTS && column.slots.every(slot => slot === null)),
-    "no recommended board yet: the empty one, still following");
+  /* the shipped recommended board when there is one, else the empty one; either way still following */
+  const shipped = JSON.parse(readFileSync(new URL("../worker/triviaQBank/recommended.json", import.meta.url), "utf8"));
+  assert.ok(none.triviaPlan.columns.every((column, col) => column.slots.length === QBANK_SLOTS
+    && column.slots.every((slot, k) => slot === (shipped ? shipped.columns[col].slots[k] : null))),
+    "the recommended board (or the empty one), still following");
 });
 
 test("GET /api/trivia/qbank: the commissioner's desk, every record with its edit and mark, the board, its status and warnings", async () => {

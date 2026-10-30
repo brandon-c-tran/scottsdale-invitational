@@ -255,9 +255,8 @@ function endSong(cup, at, driven) {
 }
 
 /* A rider's line after a song (chart.js feedbackOf), with the song's own
-   grade (every cue). chart.js's words have no name for the breakdown's echo
-   cues yet (feedbackOf throws, or says "undefined", when echo is a rider's
-   best or worst): until they do, such a line is made without them. */
+   grade (every cue). A guard: should feedbackOf ever throw or have no word
+   for a kind, the line is made without the breakdown's echo cues. */
 function feedbackFor(chart, hits, pct) {
   const lineOf = view => {
     try {

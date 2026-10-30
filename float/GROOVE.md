@@ -845,7 +845,7 @@ in a fun way i think and make it visually appealing that you're rowing".
   (`LAST_CALL.RUSH_MS` 700): 10 to 7 at a second, every count from 6 at
   0.7 s, dark at 3; zero 8.2 s after 10. `lastCallId(3)` is "lastcall-rush".
 - Last Call's ranking: once the zero's miss deadline passes (with `worst`;
-  at or just after `revealAt`), `room.lastCall` is `{ totals:[{ i, ms, d,
+  before `revealAt` since v4's polish), `room.lastCall` is `{ totals:[{ i, ms, d,
   place }], worst, order }`: `ms` the rider's |offset| (3000 for no tap),
   `place` 1 the closest (ties share a place: 1, 2, 2, 4), `order` every
   rider closest to farthest (a tie in the bar's order: the field, then the
@@ -1040,6 +1040,38 @@ default.
   three, in turn", "Hop", "Spin"; Fireworks "Watch the fuse", "Launch two
   beats after I light", "Two quick ones", "Three in a row". Paddle Party
   unchanged. No line says "Keep rowing" or "Row on 1 and 3" any more.
+
+### As built: the engine, v4 polish (groove/engine, Oct 29)
+
+- The climb, measured (play cues, the breakdown aside; per play bar; on an
+  "and"; an eighth after the last; changes of move; dark bars): Paddle
+  Party 46, 2.56, 2, 4, paddle and Hey only, 0; Rock Hop 30, 1.67, 5, 7,
+  hops only (the call and answer is its step up), 0; Spin Cycle 39, 2.17,
+  6, 6, spins only, 0; The Drop 48, 2.67, 15, 17, 24 changes, 2; Fireworks
+  54, 3.00, 17, 16, 27 changes, 2. Songs 2 and 3 are lighter in taps than
+  Paddle Party and add one idea each; The Drop and Fireworks are the
+  climb. No chart change.
+- Bots feel it too (`cueHardness(chart, cueId)`, `HARD`: +0.25 on an
+  "and", +0.15 an eighth after the last cue, +0.15 a change of move, +0.2
+  in a dark bar, at most 1.6; it scales a bot's or a stand-in's spread and
+  miss rate, never its lean; `botDraw(..., hard)`, 1 by default). `BOT`
+  SPREAD [125, 5]. The same 13 bots over 30 seeds (sloppiest, a
+  stand-in's 0.5, sharpest): Paddle Party 57 / 76 / 84, Rock Hop 55 / 75 /
+  84, Spin Cycle 56 / 76 / 85, The Drop 52 / 73 / 81, Fireworks 51 / 72 /
+  80. A dropped phone's stand-in now scores lower on the hard songs, as a
+  person would.
+- Windows unchanged (Perfect 50, Nice 100, OK 160, 300 to match): the
+  room's one offset takes the TV's delay, and iPhone touch timing is well
+  inside 50 ms.
+- Last Call: `LAST_CALL.REVEAL_AFTER_MS` 3300 -> 3600, so the ranking
+  (`order`, `place`, at the zero's miss deadline, up to zero + 3500 at the
+  largest offset, plus a tick) is always in before `revealAt`; every
+  countdown is 0.3 s longer, all read from `chart.countdown`.
+- A 13-player Cup runs about 10 minutes to the podium (sim: intro 8 s, five
+  songs of 68.5 s, four cuts of 12 s and the last 7 s, four chug-offs of 11
+  to 17 s with bots, four Last Calls of 19 to 25 s). The cut's show fits 13
+  (grades at 0.4 s, three awards 1.2 s apart, the cut line at 6 s, the two
+  outs below the chug-off's pair by 10.8 s); left as is.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

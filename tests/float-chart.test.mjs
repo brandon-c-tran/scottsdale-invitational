@@ -210,6 +210,7 @@ test("Last Call is a countdown: shown and said, then dark; one tap on zero, a wi
     assert.ok(cd.steps.filter(s => s.n <= 3).every(s => !s.show && !s.say && !s.tick), "dark from 3");
     assert.equal(cd.hideAt, cd.steps[7].at);
     assert.ok(cd.revealAt >= cd.zeroAt + LAST_CALL.WINDOW && cd.verdictAt > cd.revealAt && chart.ms > cd.verdictAt);
+    assert.ok(cd.revealAt >= cd.zeroAt + LAST_CALL.WINDOW + 250 + 250 + 100, "the ranking is in before the reveal, at any offset");
     assert.deepEqual(JSON.parse(JSON.stringify(chart)), chart);
   }
   assert.equal(lights.countdown.introMs, LAST_CALL.INTRO_FIRST_MS, "the first says what Last Call is");

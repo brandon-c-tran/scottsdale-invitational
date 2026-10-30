@@ -538,7 +538,9 @@ export const LAST_CALL_ID = "lastcall";
 export const LAST_CALL_TRICKS = Object.freeze(["lights", "slow", "ticks", "rush"]);
 export const LAST_CALL = Object.freeze({
   FROM:10, STEP_MS:1000, SLOW_MS:1400, RUSH_MS:700, WINDOW:3000, MISS_MS:3000,
-  INTRO_FIRST_MS:7000, INTRO_MS:3000, REVEAL_AFTER_MS:3300, VERDICT_AFTER_MS:2500, OUTRO_MS:3500,
+  /* the reveal waits for the room's ranking: the zero's miss deadline at
+     the largest offset (WINDOW + 250 + CALIBRATION.CLAMP) and a tick (v4) */
+  INTRO_FIRST_MS:7000, INTRO_MS:3000, REVEAL_AFTER_MS:3600, VERDICT_AFTER_MS:2500, OUTRO_MS:3500,
 });
 /* the Last Call after round k (0-based): its chart id */
 export const lastCallId = k => `${LAST_CALL_ID}-${LAST_CALL_TRICKS[Math.max(0, Math.min(LAST_CALL_TRICKS.length - 1, k | 0))]}`;

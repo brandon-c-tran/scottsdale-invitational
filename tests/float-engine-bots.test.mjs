@@ -9,7 +9,7 @@
    now and then a second out. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BOT, BOT_SKILLS, COUNT_BOT, GROOVE, botChugAfter, botCount, botDraw, botSkills, createBar, createSong, rand01, seedOf, stepSong }
+import { BOT, BOT_SKILLS, COUNT_BOT, GROOVE, HARD, cueHardness, botChugAfter, botCount, botDraw, botSkills, createBar, createSong, rand01, seedOf, stepSong }
   from "../float/shared/groove.js";
 import { createCup, makeEntrant, startCup, addBots } from "../float/shared/cup.js";
 import { LAST_CALL, chartOf, cueTime, demoCues, lastCallId, playedCues, scoredCues, SONG_MS } from "../float/shared/chart.js";
@@ -176,4 +176,20 @@ test("Last Call with bots alone: one tap each on zero, judged on the room's offs
     }
     assert.deepEqual(bar.samples, [], "never calibrating");
   }
+});
+
+test("bots feel the songs climb (v4 polish): an 'and', an eighth after the last, a change of move and the dark make a cue harder; harder widens the spread and the misses", () => {
+  const mean = id => {
+    const chart = chartOf(id);
+    const list = scoredCues(chart).map(cue => cueHardness(chart, cue.id));
+    return list.reduce((sum, h) => sum + h, 0) / list.length;
+  };
+  const [paddle, rock, spin, drop, fireworks] = ["paddle", "rock", "spin", "drop", "fireworks"].map(mean);
+  assert.ok(Math.max(paddle, rock, spin) < drop && drop <= fireworks + 0.02, `${[paddle, rock, spin, drop, fireworks].map(h => h.toFixed(3))}`);
+  const chart = chartOf("drop");
+  for (const cue of chart.cues) assert.ok(cueHardness(chart, cue.id) >= 1 && cueHardness(chart, cue.id) <= HARD.MAX);
+  const off = hard => median(Array.from({ length:3000 }, (_, k) => botDraw(4, 0, k % 13, k, 0.4, hard)).filter(d => d.hit).map(d => Math.abs(d.dev)));
+  assert.ok(off(1.5) > off(1) * 1.3, "a hard cue is hit wider");
+  assert.deepEqual(botDraw(4, 0, 1, 2, 0.4), botDraw(4, 0, 1, 2, 0.4, 1), "1 is as before");
+  assert.equal(cueHardness(chartOf("lastcall-lights"), 0), 1);
 });

@@ -27,7 +27,7 @@ import { FIXTURES, FIXTURE_PLAN, fixture, withFixtureBank } from "./support/qban
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const BANK_DIR = path.join(ROOT, "worker", "triviaQBank");
 /* not record files: the board, Brandon's facts (Content A) */
-const NOT_RECORDS = new Set(["recommended.json", "facts.json"]);
+const NOT_RECORDS = new Set(["recommended.json", "facts.json", "a-picks.json"]);
 const mediaExists = src => existsSync(path.join(ROOT, "public", src));
 
 let serial = 0;

@@ -635,11 +635,11 @@
     "options": [
       {
         "id": "a",
-        "text": "Brittany and Bethany"
+        "text": "Britney and Bethany"
       },
       {
         "id": "b",
-        "text": "Brittany and Bianca"
+        "text": "Britney and Bianca"
       },
       {
         "id": "c",
@@ -651,7 +651,7 @@
       }
     ],
     "answer": "a",
-    "reveal": "Brittany and Bethany.",
+    "reveal": "Britney and Bethany.",
     "sources": [
       {
         "note": "Brandon's brief, Oct 29 2026"
@@ -2363,7 +2363,7 @@
     "options": [
       {
         "id": "a",
-        "text": "Brittany"
+        "text": "Britney"
       },
       {
         "id": "b",
@@ -2379,18 +2379,18 @@
       }
     ],
     "answer": "b",
-    "reveal": "Brandon: supply the answer.",
+    "reveal": "Bethany.",
     "sources": [
       {
-        "note": "Brandon's brief, Oct 29 2026"
+        "note": "Brandon's answer, Oct 29 2026"
       }
     ],
     "verified": {
-      "by": "suggested",
+      "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
-    "personal": "needs-brandon",
+    "status": "ready",
+    "personal": "provided",
     "tags": {
       "topics": [
         "brandon",
@@ -2400,6 +2400,6 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Brandon: supply the answer. Placeholder answer is a guess; the brief does not say which sister. Facts: b-roadtrip."
+    "notes": "Facts: b-roadtrip."
   }
 ]

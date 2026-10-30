@@ -1014,47 +1014,47 @@
     "category": "kim",
     "tier": 3,
     "format": "choice",
-    "prompt": "Where did Brandon and Kim meet?",
+    "prompt": "Where did Brandon and Kim first meet?",
     "options": [
       {
         "id": "a",
-        "text": "At UT Austin"
+        "text": "In high school Spanish class"
       },
       {
         "id": "b",
-        "text": "Through mutual friends"
+        "text": "In high school English class"
       },
       {
         "id": "c",
-        "text": "At work"
+        "text": "In high school band"
       },
       {
         "id": "d",
-        "text": "Online"
+        "text": "At a high school football game"
       }
     ],
     "answer": "a",
-    "reveal": "Brandon: supply the answer.",
+    "reveal": "In their high school Spanish class.",
     "sources": [
       {
-        "note": "Brandon's brief, Oct 29 2026"
+        "note": "Brandon's answer, Oct 29 2026"
       }
     ],
     "verified": {
-      "by": "suggested",
+      "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
-    "personal": "needs-brandon",
+    "status": "ready",
+    "personal": "provided",
     "tags": {
       "topics": [
         "kim"
       ],
       "likely": [],
       "possible": [],
-      "reach": "deep"
+      "reach": "shared"
     },
-    "notes": "Brandon: supply the answer. Not in the brief; placeholders only. Facts: ."
+    "notes": "Facts: b-met."
   },
   {
     "id": "kim-first-date",
@@ -1065,50 +1065,50 @@
     "options": [
       {
         "id": "a",
-        "text": "A restaurant"
+        "text": "Dallas Zoo"
       },
       {
         "id": "b",
-        "text": "A movie theater"
+        "text": "Klyde Warren Park"
       },
       {
         "id": "c",
-        "text": "A park"
+        "text": "Dallas World Aquarium"
       },
       {
         "id": "d",
-        "text": "A coffee shop"
+        "text": "Dallas Arboretum"
       }
     ],
     "answer": "d",
-    "reveal": "Brandon: supply the answer.",
+    "reveal": "The Dallas Arboretum, in Dallas.",
     "sources": [
       {
-        "note": "Brandon's brief, Oct 29 2026"
+        "note": "Brandon's answer, Oct 29 2026"
       }
     ],
     "verified": {
-      "by": "suggested",
+      "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
-    "personal": "needs-brandon",
+    "status": "ready",
+    "personal": "provided",
     "tags": {
       "topics": [
         "kim"
       ],
       "likely": [],
       "possible": [],
-      "reach": "deep"
+      "reach": "shared"
     },
-    "notes": "Brandon: supply the answer. Not in the brief; placeholders only. Facts: ."
+    "notes": "Facts: b-firstdate."
   },
   {
     "id": "kim-proposal-corgis",
     "category": "kim",
     "tier": 4,
     "format": "choice",
-    "prompt": "Which animals were part of the proposal?",
+    "prompt": "Which animals were at the proposal?",
     "options": [
       {
         "id": "a",
@@ -1128,27 +1128,28 @@
       }
     ],
     "answer": "b",
-    "reveal": "Brandon: supply the answer.",
+    "reveal": "Corgis. There were real corgis at the proposal.",
     "sources": [
       {
-        "note": "Brandon's brief, Oct 29 2026"
+        "note": "Brandon's answer, Oct 29 2026"
       }
     ],
     "verified": {
-      "by": "suggested",
+      "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
-    "personal": "needs-brandon",
+    "status": "ready",
+    "personal": "provided",
     "tags": {
       "topics": [
-        "kim"
+        "kim",
+        "proposal"
       ],
       "likely": [],
       "possible": [],
       "reach": "deep"
     },
-    "notes": "Brandon: supply the answer. Corgis were only a plan; confirm it happened. Facts: k-proposal."
+    "notes": "Facts: k-corgis."
   },
   {
     "id": "kim-proposal-meetup",
@@ -1202,46 +1203,47 @@
     "category": "kim",
     "tier": 5,
     "format": "choice",
-    "prompt": "Where was the ring hidden when Brandon proposed?",
+    "prompt": "Where did the ring come out of at the proposal?",
     "options": [
       {
         "id": "a",
-        "text": "In a bouquet"
+        "text": "A hollowed-out book"
       },
       {
         "id": "b",
-        "text": "In a flower backpack"
+        "text": "A corgi's flower backpack"
       },
       {
         "id": "c",
-        "text": "In a gift box"
+        "text": "A bouquet of roses"
       },
       {
         "id": "d",
-        "text": "In a book"
+        "text": "A wrapped gift box"
       }
     ],
     "answer": "b",
-    "reveal": "Brandon: supply the answer.",
+    "reveal": "The ring came out of a corgi's flower backpack.",
     "sources": [
       {
-        "note": "Brandon's brief, Oct 29 2026"
+        "note": "Brandon's answer, Oct 29 2026"
       }
     ],
     "verified": {
-      "by": "suggested",
+      "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
-    "personal": "needs-brandon",
+    "status": "ready",
+    "personal": "provided",
     "tags": {
       "topics": [
-        "kim"
+        "kim",
+        "proposal"
       ],
       "likely": [],
       "possible": [],
       "reach": "deep"
     },
-    "notes": "Brandon: supply the answer. The flower-backpack reveal was only a plan; confirm it happened. Facts: k-proposal."
+    "notes": "Facts: k-ring."
   }
 ]

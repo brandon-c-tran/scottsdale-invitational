@@ -22,7 +22,7 @@
     },
     {
       "id": "b-sisters",
-      "text": "Younger sisters Brittany and Bethany.",
+      "text": "Younger sisters Britney and Bethany.",
       "provenance": "provided, Brandon's brief Oct 29 2026"
     },
     {
@@ -102,8 +102,28 @@
     },
     {
       "id": "b-roadtrip",
-      "text": "Dallas-to-Bay-Area road trip with a little sister; WHICH sister is unconfirmed (needs Brandon).",
-      "provenance": "provided, Brandon's brief Oct 29 2026"
+      "text": "Dallas-to-Bay-Area road trip with his sister Bethany.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "b-met",
+      "text": "Brandon and Kim first met in high school Spanish class.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "b-firstdate",
+      "text": "Their first date was at the Dallas Arboretum, in Dallas.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "k-corgis",
+      "text": "There were actually corgis at the proposal.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "k-ring",
+      "text": "The ring was revealed from a corgi flower backpack: it came out of a corgi flower backpack.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
     },
     {
       "id": "k-kim",
@@ -112,7 +132,7 @@
     },
     {
       "id": "k-proposal",
-      "text": "Proposal location: Ritz-Carlton Half Moon Bay. Corgis, a staged meetup and a flower-backpack ring reveal were PLANS: execution unconfirmed (needs Brandon).",
+      "text": "Proposal location: Ritz-Carlton Half Moon Bay. The staged meetup is still unconfirmed (needs Brandon).",
       "provenance": "provided, Brandon's brief Oct 29 2026"
     },
     {
@@ -133,40 +153,10 @@
   ],
   "needsBrandon": [
     {
-      "id": "kim-how-met",
-      "who": "Kim & Winnie",
-      "question": "How did Brandon and Kim meet? (the setting only)",
-      "why": "Brief: do not invent; no answer given."
-    },
-    {
-      "id": "kim-first-date",
-      "who": "Kim & Winnie",
-      "question": "Where was the first date?",
-      "why": "Brief: do not invent; no answer given."
-    },
-    {
-      "id": "kim-proposal-corgis",
-      "who": "Kim & Winnie",
-      "question": "Did the corgis happen at the proposal?",
-      "why": "Corgis were a plan; confirm execution before any factual question."
-    },
-    {
       "id": "kim-proposal-meetup",
       "who": "Kim & Winnie",
       "question": "How was the staged meetup actually done (who met Kim, where)?",
       "why": "A plan only; confirm execution."
-    },
-    {
-      "id": "kim-proposal-ring",
-      "who": "Kim & Winnie",
-      "question": "Was the ring revealed from a flower backpack?",
-      "why": "A plan only; confirm execution."
-    },
-    {
-      "id": "lore-roadtrip-sister",
-      "who": "Brandon Lore",
-      "question": "Which sister, Brittany or Bethany, was on the Dallas-to-Bay-Area road trip?",
-      "why": "Brief: which sister is unconfirmed."
     }
   ],
   "decoyChecks": [

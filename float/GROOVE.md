@@ -952,6 +952,77 @@ in a fun way i think and make it visually appealing that you're rowing".
   `fuse`, `launch`, `nightdark`, `finale`, `sky`; `sign` and `drop` are
   the semifinal's (`round:"semi"`). `node scripts/float-shots.mjs <shots>`.
 
+## v4 (Oct 29: playtest 3, on staging e429bd98)
+
+Brandon: "rowing while going on the other games past 1 (I only played the
+second) is way too hard"; "need a better feedback loop for when things are
+good vs bad, it's a little hard to tell if you're doing something wrong vs
+right"; "need to consider the UI and labels and stuff for 13 players being
+the majority case, there are 13 people playing for sure this weekend"; "the
+announcer shouldn't have a paddle"; then "a holistic polish pass over the
+entire game after this using whatever skills at disposal, make best
+decisions for me". Phase 1 (items 1 to 4) ships to staging first; phase 2
+(item 5) is its own commits after it.
+
+### 1. You row only in Paddle Party; everyone rows in every song
+
+- Rowing TAPS are Paddle Party's alone (as v3 has it). In Rock Hop, Spin
+  Cycle, The Drop and Fireworks the rowing layer is gone from the chart:
+  you tap the song's own move only (v2's patterns for songs 2 and 3; The
+  Drop and Fireworks keep their v3 creativity, no signs in The Drop's play
+  B, the blackout bars, rockets, minus the stacked strokes). The Drop's
+  paddle bars (a bar of each pattern in turn) keep paddle taps as a
+  pattern, not a layer.
+- **Auto-rowing** (the picture and the band): in every song every rider
+  rows on 1 and 3 by the clock (alternating `stroke` / `stroke-r`), except
+  when they are doing their own move, drinking, cheering, out, or it's a
+  blackout bar; a judged move interrupts it. The band keeps a soft stroke
+  on 1 and 3 in songs 2 to 5 (quieter than an answered paddle). The phone's
+  critter does the same.
+- Practice lines lose "Keep rowing" outside Paddle Party; the four-beat
+  counter shows only taps.
+
+### 2. Right versus wrong, at a glance
+
+Mostly the phone (it is in your hand and only about you):
+- Every tap answers at once, by grade: Perfect a bright flash of your
+  colour with a gold ring burst; Nice a smaller flash; OK a dim one; Early
+  or Late the pad nudges left (early) or right (late) with a salmon edge and
+  the word big; a Miss a red edge, a short shake, your critter splashed.
+- A streak: "12 in a row" grows with each Nice or better and breaks
+  visibly (with its sound) on Early, Late or Miss.
+- A timing meter: a thin bar, centre line at the beat, your last 8 taps as
+  ticks (early left, late right), so a drift shows.
+- A coach line after three of the same in a row: "Tap earlier" or "Tap
+  later" (terse; it goes when you are back on time).
+- TV: the critter's reaction stays the main signal (nice / miss poses,
+  splash); a streak badge only at 10, 20, 30 for a moment.
+- Sound: crisp on Perfect/Nice, muffled on Early/Late, the miss flub, a
+  streak-break sound on the phone.
+
+### 3. Thirteen is the normal room
+
+Every screen is designed for 13 first (the 4 / 5 / 4 flotilla, a Last Call
+bar of 13, cut shows with 13, the rank strip): no name tag over another
+rider, popups compact and placed so 13 at once never cover faces or tags
+(smaller number, the word in its tone), the bar's 13 readable (two tiers if
+needed), nothing truncated for the 13 real names. The fit audit and the
+mock run at 13 riders by default.
+
+### 4. The announcer has no paddle
+
+The host on the bank holds the megaphone only.
+
+### 5. Polish pass (phase 2)
+
+A holistic pass over the whole game, each builder on its own surface, using
+the skills at hand (impeccable critique/polish, game-feel, review-animations,
+emil-design-eng, audio-design, mobile-native): find what reads unclear,
+feels flat, collides or stutters, fix the best of it, and report what was
+left. Decisions are the builders' (Brandon: "make best decisions for me")
+within this contract, copy rules (terse, no em dashes) and the 13-player
+default.
+
 ## Wednesday night target (in cut order: the last line goes first)
 
 1. Song 1 complete: chart, music with clear calls, TV scene, phone, popups,

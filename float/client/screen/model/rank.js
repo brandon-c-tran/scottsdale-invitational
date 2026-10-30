@@ -100,7 +100,7 @@ export function rankNow(store, now) {
 }
 
 /* ── the strip: every rider as a chip, in rank order, across the top ── */
-export const RANK = Object.freeze({ x0:420, x1:1880, top:66, maxSlot:150 });
+export const RANK = Object.freeze({ x0:360, x1:1900, top:66, maxSlot:150 });
 export function rankSlots(n, { x0 = RANK.x0, x1 = RANK.x1, maxSlot = RANK.maxSlot } = {}) {
   const w = n ? Math.min(maxSlot, (x1 - x0) / n) : maxSlot;
   const start = x0 + ((x1 - x0) - w * n) / 2;

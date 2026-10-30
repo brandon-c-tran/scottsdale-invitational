@@ -27,8 +27,11 @@ export { rowCounts };
    the left bank, the front row clear of the corners' foreground) */
 const ROW_SHAPES = Object.freeze({
   1:[{ y:850, scale:0.8, lo:330, hi:1840 }],
-  2:[{ y:640, scale:0.5, lo:400, hi:1870 }, { y:885, scale:0.62, lo:190, hi:1810 }],
-  3:[{ y:592, scale:0.42, lo:420, hi:1880 }, { y:750, scale:0.5, lo:250, hi:1870 }, { y:925, scale:0.6, lo:170, hi:1800 }],
+  2:[{ y:640, scale:0.48, lo:400, hi:1890 }, { y:950, scale:0.58, lo:190, hi:1860 }],
+  /* 13 is the normal room (v4 item 3): three rows a cell apart, each rider's
+     popup over their own head and tag under their own hull, the rows'
+     faces in each other's gaps */
+  3:[{ y:604, scale:0.4, lo:430, hi:1900 }, { y:784, scale:0.46, lo:240, hi:1900 }, { y:982, scale:0.53, lo:170, hi:1880 }],
 });
 /* the final three, big in one row */
 const FINAL_SHAPE = Object.freeze([{ y:860, scale:0.9, lo:300, hi:1840 }]);
@@ -36,11 +39,11 @@ const FINAL_SHAPE = Object.freeze([{ y:860, scale:0.9, lo:300, hi:1840 }]);
 const LOBBY_SHAPES = Object.freeze({
   1:[{ y:760, scale:0.62, lo:720, hi:1880 }],
   2:[{ y:640, scale:0.44, lo:720, hi:1890 }, { y:840, scale:0.54, lo:700, hi:1880 }],
-  3:[{ y:600, scale:0.36, lo:720, hi:1890 }, { y:728, scale:0.43, lo:700, hi:1890 }, { y:862, scale:0.48, lo:690, hi:1880 }],
+  3:[{ y:566, scale:0.34, lo:720, hi:1890 }, { y:724, scale:0.4, lo:700, hi:1890 }, { y:884, scale:0.45, lo:690, hi:1880 }],
 });
 /* the formation's middle, a little right of the stage's (the host stands
    left); the lobby's, right of its card */
-export const CENTRE_X = 1100;
+export const CENTRE_X = 1075;
 export const CENTRE_LOBBY = 1300;
 /* the grid's widest spacing (stage px); a bigger field narrows it to fit
    its widest row */
@@ -240,13 +243,14 @@ export function popupSpot(spot, anchor = ANCHOR, { lift = 14, half = 150 } = {})
    offset over the word, Perfect's plate included */
 export const POPUP_BOX = Object.freeze({ w:188, h:100 });
 /* a popup's size over a row of this scale: a little smaller at the back */
-export const popupSize = scale => Math.max(0.8, Math.min(1.25, 0.6 + 0.66 * (Number(scale) || 0.6)));
+/* compact (v4 item 3): never under 0.75, where the word is 24 px */
+export const popupSize = scale => Math.max(0.75, Math.min(1.05, 0.55 + 0.5 * (Number(scale) || 0.6)));
 
 const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 /* where a popup may go, as shares of its own box: over the head, higher,
    a little to a side, higher still, further to a side */
 const POPUP_TRIES = Object.freeze([[0, 0], [0, -0.55], [-0.34, -0.25], [0.34, -0.25], [0, -1.1], [-0.42, -0.8], [0.42, -0.8],
-  [-0.5, 0.15], [0.5, 0.15], [-0.7, -0.1], [0.7, -0.1], [-0.6, 0.35], [0.6, 0.35], [0, -1.6], [-0.45, -1.4], [0.45, -1.4]]);
+  [-0.5, 0.15], [0.5, 0.15], [-0.5, -0.1], [0.5, -0.1], [-0.45, 0.35], [0.45, 0.35], [0, -1.6], [-0.45, -1.4], [0.45, -1.4]]);
 /* a face's box: the middle of the critter, its head down to its tube */
 const faceBox = r => {
   const half = riderWidth(r.scale) * 0.38;
@@ -264,7 +268,7 @@ const faceBox = r => {
    their own (the crowd on the bank); `avoid` rectangles ({ x0, x1, y0, y1 });
    `names` the names' rectangles under the tubes ({ i, x0, x1, y0, y1 }).
    Returns { [i]: { x, y (the popup's bottom), size } }, front rows first. */
-export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_W, others = [], avoid = [], names = [], stagger = false } = {}) {
+export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_W, others = [], avoid = [], names = [], stagger = false, tierExtra = 0 } = {}) {
   const list = riders.filter(r => r && Number.isFinite(r.x) && Number.isFinite(r.top));
   /* one line of riders closer than a popup is wide (Last Call's bar): each
      popup right over its own rider, alternating two heights left to right */
@@ -273,7 +277,8 @@ export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_
     list.slice().sort((a, b) => a.x - b.x).forEach((r, k) => {
       const size = popupSize(r.scale);
       const bw = box.w * size, bh = box.h * size;
-      out[r.i] = { x:Math.max(bw / 2 + 12, Math.min(w - bw / 2 - 12, r.x)), y:Math.max(bh + 96, r.top - lift - (k % 2) * (bh + 8)), size };
+      /* the upper tier clears the lower's stamp (Closest, Drinks) too */
+      out[r.i] = { x:Math.max(bw / 2 + 12, Math.min(w - bw / 2 - 12, r.x)), y:Math.max(bh + 96, r.top - lift - (k % 2) * (bh + 8 + tierExtra)), size };
     });
     return out;
   }
@@ -294,11 +299,11 @@ export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_
       const rect = { x0:cx - bw / 2, x1:cx + bw / 2, y0:bottom - bh, y1:bottom };
       let cost = (Math.abs(fx) * 0.9 + Math.abs(fy) * 0.7) * bw * bh * 0.12;
       for (const p of placed) cost += 14 * overlap(rect, p);
-      for (const f of faces) if (f.i !== r.i) cost += 0.5 * overlap(rect, f);
+      for (const f of faces) if (f.i !== r.i) cost += 4 * overlap(rect, f);
       for (const f of crowd) cost += 3 * overlap(rect, f);
       for (const a of avoid) cost += 12 * overlap(rect, a);
       /* the names (a player's own, under each tube) stay readable */
-      for (const n of names) if (n.i !== r.i) cost += 4 * overlap(rect, n);
+      for (const n of names) if (n.i !== r.i) cost += 10 * overlap(rect, n);
       if (!best || cost < best.cost - 1e-6) best = { cost, cx, bottom, rect };
     }
     placed.push(best.rect);
@@ -307,11 +312,11 @@ export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_
   return out;
 }
 
-/* a name tag's box at the TV's lettering (28 px pixel face on a tag in the
+/* a name tag's box at the TV's lettering (24 px pixel face on a tag in the
    rider's colour, a dark keyline): its width from its letters when it has
    not been measured */
-export const NAME_H = 42;
-export const nameWidth = name => 16 * String(name || "").length + 40;
+export const NAME_H = 36;
+export const nameWidth = name => 14 * String(name || "").length + 32;
 /* where a name may go, as shares of its own box: right under its tube,
    lower, to a side, a touch higher */
 const NAME_TRIES = Object.freeze([[0, 0], [0, 0.7], [-0.32, 0.35], [0.32, 0.35], [0, -0.45], [-0.55, 0], [0.55, 0], [0, 1.4]]);
@@ -336,7 +341,7 @@ export function nameSlots(names = [], { faces = [], popups = [] } = {}) {
       const rect = { x0:cx - w / 2, x1:cx + w / 2, y0:cy - h / 2, y1:cy + h / 2 };
       let cost = (Math.abs(fx) * 1.2 + Math.abs(fy) * 0.8) * w * h * 0.35;
       for (const p of placed) cost += 40 * overlap(rect, p);
-      for (const f of boxes) if (f.i !== n.i) cost += 0.6 * overlap(rect, f);
+      for (const f of boxes) if (f.i !== n.i) cost += 8 * overlap(rect, f);
       for (const p of popups) cost += 3 * overlap(rect, p);
       if (!best || cost < best.cost - 1e-6) best = { cost, dx:cx - n.x, dy:cy - n.y, rect };
     }

@@ -1093,6 +1093,24 @@ default.
   (grades at 0.4 s, three awards 1.2 s apart, the cut line at 6 s, the two
   outs below the chug-off's pair by 10.8 s); left as is.
 
+### As built: the screen, v4 (groove/screen, Oct 29)
+
+- Auto-rowing: `autoStrokeAt(chart, beat)` (motion.js): every rider in the
+  water strokes on 1 (`stroke`) and 3 (`stroke-r`) through practice, play and
+  the breakdown; a beat with a cue is the cue's, a blackout bar and a rider
+  sinking or doing their own move skip it. The host holds the megaphone only.
+- Streak badge: the store counts each rider's run of Nice or better (OK
+  holds it, Early, Late and Miss break it); at 10, 20 and 30 the popup holds
+  1.4 s with a gold "10 in a row" badge.
+- Thirteen first: three rows at y 604 / 784 / 982 (scales 0.4 / 0.46 /
+  0.53), two rows at 640 / 950, faces placed at the head's own x; popups at
+  most 0.75 to 1.05 size and kept off other faces and tags (faces cost 4,
+  tags 10); tags 24 px (36 px in the chug-off and the final); the rank strip
+  from x 360 with 24 px names, never truncated; the bar's line from x 520,
+  readouts in two tiers clearing the stamps, names in two rows on the
+  counter; grade stamps make way for the award cards; awards read "59
+  Perfects". The count-in and Go! sit under the narration box and the strip.
+
 ## Wednesday night target (in cut order: the last line goes first)
 
 1. Song 1 complete: chart, music with clear calls, TV scene, phone, popups,

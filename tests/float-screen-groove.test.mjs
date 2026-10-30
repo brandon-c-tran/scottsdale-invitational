@@ -347,7 +347,8 @@ test("who's ahead: the engine's order (percent, the Cup, Perfects, field), moved
   assert.deepEqual(rankMarks([4, 2, 7]), { 4:"1st" });
   assert.deepEqual(rankMarks([4, 2, 7, 1], { final:true }), { 4:"1st", 2:"2nd", 7:"3rd" });
   const slots = rankSlots(13);
-  assert.ok(slots.x(0) >= 420 && slots.x(12) + slots.w <= 1880, "13 chips across the top, clear of the host");
+  assert.ok(slots.x(0) >= 340 && slots.x(12) + slots.w <= 1910, "13 chips across the top, clear of the host (his hat ends near x 310)");
+  assert.ok(slots.w >= 112, "room for a 24 px name under every chip (Brandon, Richard, Chiang, Jeremy)");
   assert.ok(slots.w >= 100, "room for a name and a percent");
 });
 
@@ -385,7 +386,7 @@ test("the cut as a show: grades at once, up to three award cards a beat apart, t
   assert.equal(awardValue({ id:"streak", value:22 }), "22 in a row");
   assert.equal(awardValue({ id:"early", value:48 }), "48 ms early");
   assert.equal(awardValue({ id:"splashes", value:1 }), "1 miss");
-  assert.equal(awardValue({ id:"perfects", value:40 }), "40");
+  assert.equal(awardValue({ id:"perfects", value:40 }), "40 Perfects");
   assert.equal(pctText(97.36), "97.4%");
   assert.equal(pctText(100), "100%");
   /* the room's ranking with its outs, the field from the record */
@@ -917,7 +918,7 @@ test("practice's four-beat counter: the bar's taps lit by kind, the playhead, an
 
 test("rowing: a paddle hit alternates stroke and stroke-r along the chart's strokes; a miss slaps flat; the paddle is away to chug, cheer or sulk", async () => {
   const { PADDLE, PADDLE_AWAY, paddleAt, strokeSide } = await import("../float/client/screen/model/motion.js");
-  const chart = chartOf("rock");
+  const chart = chartOf("paddle");
   const strokes = chart.cues.filter(c => c.kind === "paddle").slice(0, 6);
   const sides = strokes.map(c => strokeSide(chart, c.id));
   assert.deepEqual(sides, [-1, 1, -1, 1, -1, 1], "left (stroke), right (stroke-r), in turn");
@@ -931,4 +932,70 @@ test("rowing: a paddle hit alternates stroke and stroke-r along the chart's stro
   assert.ok(miss.flat > 0 && miss.side === 0, "a miss slaps flat");
   assert.equal(paddleAt({ ...hit, kind:"hop" }, 1100).side, 0, "another move leaves it at rest");
   for (const pose of ["chug", "cheer", "out"]) assert.ok(PADDLE_AWAY.has(pose));
+});
+
+test("v4 auto-rowing: every rider rows on 1 and 3 by the clock (1 left, 3 right) in practice, play and the breakdown; a beat with a cue is the cue's; dark bars and the intro don't", async () => {
+  const { autoStrokeAt, PADDLE } = await import("../float/client/screen/model/motion.js");
+  const rock = chartOf("rock");
+  const taken = new Set(rock.cues.map(c => c.beat));
+  const play = rock.sections.find(s => s.kind === "play");
+  let rows = 0;
+  for (let b = play.from; b < play.to; b += 1) {
+    const auto = autoStrokeAt(rock, b + 0.05);
+    if (b % 4 !== 0 && b % 4 !== 2) { assert.equal(auto, null, `beat ${b}: only 1 and 3`); continue; }
+    if (taken.has(b)) { assert.equal(auto, null, `beat ${b}: the cue's`); continue; }
+    assert.deepEqual(auto, { beat:b, side:b % 4 === 0 ? -1 : 1 });
+    rows += 1;
+    assert.equal(autoStrokeAt(rock, b + (PADDLE.MS + 20) / 500), null, "the stroke ends");
+  }
+  assert.ok(rows >= 6, "Rock Hop rows through its play (on 1: its hops take 3)");
+  assert.equal(autoStrokeAt(rock, 2.05), null, "not in the intro");
+  const drop = chartOf("drop");
+  for (const bar of drop.dark) assert.equal(autoStrokeAt(drop, bar * 4 + 2.05), null, "not seen in a blackout bar");
+  const paddle = chartOf("paddle");
+  for (const c of paddle.cues.filter(q => q.kind === "paddle")) assert.equal(autoStrokeAt(paddle, c.beat + 0.05), null, "Paddle Party's strokes are judged, not auto");
+});
+
+test("v4 streaks: the badge only at 10, 20 and 30 in a row (Nice or better); Early, Late or a Miss breaks the run, OK holds it", () => {
+  const store = createScreenStore();
+  const chart = chartOf("rock");
+  store.onRoom({ t:"room", phase:"song", round:0, field:[0], chart, songAt:0, s:0 });
+  const scored = chart.cues.filter(c => c.scored);
+  const hit = (k, q) => store.onEv({ t:"ev", e:"hit", i:0, c:scored[k].id, q, d:q === "miss" ? undefined : 10, s:1000 + k });
+  for (let k = 0; k < 9; k += 1) hit(k, "perfect");
+  assert.equal(store.state.badges.get(0), undefined);
+  hit(9, "ok");
+  assert.equal(store.state.badges.get(0), undefined, "OK holds the run, no badge");
+  hit(10, "nice");
+  assert.equal(store.state.badges.get(0)?.n, 10, "the tenth Nice or better");
+  hit(11, "late");
+  assert.equal(store.state.streaks.get(0), 0, "broken");
+});
+
+test("v4: thirteen is the normal room: in the 4 / 5 / 4 flotilla no name tag sits on another rider's face, and 13 popups at once keep off the faces and tags", () => {
+  const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+  const real = ["Adi", "Brandon", "Allan", "Evan", "Richard", "Ben", "Chinh", "Jeremy", "Chiang", "Henry", "Khoa", "Eyob", "Sahil"];
+  const spots = flotillaLayout(range(13), new Map(range(13).map(i => [i, 60 + (i * 29) % 40])));
+  assert.deepEqual([0, 1, 2].map(r => Object.values(spots).filter(s => s.row === r).length), [4, 5, 4]);
+  /* a kayak critter: head 240 box px over the waterline, its face a little right of the hull's middle */
+  const faces = Object.entries(spots).map(([i, s]) => ({ i:Number(i), x:s.x + 40 * s.scale, y:s.y, scale:s.scale, top:s.y - 240 * s.scale * 1.45 }));
+  const faceRect = f => { const half = riderWidth(f.scale) * 0.3; return { i:f.i, x0:f.x - half, x1:f.x + half, y0:f.top + 20 * f.scale, y1:f.top + 0.65 * (f.y - f.top) }; };
+  const names = Object.entries(spots).map(([i, s]) => ({ i:Number(i), x:s.x, y:s.y + 30, w:nameWidth(real[i]), h:NAME_H, scale:s.scale }));
+  const nameRects = names.map(n => ({ i:n.i, x0:n.x - n.w / 2, x1:n.x + n.w / 2, y0:n.y - n.h / 2, y1:n.y + n.h / 2 }));
+  const slots = popupSlots(faces, { names:nameRects });
+  const popups = Object.entries(slots).map(([i, sl]) => ({ i:Number(i), x0:sl.x - POPUP_BOX.w * sl.size / 2, x1:sl.x + POPUP_BOX.w * sl.size / 2, y0:sl.y - POPUP_BOX.h * sl.size, y1:sl.y }));
+  const nudges = nameSlots(names, { faces, popups });
+  const placed = names.map(n => ({ i:n.i, x0:n.x + nudges[n.i].dx - n.w / 2, x1:n.x + nudges[n.i].dx + n.w / 2, y0:n.y + nudges[n.i].dy - n.h / 2, y1:n.y + nudges[n.i].dy + n.h / 2 }));
+  for (const tag of placed) {
+    for (const f of faces.filter(f => f.i !== tag.i).map(faceRect)) {
+      assert.ok(overlap(tag, f) < 0.15 * (tag.x1 - tag.x0) * (tag.y1 - tag.y0), `${real[tag.i]}'s tag clear of ${real[f.i]}'s face`);
+    }
+    for (const other of placed) if (other.i > tag.i) assert.equal(overlap(tag, other), 0, `${real[tag.i]} and ${real[other.i]} tags apart`);
+  }
+  for (const p of popups) {
+    assert.ok(POPUP_BOX.w * slots[p.i].size <= 160, "compact");
+    for (const f of faces.filter(f => f.i !== p.i).map(faceRect)) assert.ok(overlap(p, f) < 0.12 * (p.x1 - p.x0) * (p.y1 - p.y0), `${real[p.i]}'s popup clear of ${real[f.i]}'s face`);
+    for (const t of placed) assert.ok(overlap(p, t) < 0.1 * (t.x1 - t.x0) * (t.y1 - t.y0), `${real[p.i]}'s popup clear of ${real[t.i]}'s tag`);
+    for (const q of popups) if (q.i > p.i) assert.ok(overlap(p, q) < 0.05 * (p.x1 - p.x0) * (p.y1 - p.y0), "popups apart");
+  }
 });

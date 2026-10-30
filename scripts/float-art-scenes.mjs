@@ -27,6 +27,8 @@ export const PALETTES = {
   podium:{ sky:["#d8caff", "#ffd9e8"], sun:"#fff3cc", cloud:"#fff7fd", water:["#8f9ff0", "#c7c8fa"], check:"#8392e6", water0:0.62 },
 };
 const LAND_DEPTH = 0.3;
+/* the sun sits low, setting behind the land (v4 polish): the top of the sky stays clear behind the TV's rank strip */
+const SUN_LIFT = 70;
 /* each song scene's one loud accent: the prop the screen places in it */
 export const ACCENTS = { open:"accent-open", rocks:"accent-rocks", whirlpool:"accent-whirl", falls:"accent-falls" };
 
@@ -45,8 +47,8 @@ function skySvg(p, top) {
       <radialGradient id="glow"><stop offset="0.55" stop-color="${p.sun}" stop-opacity="0.55"/><stop offset="1" stop-color="${p.sun}" stop-opacity="0"/></radialGradient>
     </defs>
     <rect width="${W}" height="${H}" fill="url(#sky)"/>
-    <circle cx="${W * 0.78}" cy="${top - 190}" r="260" fill="url(#glow)"/>
-    <circle cx="${W * 0.78}" cy="${top - 190}" r="150" fill="${p.sun}"/>
+    <circle cx="${W * 0.78}" cy="${top - SUN_LIFT}" r="260" fill="url(#glow)"/>
+    <circle cx="${W * 0.78}" cy="${top - SUN_LIFT}" r="150" fill="${p.sun}"/>
     ${clouds}
   </svg>`;
 }

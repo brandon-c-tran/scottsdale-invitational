@@ -128,14 +128,14 @@ const looksBusy = delta => {
   pending.n += delta;
   if (typeof document !== "undefined") document.body.dataset.looks = pending.n > 0 ? "0" : "1";
 };
-function PortraitCell({ entrant, size = 120 }) {
+function PortraitCell({ entrant, size = 120, frame = "full" }) {
   const [url, setUrl] = useState(null);
   useEffect(() => {
     let live = true;
     looksBusy(1);
-    riderPortrait(entrant, { size:size * 2 }).then(u => { if (live) setUrl(u); }, () => {}).finally(() => looksBusy(-1));
+    riderPortrait(entrant, { size:size * 2, frame }).then(u => { if (live) setUrl(u); }, () => {}).finally(() => looksBusy(-1));
     return () => { live = false; };
-  }, [JSON.stringify(entrant), size]);
+  }, [JSON.stringify(entrant), size, frame]);
   return url ? <img src={url} width={size} height={size} alt="" /> : <div style={{ width:size, height:size }} />;
 }
 function Looks() {
@@ -195,6 +195,11 @@ function FitAcross() {
       <div className="fa2-row" style={{ alignItems:"center" }}>
         <div className="fa2-cell" style={{ width:70 }}><small>portrait</small></div>
         {FIT.ids.map((id, i) => { const look = fitLook(id, i, false); return <PortraitCell key={id} entrant={{ color:look.color, look:{ critter:id, hat:look.hat, shades:look.shades }, groom:look.groom }} size={size} />; })}
+      </div>
+      {/* the head-framed still a Locker chip can use (riderPortrait frame "head") */}
+      <div className="fa2-row" style={{ alignItems:"center" }}>
+        <div className="fa2-cell" style={{ width:70 }}><small>head</small></div>
+        {FIT.ids.map((id, i) => { const look = fitLook(id, i, false); return <PortraitCell key={id} frame="head" entrant={{ color:look.color, look:{ critter:id, hat:look.hat, shades:look.shades }, groom:look.groom }} size={size} />; })}
       </div>
     </div>
   );

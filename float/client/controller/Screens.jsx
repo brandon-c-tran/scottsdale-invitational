@@ -175,39 +175,49 @@ function Podium({ game, entrant, cheer = null, onCheer, onExit }) {
   </section>;
 }
 
-function Feedback({ onFeedback, onExit, feedbackSent }) {
+/* the card, after the podium: the questions in the game's text boxes over
+   the podium's scene, the answers as its chunky chips, your critter in the
+   water under them where the phone has the height (cheering once you have
+   rated it); Thanks sits where the podium's place did, your critter
+   cheering in the water */
+function Feedback({ entrant, onFeedback, onExit, feedbackSent }) {
   const [fun, setFun] = useState(0);
   const [again, setAgain] = useState(null);
   const [better, setBetter] = useState("");
   if (feedbackSent) return <section className="flc-screen flc-feedback is-sent">
-    <Scenery scene="lobby" />
+    <Scenery scene="podium" />
     <Top right={<ExitButton onExit={onExit} />} />
-    <h2 className="flc-thanks">Thanks</h2>
+    <div className="flc-feedback-main"><h2 className="flc-thanks">Thanks</h2></div>
+    <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose="cheer" size={260} /></div></div>
   </section>;
   const send = () => {
     if (!fun || again === null) return;
     onFeedback({ fun, again, better:better.trim().slice(0, 200) });
   };
   return <section className="flc-screen flc-feedback">
+    <Scenery scene="podium" />
     <Top right={<ExitButton onExit={onExit} />} />
-    <form className="flc-form" onSubmit={event => { event.preventDefault(); send(); }}>
-      <fieldset>
-        <legend>How fun was that?</legend>
-        <div className="flc-scale">{[1, 2, 3, 4, 5].map(n => <button key={n} type="button" className={fun === n ? "is-on" : ""}
-          aria-pressed={fun === n} onClick={() => { tapTick(); setFun(n); }}>{n}</button>)}</div>
-      </fieldset>
-      <fieldset>
-        <legend>Would you play this with other friends?</legend>
-        <div className="flc-yesno">{[["Yes", true], ["No", false]].map(([label, value]) => <button key={label} type="button"
-          className={again === value ? "is-on" : ""} aria-pressed={again === value} onClick={() => { tapTick(); setAgain(value); }}>{label}</button>)}</div>
-      </fieldset>
-      <label className="flc-better">
-        <span>What would make it better?</span>
-        <textarea value={better} maxLength={200} rows={3} onChange={event => setBetter(event.target.value)}
-          autoCorrect="on" spellCheck={true} enterKeyHint="done" />
-      </label>
-      <button type="submit" className="flc-send" disabled={!fun || again === null}>Send</button>
-    </form>
+    <div className="flc-feedback-body">
+      <form className="flc-form" onSubmit={event => { event.preventDefault(); send(); }}>
+        <fieldset className="flc-ask">
+          <legend><span>How fun was that?</span></legend>
+          <div className="flc-scale">{[1, 2, 3, 4, 5].map(n => <button key={n} type="button" className={fun === n ? "is-on" : ""}
+            aria-pressed={fun === n} onClick={() => { tapTick(); setFun(n); }}>{n}</button>)}</div>
+        </fieldset>
+        <fieldset className="flc-ask">
+          <legend><span>Would you play this with other friends?</span></legend>
+          <div className="flc-yesno">{[["Yes", true], ["No", false]].map(([label, value]) => <button key={label} type="button"
+            className={again === value ? "is-on" : ""} aria-pressed={again === value} onClick={() => { tapTick(); setAgain(value); }}>{label}</button>)}</div>
+        </fieldset>
+        <label className="flc-better flc-ask">
+          <span>What would make it better?</span>
+          <textarea value={better} maxLength={200} rows={3} onChange={event => setBetter(event.target.value)}
+            autoCorrect="on" spellCheck={true} enterKeyHint="done" />
+        </label>
+        <button type="submit" className="flc-send" disabled={!fun || again === null}>Send</button>
+      </form>
+      <div className="flc-feedback-me flc-idle-me"><Critter entrant={entrant} pose={fun ? "cheer" : "idle"} size={260} /></div>
+    </div>
   </section>;
 }
 

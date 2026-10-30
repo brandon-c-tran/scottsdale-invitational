@@ -112,10 +112,10 @@ patterns of the same mechanic:
 | 3 | Spin Cycle | the host spins on 1 and 3, you echo one beat later on 2 and 4 (the backbeat); doubles on the "and" later |
 | 4 | The Drop | the final: a bar of each pattern in turn, switching faster after the drink, a bar of paddling on every beat, then the music cuts, the host counts three beats, and one tap on the drop (bar 30, over the falls) |
 
-Cue counts (v3, rowing in every song; scored, then practice taps and the
-host's demos): Paddle Party 60 (7, 3), Rock Hop 63 (11, 1), Spin Cycle 81
-(12, 2), The Drop 76 (12, 0), Fireworks 83 (10, 1); each breakdown is 16 of
-the scored. The last cue of every song but The Drop is in bar 30 (the
+Cue counts (v4: rowing taps in Paddle Party only; scored, then practice
+taps and the host's demos): Paddle Party 60 (7, 3), Rock Hop 41 (5, 1), Spin
+Cycle 51 (6, 2), The Drop 65 (9, 0), Fireworks 70 (7, 2); each breakdown is
+16 of the scored. The last cue of every song but The Drop is in bar 30 (the
 outro's big finish).
 
 Names say what you do (Brandon, Oct 27: no river jargon; "Put-in", "The
@@ -845,7 +845,7 @@ in a fun way i think and make it visually appealing that you're rowing".
   (`LAST_CALL.RUSH_MS` 700): 10 to 7 at a second, every count from 6 at
   0.7 s, dark at 3; zero 8.2 s after 10. `lastCallId(3)` is "lastcall-rush".
 - Last Call's ranking: once the zero's miss deadline passes (with `worst`;
-  at or just after `revealAt`), `room.lastCall` is `{ totals:[{ i, ms, d,
+  before `revealAt` since v4's polish), `room.lastCall` is `{ totals:[{ i, ms, d,
   place }], worst, order }`: `ms` the rider's |offset| (3000 for no tap),
   `place` 1 the closest (ties share a place: 1, 2, 2, 4), `order` every
   rider closest to farthest (a tie in the bar's order: the field, then the
@@ -1022,6 +1022,56 @@ feels flat, collides or stutters, fix the best of it, and report what was
 left. Decisions are the builders' (Brandon: "make best decisions for me")
 within this contract, copy rules (terse, no em dashes) and the 13-player
 default.
+
+### As built: the engine, v4 (groove/engine, Oct 29)
+
+- Item 1: rowing taps are Paddle Party's alone. Rock Hop and Spin Cycle
+  are v2's patterns again; The Drop keeps v3's play B (no sign, the "and"
+  hops and spins, dark [25, 27]) and its paddle bars as a pattern (`P...P.H.`,
+  `P...PHO.`); Fireworks keeps its rockets, the mix (paddle bars as a
+  pattern), dark [26, 28] and the three-rocket finale, minus the layer.
+  `modes` read each bar's own move as before. Every practice has 5 or more
+  taps to calibrate on (Rock Hop 5, Spin Cycle 6, The Drop 9, Fireworks 7).
+- Practice lines, all with clips from earlier builds: Rock Hop "Hop two
+  beats after me", "Your turn", "Two this time" (the second "Your turn"
+  and the "Two this time" demo are gone: the host's own "ba ba" is the
+  demo, and the bar is played, for a fifth calibration tap); Spin Cycle
+  "Spin one beat after me", "Your turn", "On the backbeat"; The Drop "All
+  three, in turn", "Hop", "Spin"; Fireworks "Watch the fuse", "Launch two
+  beats after I light", "Two quick ones", "Three in a row". Paddle Party
+  unchanged. No line says "Keep rowing" or "Row on 1 and 3" any more.
+
+### As built: the engine, v4 polish (groove/engine, Oct 29)
+
+- The climb, measured (play cues, the breakdown aside; per play bar; on an
+  "and"; an eighth after the last; changes of move; dark bars): Paddle
+  Party 46, 2.56, 2, 4, paddle and Hey only, 0; Rock Hop 30, 1.67, 5, 7,
+  hops only (the call and answer is its step up), 0; Spin Cycle 39, 2.17,
+  6, 6, spins only, 0; The Drop 48, 2.67, 15, 17, 24 changes, 2; Fireworks
+  54, 3.00, 17, 16, 27 changes, 2. Songs 2 and 3 are lighter in taps than
+  Paddle Party and add one idea each; The Drop and Fireworks are the
+  climb. No chart change.
+- Bots feel it too (`cueHardness(chart, cueId)`, `HARD`: +0.25 on an
+  "and", +0.15 an eighth after the last cue, +0.15 a change of move, +0.2
+  in a dark bar, at most 1.6; it scales a bot's or a stand-in's spread and
+  miss rate, never its lean; `botDraw(..., hard)`, 1 by default). `BOT`
+  SPREAD [125, 5]. The same 13 bots over 30 seeds (sloppiest, a
+  stand-in's 0.5, sharpest): Paddle Party 57 / 76 / 84, Rock Hop 55 / 75 /
+  84, Spin Cycle 56 / 76 / 85, The Drop 52 / 73 / 81, Fireworks 51 / 72 /
+  80. A dropped phone's stand-in now scores lower on the hard songs, as a
+  person would.
+- Windows unchanged (Perfect 50, Nice 100, OK 160, 300 to match): the
+  room's one offset takes the TV's delay, and iPhone touch timing is well
+  inside 50 ms.
+- Last Call: `LAST_CALL.REVEAL_AFTER_MS` 3300 -> 3600, so the ranking
+  (`order`, `place`, at the zero's miss deadline, up to zero + 3500 at the
+  largest offset, plus a tick) is always in before `revealAt`; every
+  countdown is 0.3 s longer, all read from `chart.countdown`.
+- A 13-player Cup runs about 10 minutes to the podium (sim: intro 8 s, five
+  songs of 68.5 s, four cuts of 12 s and the last 7 s, four chug-offs of 11
+  to 17 s with bots, four Last Calls of 19 to 25 s). The cut's show fits 13
+  (grades at 0.4 s, three awards 1.2 s apart, the cut line at 6 s, the two
+  outs below the chug-off's pair by 10.8 s); left as is.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

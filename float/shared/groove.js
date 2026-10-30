@@ -70,7 +70,7 @@ export const FREEZE_BEATS = 0.5;
    sharpest scores about 86% (about 45 ms off, a miss now and then) and the
    sloppiest about 55% (about 120 ms off, 7% missed); a stand-in (0.5)
    about 77%. */
-export const BOT = Object.freeze({ SPREAD:Object.freeze([130, 5]), LEAN:Object.freeze([50, 4]),
+export const BOT = Object.freeze({ SPREAD:Object.freeze([125, 5]), LEAN:Object.freeze([50, 4]),
   MISS:Object.freeze([0.08, 0.004]), MAX_DEV:280 });
 /* How bots count down at Last Call, in their heads, by skill as BOT: SPREAD
    the standard deviation (ms), LEAN each bot's own rush or drag (up to, ms),
@@ -128,13 +128,44 @@ export function botSkills(n, seed = 1) {
   return skills.map(value => Math.round(value * 100) / 100);
 }
 
+/* How hard a cue is to hit, for bots and stand-ins (v4 polish: they feel
+   the songs climb as people do): 1, plus HARD.AND on an "and", HARD.FAST
+   an eighth after the cue before it, HARD.SWITCH when the move changes
+   (a paddle bar's paddles and its Hey are one move), HARD.DARK in a
+   blackout bar; at most HARD.MAX. Their spread and their misses scale by
+   it (never their lean). */
+export const HARD = Object.freeze({ AND:0.25, FAST:0.15, SWITCH:0.15, DARK:0.2, MAX:1.6 });
+const HARDNESS = new Map();
+const moveOf = kind => kind === "hey" ? "paddle" : kind;
+export function cueHardness(chart, cueId) {
+  if (!chart?.cues) return 1;
+  if (!HARDNESS.has(chart.id)) {
+    const out = new Map();
+    let prev = null;
+    for (const cue of chart.cues) {
+      if (cue.demo) continue;
+      let hard = 1;
+      if (cue.beat % 1) hard += HARD.AND;
+      if (prev && cue.beat - prev.beat <= 0.5) hard += HARD.FAST;
+      if (prev && cue.scored && moveOf(cue.kind) !== moveOf(prev.kind)) hard += HARD.SWITCH;
+      if ((chart.dark || []).includes(Math.floor(cue.beat / 4))) hard += HARD.DARK;
+      out.set(cue.id, Math.min(HARD.MAX, Math.round(hard * 100) / 100));
+      prev = cue;
+    }
+    HARDNESS.set(chart.id, out);
+  }
+  return HARDNESS.get(chart.id).get(cueId) ?? 1;
+}
+
 /* A bot's (or a stand-in's) tap on cue c: { hit:false, dev:null } when it
-   misses, else { hit:true, dev }: ms from the room's beat (its d). */
-export function botDraw(seed, round, i, c, skill) {
+   misses, else { hit:true, dev }: ms from the room's beat (its d). `hard`
+   (cueHardness) widens its spread and its misses. */
+export function botDraw(seed, round, i, c, skill, hard = 1) {
   const s = clamp01(skill);
-  if (rand01(seed, round, i, c, 1) < along(BOT.MISS, s)) return { hit:false, dev:null };
+  const k = Number.isFinite(hard) && hard > 0 ? hard : 1;
+  if (rand01(seed, round, i, c, 1) < along(BOT.MISS, s) * k) return { hit:false, dev:null };
   const lean = (rand01(seed, i, 0x1ea9) * 2 - 1) * along(BOT.LEAN, s);
-  const dev = lean + along(BOT.SPREAD, s) * normal(rand01(seed, round, i, c, 2), rand01(seed, round, i, c, 3));
+  const dev = lean + along(BOT.SPREAD, s) * k * normal(rand01(seed, round, i, c, 2), rand01(seed, round, i, c, 3));
   return { hit:true, dev:Math.round(Math.max(-BOT.MAX_DEV, Math.min(BOT.MAX_DEV, dev))) };
 }
 
@@ -248,7 +279,7 @@ function settleRider(cup, song, chart, i, now, driven, events) {
     if (t + song.offset - early > now) break;
     if (cue.demo || judged[cue.id]) continue;
     const deadline = t + song.offset + missAfter;
-    const draw = drawOf(cup.seed, song.round, i, cue.id, skill);
+    const draw = drawOf(cup.seed, song.round, i, cue.id, skill, cueHardness(chart, cue.id));
     const at = t + song.offset + (draw.dev ?? 0);
     if (draw.hit && at <= now && at < deadline && driven(i, at)) {
       const hit = judgeHit(chart, cue.id, song.offset + draw.dev, song.offset);

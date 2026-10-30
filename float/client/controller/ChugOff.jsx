@@ -75,16 +75,15 @@ export default function ChugOff({ serverNow, room, idx, entrant, sent = false, o
   return <section className={`flc-screen flc-chugoff is-crowd is-${view.moment}`}>
     <Scenery scene="open" />
     <Top left={<span className="flc-kicker">Chug-off</span>} right={<ExitButton onExit={onExit} />} />
-    <div className="flc-chug-main" role="status">
-      <h1 className="flc-chug-title is-small">Chug-off: {view.names[0]} vs {view.names[1]}</h1>
+    <div className="flc-chug-main" role="status" aria-label={`${view.names[0]} vs ${view.names[1]}`}>
       {view.moment === "intro" && view.first && <p className="flc-line-text">{CHUGOFF_LINE}</p>}
       {count && <b className="flc-chug-count" key={count}>{count}</b>}
       {told && winnerName && <b className="flc-stamp is-small" key="kept">{winnerName} keeps the spot</b>}
       {told && view.why && view.by !== "chug" && <p className="flc-chug-why">{view.why}</p>}
     </div>
     <div className="flc-chug-pair" aria-hidden="true">
-      <Critter entrant={a} pose={poseOf(view.a)} size={150} />
-      <Critter entrant={b} pose={poseOf(view.b)} size={150} />
+      <span className="flc-chug-one"><Critter entrant={a} pose={poseOf(view.a)} size={150} /><b>{view.names[0]}</b></span>
+      <span className="flc-chug-one"><Critter entrant={b} pose={poseOf(view.b)} size={150} /><b>{view.names[1]}</b></span>
     </div>
     <div className="flc-stage is-low"><div className="flc-idle-me"><div className="flc-me-move" ref={moveRef}>
       <Critter entrant={entrant} pose={cheerPose} size={150} /></div></div></div>

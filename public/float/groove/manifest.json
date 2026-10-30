@@ -1861,7 +1861,8 @@
       "skullTop": -7
      },
      "front": "critters/roadrunner/idle-front.webp",
-     "seam": "critters/roadrunner/idle-seam.webp"
+     "seam": "critters/roadrunner/idle-seam.webp",
+     "profile": "left"
     },
     "stroke": {
      "src": "critters/roadrunner/stroke.webp",
@@ -1899,7 +1900,8 @@
       "skullTop": -8
      },
      "front": "critters/roadrunner/stroke-front.webp",
-     "seam": "critters/roadrunner/stroke-seam.webp"
+     "seam": "critters/roadrunner/stroke-seam.webp",
+     "profile": "right"
     },
     "stroke-r": {
      "src": "critters/roadrunner/stroke-r.webp",
@@ -1937,7 +1939,8 @@
       "skullTop": -8
      },
      "front": "critters/roadrunner/stroke-r-front.webp",
-     "seam": "critters/roadrunner/stroke-r-seam.webp"
+     "seam": "critters/roadrunner/stroke-r-seam.webp",
+     "profile": "right"
     },
     "hey": {
      "src": "critters/roadrunner/hey.webp",
@@ -1975,7 +1978,8 @@
       "skullTop": -8
      },
      "front": "critters/roadrunner/hey-front.webp",
-     "seam": "critters/roadrunner/hey-seam.webp"
+     "seam": "critters/roadrunner/hey-seam.webp",
+     "profile": "left"
     },
     "nice": {
      "src": "critters/roadrunner/nice.webp",
@@ -2013,7 +2017,8 @@
       "skullTop": -9
      },
      "front": "critters/roadrunner/nice-front.webp",
-     "seam": "critters/roadrunner/nice-seam.webp"
+     "seam": "critters/roadrunner/nice-seam.webp",
+     "profile": "left"
     },
     "miss": {
      "src": "critters/roadrunner/miss.webp",
@@ -2051,7 +2056,8 @@
       "skullTop": -9
      },
      "front": "critters/roadrunner/miss-front.webp",
-     "seam": "critters/roadrunner/miss-seam.webp"
+     "seam": "critters/roadrunner/miss-seam.webp",
+     "profile": "left"
     },
     "chug": {
      "src": "critters/roadrunner/chug.webp",
@@ -2089,7 +2095,8 @@
       "skullTop": -10
      },
      "front": "critters/roadrunner/chug-front.webp",
-     "seam": "critters/roadrunner/chug-seam.webp"
+     "seam": "critters/roadrunner/chug-seam.webp",
+     "profile": "left"
     },
     "cheer": {
      "src": "critters/roadrunner/cheer.webp",
@@ -2127,7 +2134,8 @@
       "skullTop": -59
      },
      "front": "critters/roadrunner/cheer-front.webp",
-     "seam": "critters/roadrunner/cheer-seam.webp"
+     "seam": "critters/roadrunner/cheer-seam.webp",
+     "profile": "left"
     },
     "out": {
      "src": "critters/roadrunner/out.webp",
@@ -2165,7 +2173,8 @@
       "skullTop": -10
      },
      "front": "critters/roadrunner/out-front.webp",
-     "seam": "critters/roadrunner/out-seam.webp"
+     "seam": "critters/roadrunner/out-seam.webp",
+     "profile": "right"
     }
    },
    "portrait": {
@@ -2208,7 +2217,8 @@
     "deckR": 55,
     "deckTilt": 14,
     "front": "critters/roadrunner/portrait-front.webp",
-    "seam": "critters/roadrunner/portrait-seam.webp"
+    "seam": "critters/roadrunner/portrait-seam.webp",
+    "profile": "left"
    },
    "kayak": true,
    "tee": {
@@ -2267,7 +2277,8 @@
       "chestShown": 1,
       "deckTilt": -2,
       "front": "critters/roadrunner/tee/idle-front.webp",
-      "seam": "critters/roadrunner/tee/idle-seam.webp"
+      "seam": "critters/roadrunner/tee/idle-seam.webp",
+      "profile": "left"
      },
      "stroke": {
       "src": "critters/roadrunner/tee/stroke.webp",
@@ -2318,7 +2329,8 @@
       "chestShown": 1,
       "deckTilt": 14,
       "front": "critters/roadrunner/tee/stroke-front.webp",
-      "seam": "critters/roadrunner/tee/stroke-seam.webp"
+      "seam": "critters/roadrunner/tee/stroke-seam.webp",
+      "profile": "right"
      },
      "stroke-r": {
       "src": "critters/roadrunner/tee/stroke-r.webp",
@@ -2369,7 +2381,8 @@
       "chestShown": 1,
       "deckTilt": -14,
       "front": "critters/roadrunner/tee/stroke-r-front.webp",
-      "seam": "critters/roadrunner/tee/stroke-r-seam.webp"
+      "seam": "critters/roadrunner/tee/stroke-r-seam.webp",
+      "profile": "right"
      },
      "hey": {
       "src": "critters/roadrunner/tee/hey.webp",
@@ -2420,7 +2433,8 @@
       "chestShown": 1,
       "deckTilt": -6,
       "front": "critters/roadrunner/tee/hey-front.webp",
-      "seam": "critters/roadrunner/tee/hey-seam.webp"
+      "seam": "critters/roadrunner/tee/hey-seam.webp",
+      "profile": "left"
      },
      "nice": {
       "src": "critters/roadrunner/tee/nice.webp",
@@ -2471,7 +2485,8 @@
       "chestShown": 1,
       "deckTilt": -6,
       "front": "critters/roadrunner/tee/nice-front.webp",
-      "seam": "critters/roadrunner/tee/nice-seam.webp"
+      "seam": "critters/roadrunner/tee/nice-seam.webp",
+      "profile": "left"
      },
      "miss": {
       "src": "critters/roadrunner/tee/miss.webp",
@@ -2522,7 +2537,8 @@
       "chestShown": 1,
       "deckTilt": 2,
       "front": "critters/roadrunner/tee/miss-front.webp",
-      "seam": "critters/roadrunner/tee/miss-seam.webp"
+      "seam": "critters/roadrunner/tee/miss-seam.webp",
+      "profile": "left"
      },
      "chug": {
       "src": "critters/roadrunner/tee/chug.webp",
@@ -2573,7 +2589,8 @@
       "chestShown": 1,
       "deckTilt": 14,
       "front": "critters/roadrunner/tee/chug-front.webp",
-      "seam": "critters/roadrunner/tee/chug-seam.webp"
+      "seam": "critters/roadrunner/tee/chug-seam.webp",
+      "profile": "left"
      },
      "cheer": {
       "src": "critters/roadrunner/tee/cheer.webp",
@@ -2624,7 +2641,8 @@
       "chestShown": 1,
       "deckTilt": 14,
       "front": "critters/roadrunner/tee/cheer-front.webp",
-      "seam": "critters/roadrunner/tee/cheer-seam.webp"
+      "seam": "critters/roadrunner/tee/cheer-seam.webp",
+      "profile": "left"
      },
      "out": {
       "src": "critters/roadrunner/tee/out.webp",
@@ -2675,7 +2693,8 @@
       "chestShown": 1,
       "deckTilt": 6,
       "front": "critters/roadrunner/tee/out-front.webp",
-      "seam": "critters/roadrunner/tee/out-seam.webp"
+      "seam": "critters/roadrunner/tee/out-seam.webp",
+      "profile": "right"
      }
     }
    },
@@ -13213,7 +13232,7 @@
     160,
     425
    ],
-   "fit": 0.6,
+   "fit": 0.7,
    "depth": 0.05,
    "gap": 0.08,
    "sink": 0.12
@@ -13286,7 +13305,7 @@
     160,
     314
    ],
-   "fit": 1,
+   "fit": 1.12,
    "depth": 0.08,
    "gap": 0.08,
    "sink": 0.36

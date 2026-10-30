@@ -347,7 +347,23 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
       const sy = measure.turn ? sc / Math.max(0.6, 1 - measure.turn * 0.4) : sc;
       gg.translate(anchor.eyes[0] * k, anchor.eyes[1] * k);
       gg.rotate(tilt);
-      gg.drawImage(shades.img, -shades.anchor[0] * sc * k, -shades.anchor[1] * sy * k, shades.w * sc * k, shades.h * sy * k);
+      if (measure.profile === "left" || measure.profile === "right") {
+        /* a head in profile (the roadrunner) has one eye: one lens on it, its bridge stub toward the beak,
+           a temple arm back over the head */
+        const back = measure.profile === "left" ? 1 : -1;
+        const half = shades.w / 2, lensX = half + back * shades.span / 2;
+        gg.lineCap = "round";
+        gg.lineWidth = Math.max(1.5, wearW * 0.04 * k);
+        gg.strokeStyle = INK;
+        gg.beginPath();
+        gg.moveTo(back * shades.span * 0.4 * sc * k, -shades.span * 0.08 * sc * k);
+        gg.lineTo(back * wearW * 0.8 * k, -wearW * 0.1 * k);
+        gg.stroke();
+        const sx0 = back > 0 ? half : 0;
+        gg.drawImage(shades.img, sx0, 0, half, shades.h, (sx0 - lensX) * sc * k, -shades.anchor[1] * sy * k, half * sc * k, shades.h * sy * k);
+      } else {
+        gg.drawImage(shades.img, -shades.anchor[0] * sc * k, -shades.anchor[1] * sy * k, shades.w * sc * k, shades.h * sy * k);
+      }
       glassesTop = shades.anchor[1] * sy;
       /* never past the critter's own outline: on a three quarter face the far lens goes behind the snout */
       gg.setTransform(1, 0, 0, 1, 0, 0);
@@ -370,6 +386,8 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
           baseY = eyeY - (1 - hat.sink) * (measure.seatDrop ?? measure.browDrop);
           /* never over the skull's own top: a hat always takes some head in (a critter seated by its brow share sits where it says) */
           if (measure.seatDrop == null || measure.seatDrop === measure.browDrop) baseY = Math.max(baseY, eyeY - measure.browDrop + skullW * 0.05);
+          /* a critter seated by its brow share: no hat higher than a brim on its eye bumps (BROW_SEAT_TOP of the way) */
+          else baseY = Math.max(baseY, eyeY - measure.seatDrop * BROW_SEAT_TOP);
         } else {
           /* from the skull's own top where the art measured it (an ear's tip or a slumped head throws the anchor off) */
           const top = Number.isFinite(measure.skullTop) ? Math.min(measure.skullTop, eyeY - skullW * 0.12) : 0;
@@ -547,6 +565,8 @@ export function wearOf(c, entry = null) {
 
 /* a pose that draws the head slumped and sunk (out) wears its hat this much smaller */
 const POSE_WEAR = Object.freeze({ out:0.9 });
+/* where a browShare critter's hats stop rising: this share of its seat drop over the eyes */
+const BROW_SEAT_TOP = 0.4;
 
 /* the set a look's poses come from: the tee's with the photo tee (when the critter has one), else the plain one */
 const artSet = (c, look) => (look.shirt && c?.tee?.poses ? c.tee : c);
@@ -634,7 +654,7 @@ export function riderSprites(raw = {}) {
       for (const pose of m.poses || POSES) {
         const art = set.poses?.[pose] || set.poses?.idle;
         const at = { ...c.anchor, ...(set.anchor || {}), ...(art?.anchor || {}) };
-        const measure = { ...measureOf(art, measureOf(set, measureOf(c))), ...wear, wearScale:POSE_WEAR[pose] ?? 1 };
+        const measure = { ...measureOf(art, measureOf(set, measureOf(c))), ...wear, wearScale:POSE_WEAR[pose] ?? 1, profile:art?.profile ?? null };
         const fileKey = `${art?.src}|${art?.tube}|${art?.shirt || ""}|${JSON.stringify(at)}|${JSON.stringify(measure)}`;
         if (done.has(fileKey)) { urls[pose] = done.get(fileKey); continue; }
         const [src, tube, shirt, front, seam] = await Promise.all([
@@ -744,11 +764,11 @@ export async function riderPortrait(entrant = {}, { size = 256, frame = "full" }
       const box = m.box || [BOX, BOX];
       const [src, tube, shirt, front, seam] = await Promise.all([loadImage(grooveUrl(art.src)), loadImage(grooveUrl(art.tube)).catch(() => null), art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null, ...wornParts(art, layers)]);
       return framedStill({ src, tube, shirt, front, seam, color:look.color, W:box[0], ws:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor },
-        measure:{ ...measureOf(art, measureOf(c)), ...wearOf(c) }, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers,
+        measure:{ ...measureOf(art, measureOf(c)), ...wearOf(c), profile:art.profile ?? null }, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers,
         region:tee.frame || [0, 0, box[0]], frame, px });
     }
     const [src, tube, front, seam] = await Promise.all([loadImage(grooveUrl(c.portrait.src)), loadImage(grooveUrl(c.portrait.tube)).catch(() => null), ...wornParts(c.portrait, layers)]);
-    const pm = { ...measureOf(c.portrait, { headW:DEFAULT_MEASURE.headW * 2, eyeSpan:DEFAULT_MEASURE.eyeSpan * 2 }), ...wearOf(c, c.portrait) };
+    const pm = { ...measureOf(c.portrait, { headW:DEFAULT_MEASURE.headW * 2, eyeSpan:DEFAULT_MEASURE.eyeSpan * 2 }), ...wearOf(c, c.portrait), profile:c.portrait.profile ?? null };
     const PW = c.portrait.w || 1024;
     /* painted no bigger than twice the still needs (a chip never paints the whole 1024) */
     const ws = Math.min(PW, Math.max(128, px * 2));

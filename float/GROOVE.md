@@ -754,7 +754,10 @@ the skull and hid everything thin above it. Now a hat is worn:
   smaller. Run it after `float-art-fit-anchors.mjs`, which rewrites every
   measure.
 - **Glasses** stay inside the critter's outline (a three quarter face's far
-  lens goes behind the snout).
+  lens goes behind the snout). A head drawn in profile (the roadrunner; a
+  pose's `profile`: "left" or "right", the way the beak points) wears one
+  lens on its one eye, the bridge stub toward the beak and a temple arm back
+  over the head.
 - **Portraits** paint with headroom and take in a hat that rises over the
   frame; the Locker's hat and glasses chips frame the whole hat.
 - Review: `dev/acc/sheet.html` paints the real module (any critters, poses,

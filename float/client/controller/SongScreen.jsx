@@ -13,7 +13,8 @@
    zooming); this draws. */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Critter, Host, Popup } from "./art.jsx";
-import { beatCounter, darkAt, demoAt, narrationAt, pendingCalls, rankView, songView } from "./controllerModel.js";
+import { STREAK_SHOW, autoRowPose, beatCounter, darkAt, demoAt, narrationAt, numberTone, pendingCalls, rankView, songView, tapsView } from "./controllerModel.js";
+import { streakBreakSound } from "./sound.js";
 import { cueTime } from "../../shared/chart.js";
 import { CutLine, Scenery } from "./parts.jsx";
 import SeatMap from "./SeatMap.jsx";
@@ -225,6 +226,61 @@ export function BeatCounter({ counter }) {
   </div>;
 }
 
+/* Right versus wrong at a glance (v4 item 2): the pad answers every
+   judgement by grade (Perfect a bright flash of your colour and a gold ring,
+   Nice a smaller one, OK dim; Early and Late nudge the stage that way with a
+   salmon edge; a Miss a red edge and a shake). The flash sits over the
+   scene and under the host, the popup and you. */
+const NUDGE = Object.freeze({
+  early:[{ transform:"none" }, { transform:"translateX(-18px)", offset:0.3 }, { transform:"none" }],
+  late:[{ transform:"none" }, { transform:"translateX(18px)", offset:0.3 }, { transform:"none" }],
+  miss:[{ transform:"none" }, { transform:"translateX(-11px)", offset:0.15 }, { transform:"translateX(10px)", offset:0.35 },
+    { transform:"translateX(-7px)", offset:0.55 }, { transform:"translateX(4px)", offset:0.75 }, { transform:"none" }],
+});
+export function useNudge(ref, last) {
+  useLayoutEffect(() => {
+    const el = ref.current, frames = last && NUDGE[last.q];
+    if (!frames || !el || typeof el.animate !== "function" || reducedMotion()) return;
+    el.animate(frames, { duration:last.q === "miss" ? 360 : 240, easing:"cubic-bezier(0.25, 1, 0.5, 1)" });
+  }, [last?.key, last?.q]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+function Answer({ last }) {
+  const shown = useShown(last, 700);
+  if (!shown) return null;
+  return <i className={`flc-answer is-${shown.q}`} key={`${shown.key}:${shown.q}`} aria-hidden="true" />;
+}
+
+/* the streak ("12 in a row", Nice or better), its break, the coach line and the timing meter, at the foot */
+function Streak({ view }) {
+  const broke = useShown(view.broken ? { key:view.broken.key, at:view.brokeAt, n:view.broken.n } : null, 1100);
+  if (broke) return <b className="flc-streak is-broken" key={`broke-${broke.key}`} role="status">{broke.n} in a row</b>;
+  if (view.streak < STREAK_SHOW) return <span className="flc-streak is-empty" aria-hidden="true" />;
+  return <b className={`flc-streak${view.streak >= 10 ? " is-hot" : ""}`} key={`s${view.streak}`} role="status">{view.streak} in a row</b>;
+}
+export const METER_MS = 300;
+function Meter({ ticks }) {
+  const pos = d => `${50 + Math.max(-1, Math.min(1, d / METER_MS)) * 50}%`;
+  return <div className="flc-meter" aria-hidden="true">
+    <span className="flc-meter-side">Early</span>
+    <span className="flc-meter-bar">
+      <i className="flc-meter-nice" /><i className="flc-meter-perfect" /><i className="flc-meter-mid" />
+      {ticks.map((tick, k) => <b key={tick.key} className={`flc-tick is-${numberTone(tick.q, tick.d)}${k === ticks.length - 1 ? " is-last" : ""}`}
+        style={{ left:pos(tick.d), opacity:0.35 + 0.65 * ((k + 1) / ticks.length) }} />)}
+    </span>
+    <span className="flc-meter-side">Late</span>
+  </div>;
+}
+export function Foot({ counter, taps, view }) {
+  return <div className={`flc-foot${counter ? " has-counter" : ""}`}>
+    {counter && <BeatCounter counter={counter} />}
+    <div className="flc-foot-row">
+      <Streak view={view} />
+      {view.coach && <b className="flc-coach" key={view.coach} role="status">{view.coach}</b>}
+    </div>
+    <Meter ticks={view.ticks} />
+  </div>;
+}
+
 /* who's ahead: your place, small, in the song bar's corner */
 function Rank({ rank }) {
   return <span className={`flc-rank${rank.safe === true ? " is-safe" : rank.safe === false ? " is-below" : ""}`} role="status">
@@ -235,8 +291,19 @@ function Rank({ rank }) {
 /* props: serverNow (the room's clock), chart, songAt, entrant, shape (roundShape), name,
    popup ({ key, q, d, at }), act ({ key, kind, q, at }), me (the room's word on you), onTap */
 export default function SongScreen({ serverNow, chart, songAt, entrant, shape, name, popup = null, act = null, me = null, seats = null,
-  onTap, onExit = null }) {
-  const rootRef = useRef(null), bobRef = useRef(null), moveRef = useRef(null);
+  taps = [], onTap, onExit = null }) {
+  const rootRef = useRef(null), bobRef = useRef(null), moveRef = useRef(null), stageRef = useRef(null);
+  /* your judgements so far: the streak, its break, the meter, the coach; the newest answers on the pad */
+  const tapState = tapsView(taps);
+  const brokeAt = useRef({ key:null, at:0 });
+  if (tapState.broken && tapState.broken.key !== brokeAt.current.key) brokeAt.current = { key:tapState.broken.key, at:perfNow() };
+  const feel = { ...tapState, brokeAt:brokeAt.current.at };
+  const lastAt = useRef({ key:null, q:null, at:0 });
+  const lastTap = tapState.last;
+  if (lastTap && (lastTap.key !== lastAt.current.key || lastTap.q !== lastAt.current.q)) lastAt.current = { key:lastTap.key, q:lastTap.q, at:perfNow() };
+  const answer = lastTap ? { key:lastTap.key, q:lastTap.q, at:lastAt.current.at } : null;
+  useNudge(stageRef, answer);
+  useEffect(() => { if (tapState.broken) streakBreakSound(tapState.broken.n); }, [tapState.broken?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   usePad(rootRef, onTap);
   const now = useSongNow(serverNow, songAt, chart?.beatMs);
   const view = songView(chart, songAt, now);
@@ -251,7 +318,8 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
     ? { key:`demo-${demo.id}`, kind:demo.kind, q:"nice", at:perfNow() - (now - cueTime(songAt, demo.beat, chart.beatMs)) } : null;
   const moved = demoAct && (!act || demoAct.at > act.at) ? demoAct : act;
   const stroke = useStroke(moved);
-  const pose = usePose(moved, "idle", stroke?.side);
+  /* everyone rows on 1 and 3 by the clock; your own judged move plays over it */
+  const pose = usePose(moved, autoRowPose(chart, view), stroke?.side);
   useMove(moveRef, moved);
   useBeatBob(bobRef, { songAt, serverNow, beatMs:chart?.beatMs, on:Number.isFinite(songAt) && view.moment !== "card" });
   const shown = useShown(popup);
@@ -266,6 +334,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
     data-moment={view.moment} data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />
     <i className="flc-tint" aria-hidden="true" />
+    {!card && <Answer last={answer} />}
     <header className="flc-songbar">
       <span className="flc-songname">{name}</span>
       {view.moment === "practice" && <span className="flc-tag">Practice</span>}
@@ -278,7 +347,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
       {line && <Narration text={line} />}
       <HostBubble calls={calls} />
     </div>}
-    <div className="flc-stage">
+    <div className="flc-stage" ref={stageRef}>
       <div className="flc-popup-slot">{shown ? <Popup key={shown.key} q={shown.q} d={shown.d} />
         : watch ? <b className="flc-watch-tag" key={`watch-${demo.id}`}>Watch</b> : null}</div>
       {burst && <i className={`flc-burst is-${burst.q}`} key={`burst-${burst.key}`} aria-hidden="true" />}
@@ -286,6 +355,6 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
         <Critter entrant={entrant} pose={pose} size={300} />
       </div></div>
     </div>
-    <BeatCounter counter={counter} />
+    {!card && view.moment !== "after" && <Foot counter={counter} taps={taps} view={feel} />}
   </section>;
 }

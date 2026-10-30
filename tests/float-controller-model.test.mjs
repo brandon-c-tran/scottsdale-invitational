@@ -175,7 +175,7 @@ test("the mock: every held moment opens on its phase, this phone where the shots
     card:["song", "song"], count:["song", "song"], practice:["song", "song"], hey:["song", "song"], play:["song", "song"],
     "play-late":["song", "song"], "play-miss":["song", "song"], "watch-demo":["song", "song"], breakdown:["song", "song"],
     "breakdown-copy":["song", "song"], outro:["song", "song"], after:["song", "song"], rock:["song", "song"],
-    spin:["song", "song"], drop:["song", "song"], fireworks:["song", "song"], "fireworks-launch":["song", "song"], "fireworks-dark":["song", "song"], cut:["cut", "cut"], "cut-out":["cut", "cut"], "cut-bubble":["cut", "cut"],
+    spin:["song", "song"], drop:["song", "song"], fireworks:["song", "song"], "fireworks-launch":["song", "song"], "fireworks-dark":["song", "song"], "play-streak":["song", "song"], "play-drift":["song", "song"], cut:["cut", "cut"], "cut-out":["cut", "cut"], "cut-bubble":["cut", "cut"],
     "cut-final":["cut", "cut"], chugoff:["chugoff", "chugoff"], "chugoff-count":["chugoff", "chugoff"], "chugoff-go":["chugoff", "chugoff"],
     "chugoff-kept":["chugoff", "chugoff"], "chugoff-out":["chugoff", "chugoff"], "chugoff-crowd":["chugoff", "chugoff"],
     lastcall:["lastcall", "lastcall"], "lastcall-tap":["lastcall", "lastcall"], "lastcall-locked":["lastcall", "lastcall"],

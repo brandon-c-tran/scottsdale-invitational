@@ -26,7 +26,7 @@ import { chartOf, cueTime, MISS_AFTER_MS } from "../../shared/chart.js";
 import { botSkills } from "../../shared/groove.js";
 
 export const MOCK_SCENES = Object.freeze(["lobby", "lobby-ready", "lobby-fieldday", "intro", "card", "count", "practice", "hey",
-  "watch-demo", "play", "play-late", "play-miss", "breakdown", "breakdown-copy", "outro", "after", "rock", "spin", "drop", "fireworks", "fireworks-launch", "fireworks-dark",
+  "watch-demo", "play", "play-late", "play-miss", "breakdown", "breakdown-copy", "outro", "after", "rock", "spin", "drop", "fireworks", "fireworks-launch", "fireworks-dark", "play-streak", "play-drift",
   "cut", "cut-out", "cut-bubble", "cut-final", "chugoff", "chugoff-count", "chugoff-go", "chugoff-kept", "chugoff-out",
   "chugoff-crowd", "lastcall", "lastcall-tap", "lastcall-locked", "lastcall-reveal", "lastcall-drink", "lastcall-safe",
   "crowd", "podium", "podium-win", "podium-out", "feedback", "watch"]);
@@ -318,6 +318,8 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "spin": ghost = GHOSTS.practice; toBeat(2, 10.6); break;
       case "drop": ghost = GHOSTS.practice; toBeat(3, 118.1); break;
       /* Fireworks, the final (round 5): the host's fuse (Launch), a launch tapped now (20 ms late, Perfect), a blackout bar */
+      /* the streak and the drift: reached like play, then the phone hears the ghost's taps (below) */
+      case "play-streak": case "play-drift": ghost = GHOSTS.practice; toBeat(0, 25.6); break;
       case "fireworks": ghost = GHOSTS.practice; toBeat(4, 29.6); break;
       case "fireworks-launch": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 31 ? null : GHOSTS.practice.r(cue, offset) };
         toBeat(4, 30.6); runTo(cueAt(31) + song().offset + 20); break;
@@ -356,6 +358,13 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
     /* back on the air: the room as it stands (the first scene waits for the phone's own hello) */
     if (!quiet || status === "open") phoneHello();
     if (name === "play-miss") runTo(clock.t + 220);
+    /* the phone listens while the ghost plays on: on the beat (a streak), or late every time (the coach, a broken streak) */
+    if (name === "play-streak" || name === "play-drift") {
+      ghost = name === "play-streak" ? GHOSTS.good
+        : { r:(cue, offset) => offset + (cue.beat < 31 ? near(cue.id) / 2 : 175 + near(cue.id) / 4), chug:null };
+      runTo(room.cup.songAt + (name === "play-streak" ? 37.2 : 40.6) * 500);
+      ghost = null;
+    }
     if (!freeze) startFollowing();
     frozen = !!freeze;
     return true;

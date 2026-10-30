@@ -501,8 +501,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   background: color-mix(in srgb, var(--me) 13%, transparent); box-shadow: inset 0 0 0 10px var(--me), inset 0 0 0 13px var(--ink); }
 
 /* practice's count: 1 2 3 4, the beats with a tap lit, the beat now pulsing */
-.flc-counter { position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 4%);
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; z-index: 2; pointer-events: none; }
+.flc-counter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; pointer-events: none; }
 .flc-count { display: grid; justify-items: center; align-content: start; gap: 12px; }
 .flc-count i {
   display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; font-style: normal;
@@ -535,6 +534,64 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-burst.is-early, .flc-burst.is-late { width: 150px; height: 150px; margin-left: -75px; }
 @keyframes flc-burst { from { transform: scale(0.2); opacity: 1; } 70% { opacity: 1; } to { transform: scale(1.15); opacity: 0; } }
 
+/* ── v4: right versus wrong at a glance ── */
+/* the pad's answer to each judgement, over the scene and under you */
+.flc-answer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.flc-answer::before, .flc-answer::after { content: ""; position: absolute; pointer-events: none; }
+.flc-answer.is-perfect::before, .flc-answer.is-nice::before, .flc-answer.is-ok::before { inset: 0;
+  background: radial-gradient(circle at 50% 64%, color-mix(in srgb, var(--me) 75%, #fff) 0, color-mix(in srgb, var(--me) 45%, transparent) 34%, transparent 68%);
+  animation: flc-flash 420ms ease-out both; }
+.flc-answer.is-nice::before { animation-name: flc-flash-nice; }
+.flc-answer.is-ok::before { animation-name: flc-flash-ok; }
+@keyframes flc-flash { from { opacity: 0.95; } to { opacity: 0; } }
+@keyframes flc-flash-nice { from { opacity: 0.55; } to { opacity: 0; } }
+@keyframes flc-flash-ok { from { opacity: 0.22; } to { opacity: 0; } }
+/* Perfect's gold ring bursts from you; Nice's is smaller */
+.flc-answer.is-perfect::after, .flc-answer.is-nice::after { left: 50%; top: 64%; width: 240px; height: 240px; margin: -120px 0 0 -120px; border-radius: 50%;
+  box-shadow: 0 0 0 10px #f5b82e, 0 0 0 14px var(--ink); animation: flc-ring 460ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.flc-answer.is-nice::after { width: 170px; height: 170px; margin: -85px 0 0 -85px; box-shadow: 0 0 0 6px #ffe24d, 0 0 0 9px var(--ink); animation-duration: 380ms; }
+@keyframes flc-ring { from { transform: scale(0.35); opacity: 1; } 75% { opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+/* Early and Late: a salmon edge, thicker on the side you were off to; a Miss: a red edge */
+.flc-answer.is-early::before, .flc-answer.is-late::before, .flc-answer.is-miss::before { inset: 0; animation: flc-edge 560ms ease-out both; }
+.flc-answer.is-early::before { box-shadow: inset 0 0 0 14px #ff8f80, inset 34px 0 40px -6px rgba(255, 143, 128, 0.85); }
+.flc-answer.is-late::before { box-shadow: inset 0 0 0 14px #ff8f80, inset -34px 0 40px -6px rgba(255, 143, 128, 0.85); }
+.flc-answer.is-miss::before { box-shadow: inset 0 0 0 16px #ff3b30, inset 0 0 60px 10px rgba(255, 59, 48, 0.55); }
+@keyframes flc-edge { 0% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+/* Early and Late say their word big */
+.flc-popup[data-q="early"] .fg-popup-word, .flc-popup[data-q="late"] .fg-popup-word { font-size: 1.12em; }
+
+/* the foot: practice's count, then the streak and the coach, then the meter */
+.flc-foot { position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 3%);
+  display: grid; gap: 10px; z-index: 2; pointer-events: none; }
+.flc-foot-row { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; }
+.flc-streak {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 4px 16px 5px; border-radius: 999px; white-space: nowrap;
+  font-size: 22px; font-weight: 900; color: var(--ink); background: var(--yellow); box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.22);
+  animation: flc-streak-up 260ms var(--spring) both; }
+.flc-streak.is-empty { visibility: hidden; padding: 0; width: 0; }
+.flc-streak.is-hot { background: #f5b82e; box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 4px var(--me), 0 4px 0 rgba(43, 34, 51, 0.22); }
+@keyframes flc-streak-up { from { transform: scale(1.22); } }
+/* a streak broken: struck through, grey, and it drops away */
+.flc-streak.is-broken { background: #c3c1cc; color: var(--ink-2); text-decoration: line-through 3px; animation: flc-streak-break 1100ms ease-in both; }
+@keyframes flc-streak-break { 0% { transform: rotate(0) translateY(0); } 12% { transform: rotate(-6deg) scale(1.08); } 60% { opacity: 1; transform: rotate(-9deg) translateY(4px); }
+  100% { opacity: 0; transform: rotate(-14deg) translateY(28px); } }
+.flc-coach { display: inline-flex; align-items: center; min-height: 40px; padding: 4px 16px 5px; border-radius: 999px; white-space: nowrap;
+  font-size: 22px; font-weight: 900; color: var(--ink); background: #ff8f80; box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.22);
+  animation: flc-streak-up 260ms var(--spring) both; }
+/* the timing meter: the beat in the middle, the Perfect and Nice bands, your last 8 taps as ticks */
+.flc-meter { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.flc-meter-side { font-size: 14px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; color: var(--paper); text-shadow: var(--outline-thin); }
+.flc-meter-bar { position: relative; height: 18px; border-radius: 9px; background: color-mix(in srgb, var(--paper) 72%, transparent); box-shadow: inset 0 0 0 2.5px var(--ink); overflow: visible; }
+.flc-meter-nice, .flc-meter-perfect, .flc-meter-mid { position: absolute; top: 2.5px; bottom: 2.5px; }
+.flc-meter-nice { left: calc(50% - 100 / 300 * 50%); right: calc(50% - 100 / 300 * 50%); background: color-mix(in srgb, #4fdc7c 45%, transparent); }
+.flc-meter-perfect { left: calc(50% - 50 / 300 * 50%); right: calc(50% - 50 / 300 * 50%); background: color-mix(in srgb, #f5b82e 70%, transparent); }
+.flc-meter-mid { left: calc(50% - 1.5px); width: 3px; top: -4px; bottom: -4px; border-radius: 2px; background: var(--ink); }
+.flc-tick { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--paper); box-shadow: 0 0 0 1.5px var(--ink);
+  transition: left 120ms var(--ease); }
+.flc-tick.is-gold { background: #f5b82e; } .flc-tick.is-green { background: #4fdc7c; } .flc-tick.is-yellow { background: #ffe24d; } .flc-tick.is-red { background: #ff5f56; }
+.flc-tick.is-last { top: -8px; bottom: -8px; width: 8px; margin-left: -4px; box-shadow: 0 0 0 2.5px var(--ink); animation: flc-tick-in 220ms var(--spring) both; }
+@keyframes flc-tick-in { from { transform: scaleY(1.8); } }
+
 /* the popup's number in its tone (chart offsetTone / countTone): gold, green, yellow, orange, red; a miss grey */
 .flc-popup.is-num-gold .fg-popup-num { color: #f5b82e; }
 .flc-popup.is-num-green .fg-popup-num { color: #4fdc7c; }
@@ -560,8 +617,8 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   .flc-chug-pair { top: 36%; left: 0; right: 50%; }
   .flc-chug-main { top: calc(var(--sa-top) + 52px); }
   .flc-barseat { --cs: min(220px, 52vh); left: 14%; }
-  /* practice's count on the right half, clear of you */
-  .flc-counter { left: 50%; bottom: calc(var(--sa-bottom) + 3%); }
+  /* practice's count, the streak and the meter on the right half, clear of you */
+  .flc-foot { left: 50%; bottom: calc(var(--sa-bottom) + 3%); }
   .flc-count i { width: 52px; height: 52px; font-size: 26px; }
   .flc-chugoff.is-crowd .flc-stage.is-low { display: none; }
   .flc-chug-count { font-size: 96px; }

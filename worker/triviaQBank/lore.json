@@ -201,10 +201,10 @@
         "nba"
       ],
       "likely": [
-        "Evan",
-        "Eyob"
+        "Evan"
       ],
       "possible": [
+        "Eyob",
         "Chinh",
         "Khoa"
       ],
@@ -2386,7 +2386,7 @@
       }
     ],
     "verified": {
-      "by": "provided",
+      "by": "suggested",
       "at": "2026-10-29"
     },
     "status": "confirm",

@@ -1041,7 +1041,7 @@
       }
     ],
     "verified": {
-      "by": "provided",
+      "by": "suggested",
       "at": "2026-10-29"
     },
     "status": "confirm",
@@ -1088,7 +1088,7 @@
       }
     ],
     "verified": {
-      "by": "provided",
+      "by": "suggested",
       "at": "2026-10-29"
     },
     "status": "confirm",
@@ -1135,7 +1135,7 @@
       }
     ],
     "verified": {
-      "by": "provided",
+      "by": "suggested",
       "at": "2026-10-29"
     },
     "status": "confirm",
@@ -1182,7 +1182,7 @@
       }
     ],
     "verified": {
-      "by": "provided",
+      "by": "suggested",
       "at": "2026-10-29"
     },
     "status": "confirm",
@@ -1229,7 +1229,7 @@
       }
     ],
     "verified": {
-      "by": "provided",
+      "by": "suggested",
       "at": "2026-10-29"
     },
     "status": "confirm",

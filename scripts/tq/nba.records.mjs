@@ -11,7 +11,7 @@ function acquired(how) {
   let m
   if ((m = how.match(/^Traded from (\w+) on (\d\d)\/\d\d\/(\d\d)$/))) return `Traded from ${ABBR[m[1]] || m[1]} in ${when(m[2], m[3])}`
   if ((m = how.match(/^Signed on (\d\d)\/\d\d\/(\d\d)$/))) return `Signed in ${when(m[1], m[2])}`
-  if ((m = how.match(/^#(\d+) Pick in (\d+) Draft$/))) return `Drafted ${m[1]}th overall in ${m[2]}`
+  if ((m = how.match(/^#(\d+) Pick in (\d+) Draft$/))) { const n = +m[1], suf = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th"; return `Drafted ${n}${suf} overall in ${m[2]}` }
   if ((m = how.match(/^Awarded on Waivers on (\d\d)\/\d\d\/(\d\d)$/))) return `Claimed on waivers in ${when(m[1], m[2])}`
   throw new Error('how? ' + how)
 }
@@ -45,7 +45,7 @@ const records = players.map((p, i) => {
     verified: { by: 'web', at: p.checkedAt, cutoff },
     status: 'ready',
     tags: { topics: ['nba'], likely: p.tier <= 2 ? ['Evan', 'Eyob', 'Adi'] : [], possible: p.tier <= 2 ? ['Sahil'] : ['Evan', 'Eyob', 'Adi', 'Sahil'], reach },
-    notes: `Roster as of ${cutoff}. A trade after that date changes the answer. Decoys are other teams, not verified past teams.`,
+    notes: `Roster as of ${cutoff}. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams.`,
   }
 })
 fs.mkdirSync('worker/triviaQBank', { recursive: true })

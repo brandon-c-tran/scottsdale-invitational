@@ -22,7 +22,7 @@ export const VERIFIED_NAMES = Object.freeze({ web:"Checked on the web", provided
 export const PAGE_SIZE = 30;
 export const LABEL_MAX = 28;
 /* a phone's narrow slot */
-export const LABEL_SHORT = 16;
+export const LABEL_SHORT = 24;
 
 export const categoryOf = id => QBANK_CATEGORIES.find(category => category.id === id) || null;
 export const categoryName = id => categoryOf(id)?.name || id || "";
@@ -237,7 +237,7 @@ export function boardView(plan, byId, warnings) {
     ...column,
     cells:column.slots.map((qid, slot) => {
       const record = qid ? byId.get(qid) || null : null;
-      const own = (warned.get(slotKey(col, slot)) || []).filter(warning => kindOf(warning) !== "empty");
+      const own = (warned.get(slotKey(col, slot)) || []).filter(warning => kindOf(warning) !== "empty" && isRealWarning(warning));
       return { col, slot, qid, record, value:QBANK_VALUES[slot], label:record ? slotLabel(record) : qid ? "Missing" : "",
         short:record ? slotLabel(record, LABEL_SHORT) : qid ? "Missing" : "",
         lamp:!qid ? "empty" : !record ? "rejected" : record.mark === "reject" ? "rejected"
@@ -344,3 +344,37 @@ export function qbankRowValue(state) {
   const filled = planColumns(state.triviaPlan).reduce((n, column) => n + column.slots.filter(Boolean).length, 0);
   return `${filled} of ${QBANK_CATEGORIES.length * QBANK_SLOTS}`;
 }
+
+/* ── the slot sheet ── */
+/* The board walked as Brandon fills it: 100 to 500 down a column, then the
+   next column. { prev, next } around a slot (null at either end). */
+export function slotStep({ col, slot }) {
+  const index = col * QBANK_SLOTS + slot;
+  const at = i => i < 0 || i >= QBANK_CATEGORIES.length * QBANK_SLOTS ? null : { col:Math.floor(i / QBANK_SLOTS), slot:i % QBANK_SLOTS };
+  return { prev:at(index - 1), next:at(index + 1) };
+}
+/* What a slot can hold: its pick, then every other question of its
+   category as rows, this value first, then the other values in order;
+   in each, the bank's order (a rejection last). */
+export function slotRows(records, plan, { col, slot }) {
+  const column = planColumns(plan)[col];
+  if (!column) return { current:null, groups:[] };
+  const currentId = column.slots[slot];
+  const current = currentId ? records.find(record => record.id === currentId) || null : null;
+  const tier = tierOfSlot(slot);
+  const rest = sortRecords(records.filter(record => record.category === column.category && record.id !== currentId), { byCategory:false });
+  const tiers = [tier, ...QBANK_TIERS.filter(t => t !== tier)];
+  const groups = tiers.map(t => ({ tier:t, value:valueOfTier(t), records:rest.filter(record => Number(record.tier) === t) }))
+    .filter(group => group.records.length);
+  return { current, groups };
+}
+/* where else a record sits on the board, as values ("Used at 300") */
+export const usedElsewhere = (record, at = null) => (record?.placed || [])
+  .filter(place => !at || place.col !== at.col || place.slot !== at.slot).map(place => QBANK_VALUES[place.slot]);
+
+/* A dot on the board is a real problem: a clue that can't deal as it is, a
+   repeat, an asset that gives it away. Rated at another value, or a small
+   group, is his call: listed, never dotted. */
+export const DOT_KINDS = Object.freeze(["missing", "not-ready", "reveals", "duplicate-options", "same-answer", "same-subject", "same-media",
+  "same-variant"]);
+export const isRealWarning = warning => DOT_KINDS.includes(warning?.kind || warning?.code);

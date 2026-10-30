@@ -230,41 +230,52 @@ Where the contract was silent, these are the calls; every name below is code.
   slot, qid, kind, text }] }`. The commissioner's frames also carry
   `triviaPlan`, `triviaBankEdits` and `triviaBankMarks`; no other frame does.
 
-## Desk as built (Oct 29, `tq/desk`)
+## Desk as built (Oct 29, `tq/desk`; "tap a slot, pick, done" Oct 30)
 
-- **Where**: Commissioner > Games > Trivia, the "Question bank" row at the
-  top of the Trivia desk (its value "31 of 35"); a sheet pushed over Trivia
-  (Back returns), loaded on first use (`lazyPart`, `COMMISSIONER_PARTS`),
-  rendered only in the commissioner's view. `src/features/trivia/`:
-  `QBankDesk.jsx`, the pure `qbankModel.js`, `qbankMedia.js` (a record's
-  clip at its exact window: audio on the app's one media element, video in
-  the card's own `<video>`, one source at a time with the song previews),
-  `qbank.css`. The rules are `shared/triviaQBank.js` (no copy).
+- **Where**: Commissioner > Games > Trivia, the "Your board" row at the top
+  of the Trivia desk (its value "31 of 35"); a sheet titled "Your board"
+  pushed over Trivia (Back returns), loaded on first use (`lazyPart`,
+  `COMMISSIONER_PARTS`), rendered only in the commissioner's view.
+  `src/features/trivia/`: `QBankDesk.jsx`, the pure `qbankModel.js`,
+  `qbankMedia.js` (a record's clip at its exact window: audio on the app's
+  one media element, video in its row's own `<video>`, one source at a time
+  with the song previews), `qbank.css`. The rules are `shared/triviaQBank.js`.
 - **Data**: records from `GET /api/trivia/qbank` (`triviaQBank()` in
-  `src/lib/client.js`), merged again with the frame's
-  `triviaBankEdits` (`qbankMerged` over each record's `original`), so an
-  edit or a mark from another device shows at once; the plan from the
-  frame (else the GET's `plan`, else `recommended`); warnings are
-  `qbankWarnings(plan, byId)` on the merged records.
-- **Board**: the Rounds | Board switch (`triviaSetFormat`) sits on top; the
-  summary is what can deal ("31/35 ready · 1 empty · 3 not ready") and a
-  warnings button listing one line per problem (tap: that slot). Cells: a
-  label (subject, a media clue's answer, else the prompt's start; a
-  shorter one on a phone, long words soft-hyphenated), a lamp (ready cyan,
-  needs your answer flashing amber, needs asset unlit, rejected struck, a
-  clue played anyway lit as ready), a clay dot when warned. A phone draws
+  `src/lib/client.js`), merged again with the frame's `triviaBankEdits`
+  (`qbankMerged` over each record's `original`), so an edit or a mark from
+  another device shows at once; the plan from the frame (else the GET's
+  `plan`, else `recommended`); warnings are `qbankWarnings(plan, byId)`.
+- **The board**: the summary is what can deal ("31/35 ready · 1 empty · 3
+  not ready") and, only when there are any, a warnings button listing one
+  line per problem (tap: that slot's sheet). Cells are raised buttons: a
+  label (subject, a media clue's answer, else the question's start; long
+  words soft-hyphenated), a lamp (ready cyan, needs your answer flashing
+  amber, needs asset unlit, rejected struck, a clue played anyway lit as
+  ready), and a clay dot only for a real problem (`DOT_KINDS`: not ready,
+  missing, a repeat, an asset that gives it away, two options the same; a
+  clue rated at another value or a small group never dots). A phone draws
   the board on its side (a category a row); 520 px of board and up, as the
-  TV does. Tapping a slot compares its alternatives (its category and
-  value, what sits there first even at another value).
-- **Cards**: badges (status, value, category, On the board, mark, Wedding
-  surprise, Needs your answer, Asset gives it away, Edited), clip variants
-  as one card with a switch (by window, else "Cut N"), media with Reveal
-  for `revealMedia`, the four options with the answer marked, reveal,
-  notes, "Sources and audience" (checked, sources, likely, possible,
-  reach, topics, file, id). Actions: Put in {value} (or the selected
-  slot), any slot of its column, Take off board, Edit, Favorite /
-  Shortlist / Reject, Play anyway (`force`) for a placed clue not ready
-  (never one waiting on Brandon). 30 cards a page.
+  TV does. Under it on a phone: Browse all, then Reset to recommended,
+  Export, Import.
+- **A slot's sheet** (`slotRows`, `slotStep`): tapping a slot opens it,
+  the whole screen on a phone (`fd-qb-slotsheet`), the right column on a
+  laptop (from 1000 px), titled "Pass the Aux · 200". Previous and Next walk
+  the board (100 to 500 down a column, then the next column) without
+  closing it. Its pick first (cyan), then every other question of that
+  category as rows, this value first, then the other values under their
+  value. A row: a thumbnail (a picture), a play button (audio, or video in
+  a small frame), or nothing (text); the subject, a media clue's answer or
+  the question; the answer marked; a lamp; "Used at 300", its mark, its
+  window. Tapped, it opens in place: the larger media (Reveal for
+  `revealMedia`), the four options with the answer, the reveal and notes,
+  and **Use this** (`qbankAssign`: the sheet closes and the slot flashes)
+  beside **More** (Edit, Favorite, Shortlist, Reject, Sources and
+  audience). The pick opened offers Take off board, and Play anyway
+  (`force`) when it is not ready (never one waiting on Brandon).
+- **Browse all**: the whole bank (search, category, value, status, mark),
+  the same rows with "Put in {value}" (its category's column, its value),
+  30 a page; a sheet on a phone, the right column on a laptop when no slot
+  is open.
 - **Editor**: prompt, answers (mark the right one), reveal, value, the
   clip's start and length with a preview of that window, status, notes;
   checked by `qbankEditPatch` before it is sent; a field the edit already
@@ -275,12 +286,13 @@ Where the contract was silent, these are the calls; every name below is code.
   forced? }, edits, marks }`), Import (checked locally, then "Replace the
   board, edits and marks with this file?", `qbankImport`).
 - **Writes**: one at a time (a shared pending guard); a failure says why on
-  the card or under the board, and as a toast.
-- **Rehearse**: `/dev/qbank-preview.html` (`?stage=fresh|worked|empty`,
-  `&slot=c:s`, `&edit=<id>`, `&warnings=1`, `&q=`, `&category=`,
-  `&fail=1`, `&slow=<ms>`, `&load=fail`, `&bank=<url>` for another bank's
-  `{ records, recommended }`). Fixtures: `dev/fit/qbankDeskFixtures.js`
-  (45 made-up records, `useDeskBank()` swaps them in as the Worker's bank,
-  states built by the real writes), media from
-  `node scripts/qbank-desk-media.mjs` into `public/tq/`. Fit views
-  `qbank-*` (390 and 375); tests `tests/qbank-desk.test.mjs`.
+  the row or under the board, and as a toast.
+- **Rehearse**: `/dev/qbank-preview.html` (`?real=1` the real bank on its
+  recommended board, `?stage=fresh|worked|empty` the fixtures, `&slot=c:s`,
+  `&open=<id>`, `&browse=1`, `&edit=<id>`, `&warnings=1`, `&q=`,
+  `&category=`, `&fail=1`, `&slow=<ms>`, `&load=fail`, `&bank=<url>`).
+  Fixtures: `dev/fit/qbankDeskFixtures.js` (45 made-up records,
+  `useDeskBank()` swaps them in as the Worker's bank, states built by the
+  real writes), media from `node scripts/qbank-desk-media.mjs`. Fit views
+  `qbank-*` (fixtures) and `qbank-real-*` (the real bank) at 390 and 375;
+  tests `tests/qbank-desk.test.mjs`.

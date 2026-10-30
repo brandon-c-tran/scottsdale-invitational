@@ -1,7 +1,8 @@
 /* The Question bank desk (QBankDesk.jsx). On a phone the board lies on its
-   side (a category a row, the values across) over the bank; from a laptop's
-   width the sheet widens, the board stands as the TV draws it (a category a
-   column) and stays in view beside the bank. Lamps keep their jobs: ready
+   side (a category a row, the values across) and a slot opens its own sheet
+   over the whole screen; from a laptop's width the sheet widens, the board
+   stands as the TV draws it (a category a column) and stays in view beside
+   the slot or Browse all. Lamps keep their jobs: ready
    is lit cyan, needs your answer flashes amber, needs an asset is unlit,
    rejected is struck; a warning is a clay dot. */
 .fd-sheet-overlay .si-sheet.fd-qb-sheet { max-width:560px; }
@@ -35,30 +36,34 @@
 
 /* ── the board ── */
 .fd-qb-boardwrap { container-type:inline-size; min-width:0; }
-.fd-qb-board { display:grid; gap:3px; grid-template-columns:70px repeat(5, minmax(0, 1fr)); }
+.fd-qb-board { display:grid; gap:4px; grid-template-columns:64px repeat(5, minmax(0, 1fr)); }
 .fd-qb-corner { grid-row:1; grid-column:1; }
 .fd-qb-val { grid-row:1; grid-column:var(--s); align-self:end; padding:0 0 2px; color:var(--muted2); text-align:center;
   font:800 14px/1.1 var(--fd-display); letter-spacing:.04em; font-variant-numeric:tabular-nums; }
 .fd-qb-cat { grid-row:var(--c); grid-column:1; align-self:center; min-width:0; color:var(--ink); font:800 13px/1.15 var(--fd-display);
   letter-spacing:.01em; overflow-wrap:anywhere; text-wrap:balance; }
-.fd-qb-cell { position:relative; grid-row:var(--c); grid-column:var(--s); min-width:0; min-height:58px; display:grid; align-content:start;
-  justify-items:start; gap:3px; padding:6px 4px 5px; border:1px solid var(--ghost-line); border-radius:8px; background:var(--bg); color:var(--ink);
-  text-align:left; cursor:pointer; box-shadow:inset 0 2px 4px color-mix(in srgb, var(--ink0) 45%, transparent);
-  -webkit-tap-highlight-color:transparent; transition:transform .1s ease; }
+.fd-qb-cell { position:relative; grid-row:var(--c); grid-column:var(--s); min-width:0; min-height:74px; display:grid; align-content:start;
+  justify-items:start; gap:4px; padding:7px 5px 6px; border:1px solid var(--ghost-line); border-radius:10px; background:var(--paper2); color:var(--ink);
+  text-align:left; cursor:pointer; box-shadow:var(--glass-edge), var(--shadow-1); -webkit-tap-highlight-color:transparent; transition:transform .1s ease; }
 .fd-qb-cell:active { transform:scale(.97); }
 .fd-qb-cell-label { min-width:0; max-width:100%; font:700 12px/1.15 var(--fd-display); letter-spacing:0; overflow-wrap:break-word;
   hyphens:auto; }
 .fd-qb-cell-label.is-long { display:none; }
 .fd-qb-cell .fd-qb-lamp { width:10px; height:10px; }
-.fd-qb-cell .fd-qb-dot { position:absolute; top:5px; right:5px; width:8px; height:8px; }
-.fd-qb-cell.is-empty { place-content:center; place-items:center; border-style:dashed; background:transparent; box-shadow:none; color:var(--muted); }
+.fd-qb-cell .fd-qb-dot { position:absolute; top:6px; right:6px; width:9px; height:9px; }
+/* a slot that just changed: the cyan lamp washes over it once */
+.fd-qb-cell.is-flash { animation:fd-qb-flash 1.4s ease-out both; }
+@keyframes fd-qb-flash { 0% { background:color-mix(in srgb, var(--lamp-info) 55%, var(--paper2)); box-shadow:0 0 0 2px var(--lamp-info), 0 0 22px var(--lamp-info); }
+  100% { background:var(--paper2); box-shadow:var(--glass-edge), var(--shadow-1); } }
+@media(prefers-reduced-motion:reduce) { .fd-qb-cell.is-flash { animation:none; border-color:var(--lamp-info); } }
+.fd-qb-cell.is-empty { place-content:center; place-items:center; border-style:dashed; background:transparent; box-shadow:none; color:var(--muted2); }
 .fd-qb-cell.is-selected { border-color:var(--lamp-info); background:var(--info-tint);
   box-shadow:0 0 0 1px var(--lamp-info), 0 0 14px color-mix(in srgb, var(--lamp-info) 30%, transparent); }
 @container (min-width:520px) {
   .fd-qb-board { grid-template-columns:38px repeat(7, minmax(0, 1fr)); }
   .fd-qb-val { grid-row:var(--s); grid-column:1; align-self:center; padding:0; text-align:left; }
   .fd-qb-cat { grid-row:1; grid-column:var(--c); align-self:end; padding:0 2px 4px; text-align:center; font-size:13px; }
-  .fd-qb-cell { grid-row:var(--s); grid-column:var(--c); min-height:66px; }
+  .fd-qb-cell { grid-row:var(--s); grid-column:var(--c); min-height:72px; }
   .fd-qb-cell-label { font-size:13px; }
   .fd-qb-cell-label.is-long { display:block; }
   .fd-qb-cell-label.is-short { display:none; }
@@ -104,39 +109,76 @@
   font:600 14px/1.2 var(--fd-body); }
 .fd-qb-statusline { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0; color:var(--muted2); font:500 13px/1.3 var(--fd-body); }
 .fd-qb-statusline span { display:inline-flex; align-items:center; gap:6px; }
-.fd-qb-compare { display:grid; gap:0; padding:10px 12px 0; border:1px solid var(--lamp-info); border-radius:12px; background:var(--info-tint); }
-.fd-qb-compare-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.fd-qb-compare-title { display:flex; align-items:baseline; gap:10px; min-width:0; }
-.fd-qb-compare-title b { font:900 22px/1.15 var(--fd-show); letter-spacing:.01em; overflow-wrap:anywhere; }
-.fd-qb-compare-title span { color:var(--lamp-info); font:800 22px/1.15 var(--fd-display); font-variant-numeric:tabular-nums; }
 
-/* ── the cards ── */
-.fd-qb-cards { display:grid; gap:12px; }
-@media(min-width:1000px) { .fd-qb-cards.is-compare { grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); align-items:start; } }
-.fd-qb-card { display:grid; gap:10px; min-width:0; padding:14px; border:1px solid var(--ghost-line); border-radius:14px; background:var(--paper2);
-  box-shadow:var(--glass-edge), var(--shadow-1); }
-.fd-qb-card.is-placed { border-color:color-mix(in srgb, var(--lamp-info) 55%, transparent); }
-.fd-qb-card.is-out { opacity:.72; }
+/* ── a slot's sheet: the walk, its pick, the rows by value ── */
+@media(max-width:699px) {
+  .fd-sheet-overlay .si-sheet.fd-qb-slotsheet { height:100dvh; max-height:100dvh; border-radius:0; }
+}
+.fd-qb-slot, .fd-qb-browse { display:grid; gap:12px; min-width:0; }
+.fd-qb-slot-title { margin:0; font:900 26px/1.15 var(--fd-show); letter-spacing:.01em; overflow-wrap:anywhere; }
+.fd-qb-walk { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+.fd-qb-walk button { min-height:48px; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:0 10px;
+  border:1px solid var(--line); border-radius:10px; background:var(--paper2); color:var(--lamp-info); font:600 15px/1.1 var(--fd-body);
+  cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-qb-walk button:disabled { opacity:.35; cursor:default; }
+.fd-qb-emptyslot { margin:0; padding:14px; border:1px dashed var(--ghost-line); border-radius:12px; color:var(--muted2); text-align:center;
+  font:600 15px/1.2 var(--fd-body); }
+.fd-qb-group { display:grid; gap:6px; }
+.fd-qb-group-head { margin:8px 0 0; color:var(--muted2); font:800 16px/1.2 var(--fd-display); letter-spacing:.06em;
+  font-variant-numeric:tabular-nums; }
+
+/* a row: thumbnail or play, the question, the answer, a lamp and where else it is used */
+.fd-qb-rows { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
+.fd-qb-row { min-width:0; border:1px solid var(--line); border-radius:12px; background:var(--paper2); box-shadow:var(--glass-edge); }
+.fd-qb-row.is-here { border-color:var(--lamp-info); box-shadow:0 0 0 1px var(--lamp-info), var(--glass-edge); }
+.fd-qb-row.is-out:not(.is-open) { opacity:.62; }
+.fd-qb-row-head { display:grid; grid-template-columns:52px minmax(0, 1fr) auto; align-items:center; gap:10px; padding:6px 12px 6px 8px; }
+.fd-qb-row-head.is-bare { grid-template-columns:minmax(0, 1fr) auto; }
+.fd-qb-thumb { width:52px; height:52px; display:grid; place-items:center; border-radius:8px; background:var(--ink0); object-fit:cover; overflow:hidden; }
+.fd-qb-thumb.is-text { background:var(--bg); color:var(--muted); }
+.fd-qb-thumb.is-audio { background:transparent; }
+.fd-qb-thumb.is-video { position:relative; }
+.fd-qb-thumb.is-video video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.fd-qb-thumb.is-video .fd-qb-play { position:relative; background:color-mix(in srgb, var(--ink0) 60%, transparent); }
+.fd-qb-row-main { min-width:0; min-height:56px; display:grid; align-content:center; gap:3px; padding:4px 4px 4px 0; border:0; background:none;
+  color:var(--ink); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.fd-qb-row-title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font:600 15px/1.3 var(--fd-body);
+  overflow-wrap:anywhere; }
+.fd-qb-row.is-open .fd-qb-row-title { display:block; -webkit-line-clamp:unset; }
+.fd-qb-row-title svg { margin-right:6px; vertical-align:-2px; color:var(--green); }
+.fd-qb-row-sub { display:block; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted2);
+  font:500 13px/1.3 var(--fd-body); }
+.fd-qb-row-answer { display:block; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--ink);
+  font:600 14px/1.3 var(--fd-body); }
+.fd-qb-row-answer svg { margin-right:6px; vertical-align:-2px; color:var(--green); }
+.fd-qb-row-meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; color:var(--muted2); font:500 12px/1.3 var(--fd-body); }
+.fd-qb-row-meta .fd-qb-lamp { width:10px; height:10px; }
+.fd-qb-row-meta .is-used { color:var(--lamp-info); }
+.fd-qb-row-meta .is-mark.is-reject { color:var(--clay-text); }
+.fd-qb-row-body { display:grid; gap:10px; padding:4px 10px 12px; }
+.fd-qb-browsebtn { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.fd-qb-backlink { justify-self:start; display:inline-flex; align-items:center; gap:6px; }
+
+/* an open row's More: Edit, the marks, the sources */
+.fd-qb-menu { display:grid; margin:0; padding:0; list-style:none; border:1px solid var(--line); border-radius:10px; background:var(--bg); overflow:hidden; }
+.fd-qb-menu li + li { border-top:1px solid var(--line); }
+.fd-qb-menu button { width:100%; min-height:48px; display:flex; align-items:center; gap:10px; padding:0 14px; border:0; background:none;
+  color:var(--ink); font:600 15px/1.2 var(--fd-body); text-align:left; cursor:pointer; }
+.fd-qb-menu button svg { color:var(--muted2); }
+.fd-qb-menu button[aria-pressed=true], .fd-qb-menu button[aria-pressed=true] svg { color:var(--lamp-info); }
+.fd-qb-menu button.is-reject[aria-pressed=true], .fd-qb-menu button.is-reject[aria-pressed=true] svg { color:var(--clay-text); }
+.fd-qb-menu button:disabled { opacity:.4; cursor:default; }
+.fd-qb-menu .fd-qb-details { padding:10px 14px; }
+
 .fd-qb-badges { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-.fd-qb-badges > span { display:inline-flex; align-items:center; gap:6px; min-height:26px; padding:3px 9px; border:1px solid var(--line);
-  border-radius:99px; color:var(--muted2); font:600 12px/1.2 var(--fd-body); overflow-wrap:anywhere; }
-.fd-qb-badges .fd-qb-status { color:var(--ink); }
-.fd-qb-badges .fd-qb-tier { padding:3px 8px; border-color:var(--bone-line); color:var(--ink); font:800 15px/1 var(--fd-display);
-  letter-spacing:.03em; font-variant-numeric:tabular-nums; }
-.fd-qb-badges .is-board { border-color:color-mix(in srgb, var(--lamp-info) 55%, transparent); color:var(--lamp-info); }
-.fd-qb-badges .is-mark { border-color:color-mix(in srgb, var(--lamp-info) 40%, transparent); color:var(--lamp-info); }
-.fd-qb-badges .is-mark.is-reject, .fd-qb-badges .is-caution { border-color:color-mix(in srgb, var(--clay) 55%, transparent); color:var(--clay-text);
-  background:var(--clay-tint); }
-.fd-qb-variants { display:flex; flex-wrap:wrap; gap:4px; padding:4px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }
-.fd-qb-variants button { flex:1 1 auto; min-height:44px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:var(--muted2);
-  font:600 13px/1.2 var(--fd-body); font-variant-numeric:tabular-nums; cursor:pointer; }
-.fd-qb-variants button[aria-checked=true] { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-qb-badges > span { display:inline-flex; align-items:center; min-height:26px; padding:3px 9px; border:1px solid var(--line);
+  border-radius:99px; color:var(--muted2); font:600 12px/1.2 var(--fd-body); }
+.fd-qb-badges .is-caution { border-color:color-mix(in srgb, var(--clay) 55%, transparent); color:var(--clay-text); background:var(--clay-tint); }
 
 /* media: the clue's picture or its clip at the exact window */
 .fd-qb-media { position:relative; display:grid; gap:8px; }
 .fd-qb-media img, .fd-qb-video { display:block; width:100%; height:auto; max-height:240px; object-fit:contain; border-radius:10px;
   background:var(--ink0); }
-.fd-qb-audioart { display:none; }
 .fd-qb-revealswitch { position:absolute; top:8px; right:8px; min-height:44px; padding:0 14px; border:1px solid var(--ghost-line); border-radius:99px;
   background:color-mix(in srgb, var(--ink0) 78%, transparent); color:var(--ink); font:600 13px/1 var(--fd-body); cursor:pointer;
   -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
@@ -152,10 +194,7 @@
 .fd-qb-clip-time { color:var(--muted2); font:600 13px/1 var(--fd-body); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .fd-qb-clip-error { grid-column:1 / -1; color:var(--clay-text); font:600 13px/1.3 var(--fd-body); }
 
-.fd-qb-q { display:grid; gap:2px; }
-.fd-qb-subject { margin:0; font:900 24px/1.15 var(--fd-show); letter-spacing:.01em; overflow-wrap:anywhere; }
-.fd-qb-prompt { margin:0; font:600 16px/1.35 var(--fd-body); overflow-wrap:anywhere; }
-.fd-qb-subject + .fd-qb-prompt { color:var(--muted2); font-weight:500; font-size:15px; }
+.fd-qb-prompt { margin:0; color:var(--muted2); font:500 15px/1.35 var(--fd-body); overflow-wrap:anywhere; }
 .fd-qb-options { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
 @media(min-width:420px) { .fd-qb-options { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 .fd-qb-options li { display:flex; align-items:center; gap:10px; min-height:44px; padding:6px 10px 6px 6px; border:1px solid var(--line);
@@ -168,9 +207,7 @@
 .fd-qb-reveal, .fd-qb-notes { display:grid; gap:2px; margin:0; font:500 14px/1.45 var(--fd-body); overflow-wrap:anywhere; }
 .fd-qb-reveal b, .fd-qb-notes b { color:var(--muted); font:800 12px/1.3 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
 .fd-qb-notes { color:var(--muted2); }
-.fd-qb-details { border-top:1px solid var(--line); }
-.fd-qb-details summary { display:flex; align-items:center; min-height:44px; color:var(--lamp-info); font:600 14px/1.2 var(--fd-body); cursor:pointer; }
-.fd-qb-details dl { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:6px 12px; margin:0 0 6px; font:500 13px/1.4 var(--fd-body); }
+.fd-qb-details { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:6px 12px; margin:0; font:500 13px/1.4 var(--fd-body); }
 .fd-qb-details dt { color:var(--muted); font:800 12px/1.4 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
 .fd-qb-details dd { margin:0; min-width:0; overflow-wrap:anywhere; }
 .fd-qb-file { color:var(--muted2); font-variant-numeric:tabular-nums; }
@@ -178,28 +215,12 @@
 .fd-qb-sources a { display:inline-flex; align-items:center; gap:4px; min-height:24px; color:var(--lamp-info); overflow-wrap:anywhere; }
 .fd-qb-sources small { margin-left:8px; color:var(--muted2); font-size:12px; }
 
-/* the card's actions: Put in slot leads, then the slot list and Edit; the
-   marks under them as one row of three */
+/* an open row's actions: Use this leads, More beside it */
 .fd-qb-actions { display:flex; align-items:stretch; gap:8px; }
 .fd-qb-actions > button:first-child { flex:1 1 auto; min-width:0; }
-.fd-qb-more, .fd-qb-act, .fd-qb-mark { min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); font:600 13px/1.1 var(--fd-body); cursor:pointer;
-  box-shadow:var(--glass-edge); }
-.fd-qb-more { width:44px; flex:0 0 44px; }
-.fd-qb-act { padding:0 14px; }
-.fd-qb-more:disabled, .fd-qb-act:disabled, .fd-qb-mark:disabled { opacity:.4; cursor:default; }
-.fd-qb-marks { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
-.fd-qb-mark { padding:0 6px; color:var(--muted2); }
-.fd-qb-mark[aria-pressed=true] { border-color:var(--lamp-info); background:var(--info-tint); color:var(--lamp-info); }
-.fd-qb-mark.is-reject[aria-pressed=true] { border-color:var(--clay); background:var(--clay-tint); color:var(--clay-text); }
-.fd-qb-mark[aria-busy=true] { opacity:.6; }
-.fd-qb-slotpick { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px; }
-.fd-qb-slotpick button { min-height:52px; display:grid; place-content:center; gap:2px; padding:4px 2px; border:1px dashed var(--ghost-line);
-  border-radius:8px; background:transparent; color:var(--ink); cursor:pointer; }
-.fd-qb-slotpick button.is-filled { border-style:solid; background:var(--bg); }
-.fd-qb-slotpick button:disabled { opacity:.45; cursor:default; }
-.fd-qb-slotpick b { font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
-.fd-qb-slotpick small { color:var(--muted2); font:600 12px/1.1 var(--fd-body); }
+.fd-qb-more { min-height:48px; padding:0 18px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink);
+  font:600 15px/1.1 var(--fd-body); cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-qb-more[aria-expanded=true] { border-color:var(--lamp-info); color:var(--lamp-info); }
 
 /* ── the editor ── */
 .fd-qb-editor { display:grid; gap:16px; }

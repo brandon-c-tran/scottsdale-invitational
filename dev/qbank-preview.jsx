@@ -5,8 +5,11 @@
    socket, no Durable Object; a reload starts over.
 
      /dev/qbank-preview.html                     the worked board (edits, marks, warnings)
+     ?real=1                                     the real bank (worker/triviaQBank) on its recommended board
      ?stage=fresh|worked|empty                   the recommended board, worked, or nothing picked
-     &slot=<col>:<slot>                          a slot's alternatives open
+     &slot=<col>:<slot>                          that slot's sheet open
+     &open=<record id>                           that row open in it
+     &browse=1                                   Browse all open
      &edit=<record id>                           the editor open
      &warnings=1                                 the warnings list open
      &q=<search>&category=<id>&status=<status>   the bank filtered
@@ -31,6 +34,8 @@ const initial = {
   ...(slot ? { slot:{ col:Number(slot[1]), slot:Number(slot[2]) } } : {}),
   ...(params.get("edit") ? { edit:params.get("edit") } : {}),
   ...(params.get("warnings") ? { warnings:true } : {}),
+  ...(params.get("open") ? { open:params.get("open") } : {}),
+  ...(params.get("browse") ? { browse:true } : {}),
   filters:{ ...(params.get("q") ? { query:params.get("q") } : {}), ...(params.get("category") ? { category:params.get("category") } : {}),
     ...(params.get("status") ? { status:params.get("status") } : {}), ...(params.get("tier") ? { tier:params.get("tier") } : {}),
     ...(params.get("mark") ? { mark:params.get("mark") } : {}) },
@@ -39,8 +44,9 @@ const SLOW = Number(params.get("slow")) || 0;
 const FAIL = !!params.get("fail");
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const BANK = params.get("bank");
-if (BANK) useQBank(await (await fetch(BANK)).json()); else useDeskBank();
-const first = BANK ? { triviaPlan:null, triviaBankEdits:{}, triviaBankMarks:{}, triviaFormat:"board" }
+const REAL = !!params.get("real");
+if (BANK) useQBank(await (await fetch(BANK)).json()); else if (!REAL) useDeskBank();
+const first = BANK || REAL ? { triviaPlan:null, triviaBankEdits:{}, triviaBankMarks:{} }
   : qbankFixtureState(params.get("stage") || "worked");
 let latest = first;
 const load = async () => {
@@ -61,7 +67,7 @@ function Desk() {
   }, [state]);
   const notify = text => { setToast(text); setTimeout(() => setToast(current => current === text ? "" : current), 2400); };
   return <Shell environment="production">
-    <Sheet title="Question bank" className="fd-qb-sheet" onClose={() => {}}>
+    <Sheet title="Your board" className="fd-qb-sheet" onClose={() => {}}>
       <QBankDesk state={state} onAct={onAct} notify={notify} loadQBank={load} initial={initial} />
     </Sheet>
     {toast && <div role="status" style={{ position:"fixed", left:16, right:16, bottom:24, zIndex:400, padding:"12px 16px", borderRadius:10,

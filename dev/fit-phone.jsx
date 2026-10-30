@@ -449,26 +449,35 @@ async function openSheet(kind) {
     return ok && !!(await until(() => document.querySelector(".fd-trivia-desk")));
   }
   /* the Question bank desk, from Trivia's desk: as it opens, a slot's
-     alternatives (the Pass the Aux 200 slot, a variant and a repeat), the
-     editor (the first card's Edit), the warnings list */
+     sheet (Pass the Aux 200), a row opened in it, the editor (the pick's
+     More, Edit), Browse all, the warnings list */
   if (kind.startsWith("qbank-")) {
     if (!await openSheet("trivia-desk")) return false;
     await sleep(400);
     const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
-      && b.querySelector(".fd-menu-name")?.textContent.trim() === "Question bank"));
+      && /^(Your board|Question bank)$/.test(b.querySelector(".fd-menu-name")?.textContent.trim() || "")));
     if (!ok || !(await until(() => document.querySelector(".fd-qb:not(.is-loading)")))) return false;
     if (kind === "qbank-desk") return true;
-    if (kind === "qbank-compare") {
+    const slot = async () => {
       await tap(() => [...document.querySelectorAll(".fd-qb-cell")].find(b => /^Pass the Aux 200/.test(b.getAttribute("aria-label") || "")));
-      const open = !!(await until(() => document.querySelector(".fd-qb-compare")));
-      /* the tap scrolls the alternatives into view; audit the sheet from its top */
-      await sleep(700);
-      document.querySelectorAll(".si-sheet").forEach(sheet => { sheet.scrollTop = 0; });
-      return open;
+      return !!(await until(() => document.querySelector(".fd-qb-slot")));
+    };
+    if (kind === "qbank-slot") return slot();
+    if (kind === "qbank-open") {
+      if (!await slot()) return false;
+      await tap(() => document.querySelectorAll(".fd-qb-slot .fd-qb-row-main")[1]);
+      return !!(await until(() => document.querySelector(".fd-qb-row.is-open .fd-qb-options")));
     }
     if (kind === "qbank-edit") {
-      await tap(() => [...document.querySelectorAll(".fd-qb-act")].find(b => b.textContent.trim() === "Edit"));
+      if (!await slot()) return false;
+      await tap(() => document.querySelector(".fd-qb-row.is-here .fd-qb-row-main"));
+      await tap(() => [...document.querySelectorAll(".fd-qb-more")].find(visible));
+      await tap(() => [...document.querySelectorAll(".fd-qb-menu button")].find(b => b.textContent.trim() === "Edit"));
       return !!(await until(() => document.querySelector(".fd-qb-editor")));
+    }
+    if (kind === "qbank-browse") {
+      await tap(() => [...document.querySelectorAll(".fd-qb button")].find(b => b.textContent.trim() === "Browse all"));
+      return !!(await until(() => document.querySelector(".fd-qb-browse .fd-qb-row")));
     }
     if (kind === "qbank-warnings") {
       await tap(() => document.querySelector(".fd-qb-warnbtn"));

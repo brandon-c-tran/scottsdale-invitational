@@ -1691,7 +1691,10 @@ export const PHONE_SCENARIOS = Object.freeze([
      (dev/fit/qbankDeskFixtures.js): the board and bank, a slot's alternatives,
      the editor, the warnings; and a desk with nothing picked yet */
   { id:"qbank", build:() => { useDeskBank(); return qbankFixtureState("worked", fresh("locker")); }, viewer:"gm", qbank:true, tabs:[],
-    sheets:["qbank-desk", "qbank-compare", "qbank-edit", "qbank-warnings"], sheetSizes:["375"] },
+    sheets:["qbank-desk", "qbank-slot", "qbank-open", "qbank-edit", "qbank-browse", "qbank-warnings"], sheetSizes:["375"] },
+  /* and on the real bank (worker/triviaQBank) and its recommended board */
+  { id:"qbank-real", build:() => fresh("locker"), viewer:"gm", qbank:true, tabs:[],
+    sheets:["qbank-desk", "qbank-slot", "qbank-open", "qbank-browse"], sheetSizes:["375"] },
   { id:"qbank-empty", build:() => { useDeskBank(); return qbankFixtureState("empty", fresh("locker")); }, viewer:"gm", qbank:true, tabs:[], sheets:["qbank-desk"] },
   /* and through the real writes */
   { id:"board-real-buzz", build:() => boardPlayed("armed"), settle:false, freeze:true, tabs:["home"] },

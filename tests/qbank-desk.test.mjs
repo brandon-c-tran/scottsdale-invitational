@@ -18,7 +18,7 @@ import { QBANK_CATEGORIES, QBANK_VALUES, cleanQBankRecord, mergeQBankEdit, qbank
 import {
   EXPORT_KIND, NO_FILTERS, bankView, boardView, checkEdit, deskRecords, editPatch, groupVariants, matchesQuery, parseImport,
   exportPayload, planColumns, planSummary, qbankRowValue, recordsById, slotAlternatives, slotChoices, slotLabel, slotTarget,
-  statusCounts, warningCount, warningLines, warningsBySlot, windowLabel,
+  statusCounts, warningCount, warningLines, warningsBySlot, windowLabel, slotRows, slotStep, usedElsewhere, isRealWarning,
 } from "../src/features/trivia/qbankModel.js";
 import { clipBounds, clipProgress } from "../src/features/trivia/qbankMedia.js";
 import {
@@ -83,13 +83,17 @@ test("the board: seven columns of five, labels, lamps and warning dots by slot",
   /* a text clue reads as its prompt's start, cut at a word; shorter on a phone */
   const text = board[1].cells[0];
   assert.ok(text.label.length <= 29 && text.label.endsWith("…"), text.label);
-  assert.ok(text.short.length <= 17, text.short);
+  assert.ok(text.short.length <= 25, text.short);
   /* the warning dots: the repeated answer and file on both aux slots, the revealing clip, none on a clean slot */
   assert.ok(board[3].cells[0].warnings.some(warning => warning.kind === "same-answer"));
   assert.ok(board[3].cells[1].warnings.some(warning => warning.kind === "same-media"));
   assert.ok(board[4].cells[2].warnings.some(warning => warning.kind === "reveals"));
   assert.deepEqual(board[6].cells[0].warnings, []);
   assert.deepEqual(board[3].cells[4].warnings, [], "an empty slot's own dot is its dashed cell");
+  /* no noise on a slot that is fine: a clue rated at another value is his call, never a dot */
+  assert.ok(warnings.some(warning => warning.kind === "tier" && warning.col === 3 && warning.slot === 1));
+  assert.ok(board[3].cells[1].warnings.every(isRealWarning));
+  assert.ok(!board.flatMap(column => column.cells).some(cell => cell.warnings.some(warning => warning.kind === "tier" || warning.kind === "small-group")));
   assert.deepEqual(planSummary(plan, byId), { filled:34, ready:31, total:35 });
   assert.equal(qbankRowValue(state), "34 of 35");
   assert.equal(qbankRowValue({}), null);
@@ -174,6 +178,30 @@ test("clip variants fold under the record they vary; a slot's alternatives are i
   assert.equal(choices.find(choice => choice.own), undefined);
   assert.equal(slotChoices(plan, records.find(item => item.id === "aux-fixture-1")).filter(choice => choice.own).length, 1);
   assert.deepEqual(planColumns(null).map(column => column.category), QBANK_CATEGORIES.map(category => category.id));
+});
+
+/* ── a slot's sheet ── */
+test("a slot's sheet: its pick, then its category's other questions, this value first; the walk down a column then across", () => {
+  const { records, plan } = desk("worked");
+  const { current, groups } = slotRows(records, plan, { col:0, slot:2 });
+  assert.equal(current.id, "nba-fixture-4");
+  assert.deepEqual(groups.map(group => group.value), [300, 100, 200, 400, 500], "this value first, then the others in order");
+  assert.deepEqual(groups[0].records.map(record => record.id).sort(), ["nba-fixture-3", "nba-fixture-5"]);
+  assert.ok(groups.flatMap(group => group.records).every(record => record.category === "nba" && record.id !== "nba-fixture-4"));
+  assert.equal(groups.reduce((n, group) => n + group.records.length, 0), records.filter(record => record.category === "nba").length - 1);
+  /* where else each is used, the slot's own place left out */
+  assert.deepEqual(usedElsewhere(records.find(record => record.id === "nba-fixture-1")), [100]);
+  assert.deepEqual(usedElsewhere(current, { col:0, slot:2 }), []);
+  /* an empty slot: no pick, every question still there */
+  assert.equal(slotRows(records, plan, { col:3, slot:4 }).current, null);
+  /* a rejection sinks to the end of its value */
+  const sound = slotRows(records, plan, { col:5, slot:0 }).groups.find(group => group.value === 200);
+  assert.equal(sound.records.at(-1).id, "sound-fixture-6");
+  /* Previous and Next: 100 to 500 down a column, then the next column */
+  assert.deepEqual(slotStep({ col:0, slot:0 }), { prev:null, next:{ col:0, slot:1 } });
+  assert.deepEqual(slotStep({ col:0, slot:4 }).next, { col:1, slot:0 });
+  assert.deepEqual(slotStep({ col:1, slot:0 }).prev, { col:0, slot:4 });
+  assert.deepEqual(slotStep({ col:6, slot:4 }), { prev:{ col:6, slot:3 }, next:null });
 });
 
 /* ── edits ── */
@@ -313,42 +341,87 @@ async function components() {
   return ui;
 }
 
-test("the desk renders the board, the bank's cards and a slot's alternatives", async () => {
+test("the desk on a phone: the board and Browse all, nothing stacked under it", async () => {
   const { React, renderToStaticMarkup, QBankDesk } = await components();
   const state = qbankFixtureState("worked");
-  const render = props => renderToStaticMarkup(React.createElement(QBankDesk, { state, onAct:async () => ({ ok:true }),
-    preloaded:qbankFixtureResponse(state), ...props }));
-  const html = render();
+  const html = renderToStaticMarkup(React.createElement(QBankDesk, { state, onAct:async () => ({ ok:true }), preloaded:qbankFixtureResponse(state), wide:false }));
   assert.equal((html.match(/class="fd-qb-cell( is-[a-z]+)*"/g) || []).length, 35);
   /* what the board can deal, and what is missing */
   assert.match(html, /31<\/b>\/35/);
   assert.match(html, /ready · 1 empty · 3 not ready/);
-  /* the warnings the bank finds, counted as the summary says them, dotted only where they are */
+  /* the warnings the bank finds (a clue rated at another value is not one), dotted only where they are */
   const { warnings } = desk("worked");
-  assert.ok(html.includes(`${warningCount(warningLines(warnings))} warnings`));
+  assert.ok(html.includes(`${warningCount(warningLines(warnings.filter(warning => warning.kind !== "tier")))} warnings`));
   assert.match(html, /aria-label="Who He Play For\? 100: Avery Lane, ready"/);
   assert.match(html, /aria-label="Pass the Aux 100: Fixture Anthem, ready, \d warnings"/);
-  /* a board with clues in it is what Trivia plays: no format switch to flip */
   assert.doesNotMatch(html, /role="radio"[^>]*>Rounds/);
-  for (const text of ["Reset to recommended", "Export", "Import", "Avery Lane", "Favorite", "Shortlist", "Reject", "Sources and audience",
-    "(right answer)", "Wedding surprise", "Asset gives it away", "Edited"]) assert.ok(html.includes(text), text);
-  assert.match(html, /Put in 100|Take off board/);
-  assert.ok((html.match(/<article class="fd-qb-card/g) || []).length <= 30, "a page at a time");
-  assert.match(html, /Show \d+ more/);
-  /* a slot not ready on the board offers to play it anyway; one waiting on Brandon never does */
-  const alts = render({ initial:{ slot:{ col:0, slot:2 } } });
-  assert.match(alts, /2 others/);
-  assert.match(alts, /Whole bank/);
-  assert.match(alts, /Take off board/, "what sits there leads, and comes off in one tap");
-  assert.match(alts, /Play anyway/);
-  assert.equal((alts.match(/<article class="fd-qb-card/g) || []).length, 3);
-  assert.doesNotMatch(render({ initial:{ slot:{ col:1, slot:3 } } }), /Play anyway/);
-  const loading = render({ preloaded:null, loadQBank:async () => ({ ok:true, records:[] }) });
+  assert.match(html, />Browse all</);
+  for (const text of ["Reset to recommended", "Export", "Import"]) assert.ok(html.includes(text), text);
+  assert.doesNotMatch(html, /class="fd-qb-row/, "the bank is not stacked under the board");
+  const loading = renderToStaticMarkup(React.createElement(QBankDesk, { state, onAct:async () => ({ ok:true }), wide:false,
+    loadQBank:async () => ({ ok:true, records:[] }) }));
   assert.match(loading, /Loading the question bank/);
   /* a frame without a plan reads the bank's answer */
   const bare = renderToStaticMarkup(React.createElement(QBankDesk, { state:{}, onAct:async () => ({ ok:true }),
-    preloaded:qbankFixtureResponse({}) }));
+    preloaded:qbankFixtureResponse({}), wide:false }));
   assert.match(bare, /34<\/b>\/35/);
+});
+
+test("a slot's sheet: titled by its slot, the walk, its pick, compact rows; a row opens in place with Use this and More", async () => {
+  const { React, renderToStaticMarkup, QBankDesk } = await components();
+  const state = qbankFixtureState("worked");
+  const render = initial => renderToStaticMarkup(React.createElement(QBankDesk, { state, onAct:async () => ({ ok:true }),
+    preloaded:qbankFixtureResponse(state), wide:false, initial }));
+  const sheet = render({ slot:{ col:0, slot:2 } });
+  assert.match(sheet, /fd-qb-slotsheet/);
+  assert.match(sheet, /Who He Play For\? · 300/);
+  assert.match(sheet, /<nav class="fd-qb-walk"[^]*?200[^]*?400/, "Previous and Next by value within the column");
+  assert.match(sheet, /class="fd-qb-row is-here"[^]*?Jalen Okonkwo-Pierce/, "the pick first");
+  const rows = (sheet.match(/<li class="fd-qb-row/g) || []).length;
+  assert.equal(rows, 8, "every question of the category: its pick and the seven others");
+  assert.match(sheet, /<h4 class="fd-qb-group-head">300<\/h4>[^]*<h4 class="fd-qb-group-head">100<\/h4>/);
+  assert.match(sheet, /Used at 100/);
+  assert.match(sheet, /<img class="fd-qb-thumb"/, "a picture's thumbnail");
+  assert.doesNotMatch(sheet, /Use this/, "rows stay closed until tapped");
+  /* a row opened: the four options, the reveal, Use this and More (Edit, the marks and the sources sit under More) */
+  const open = render({ slot:{ col:0, slot:2 }, open:"nba-fixture-3" });
+  assert.match(open, /class="fd-qb-row is-open"/);
+  assert.match(open, />Use this</);
+  assert.match(open, /\(right answer\)/);
+  assert.match(open, />More</);
+  assert.equal((open.match(/class="fd-qb-options"/g) || []).length, 1, "one row open at a time");
+  assert.doesNotMatch(open, /class="fd-qb-menu"/, "Edit, the marks and the sources wait under More");
+  for (const text of [">Edit<", "Sources and audience"]) assert.ok(!open.includes(text), text);
+  /* the pick opened: Take off board, and Play anyway for a clue not ready */
+  const pick = render({ slot:{ col:0, slot:2 }, open:"nba-fixture-4" });
+  assert.match(pick, />Take off board</);
+  assert.match(pick, /Play anyway/);
+  /* never for a clue waiting on Brandon's answer */
+  assert.doesNotMatch(render({ slot:{ col:1, slot:3 }, open:"kim-fixture-4" }), /Play anyway/);
+  /* a clip row: a play button at its window, no thumbnail picture */
+  const aux = render({ slot:{ col:3, slot:2 } });
+  assert.match(aux, /aria-label="Play 0:06 to 0:14"/, "the edited window");
+  /* Browse all: the whole bank, its search and filters, rows a page at a time */
+  const browse = render({ browse:true });
+  assert.match(browse, /fd-qb-slotsheet[^]*Browse all/);
+  assert.match(browse, /Search the bank/);
+  assert.ok((browse.match(/<li class="fd-qb-row/g) || []).length <= 30);
+  assert.match(browse, /Show \d+ more/);
+});
+
+test("a laptop: the board beside the slot, or beside Browse all", async () => {
+  const { React, renderToStaticMarkup, QBankDesk } = await components();
+  const state = qbankFixtureState("worked");
+  const render = initial => renderToStaticMarkup(React.createElement(QBankDesk, { state, onAct:async () => ({ ok:true }),
+    preloaded:qbankFixtureResponse(state), wide:true, initial }));
+  const idle = render(null);
+  assert.match(idle, /<section class="fd-qb-bank" aria-label="Browse all">/);
+  assert.match(idle, /Search the bank/);
+  assert.doesNotMatch(idle, /fd-qb-slotsheet/, "no sheet over the laptop's columns");
+  const slot = render({ slot:{ col:6, slot:2 } });
+  assert.match(slot, /<h3 class="fd-qb-slot-title">Silhouette Showdown · 300<\/h3>/);
+  assert.match(slot, /fd-qb-backlink/);
+  assert.doesNotMatch(slot, /fd-qb-slotsheet/);
 });
 
 test("the way in: Trivia's desk opens the question bank; only a commissioner's view renders it", async () => {

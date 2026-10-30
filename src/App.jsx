@@ -1818,7 +1818,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         <Suspense fallback={null}><TriviaDesk state={state} me={me} events={events} notify={notify}
           onAct={(type, payload) => act(type, payload)} onOpenBank={() => pushModal({ type:"qbankDesk" })} /></Suspense>
       </Sheet>}
-      {gmView && modal?.type === "qbankDesk" && <Sheet title="Question bank" className="fd-qb-sheet" onClose={() => setModal(null)} onBack={modalBack}>
+      {gmView && modal?.type === "qbankDesk" && <Sheet title="Your board" className="fd-qb-sheet" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><QBankDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload, null, { quiet:true })} /></Suspense>
       </Sheet>}
       {gmView && modal?.type === "karaokeDesk" && <Sheet title="Karaoke" onClose={() => setModal(null)} onBack={modalBack}>

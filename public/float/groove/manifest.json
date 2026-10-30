@@ -82,7 +82,9 @@
       "headW": 160,
       "eyeSpan": 39,
       "tilt": -4.2
-     }
+     },
+     "front": "critters/capybara/idle-front.webp",
+     "seam": "critters/capybara/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/capybara/stroke.webp",
@@ -117,7 +119,9 @@
       "headW": 160,
       "eyeSpan": 37,
       "tilt": 3.5
-     }
+     },
+     "front": "critters/capybara/stroke-front.webp",
+     "seam": "critters/capybara/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/capybara/stroke-r.webp",
@@ -152,7 +156,9 @@
       "headW": 160,
       "eyeSpan": 39,
       "tilt": 0
-     }
+     },
+     "front": "critters/capybara/stroke-r-front.webp",
+     "seam": "critters/capybara/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/capybara/hey.webp",
@@ -187,7 +193,9 @@
       "headW": 160,
       "eyeSpan": 38,
       "tilt": -10
-     }
+     },
+     "front": "critters/capybara/hey-front.webp",
+     "seam": "critters/capybara/hey-seam.webp"
     },
     "nice": {
      "src": "critters/capybara/nice.webp",
@@ -222,7 +230,9 @@
       "headW": 160,
       "eyeSpan": 40,
       "tilt": -6
-     }
+     },
+     "front": "critters/capybara/nice-front.webp",
+     "seam": "critters/capybara/nice-seam.webp"
     },
     "miss": {
      "src": "critters/capybara/miss.webp",
@@ -257,7 +267,9 @@
       "headW": 160,
       "eyeSpan": 39,
       "tilt": 0
-     }
+     },
+     "front": "critters/capybara/miss-front.webp",
+     "seam": "critters/capybara/miss-seam.webp"
     },
     "chug": {
      "src": "critters/capybara/chug.webp",
@@ -292,7 +304,9 @@
       "headW": 160,
       "eyeSpan": 39,
       "tilt": 0
-     }
+     },
+     "front": "critters/capybara/chug-front.webp",
+     "seam": "critters/capybara/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/capybara/cheer.webp",
@@ -327,7 +341,9 @@
       "headW": 160,
       "eyeSpan": 35,
       "tilt": -3.8
-     }
+     },
+     "front": "critters/capybara/cheer-front.webp",
+     "seam": "critters/capybara/cheer-seam.webp"
     },
     "out": {
      "src": "critters/capybara/out.webp",
@@ -362,7 +378,9 @@
       "headW": 160,
       "eyeSpan": 32,
       "tilt": 8.1
-     }
+     },
+     "front": "critters/capybara/out-front.webp",
+     "seam": "critters/capybara/out-seam.webp"
     }
    },
    "portrait": {
@@ -402,7 +420,9 @@
      "tilt": -1.6
     },
     "deckR": 70,
-    "deckTilt": -2
+    "deckTilt": -2,
+    "front": "critters/capybara/portrait-front.webp",
+    "seam": "critters/capybara/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -458,7 +478,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/capybara/tee/idle-front.webp",
+      "seam": "critters/capybara/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/capybara/tee/stroke.webp",
@@ -506,7 +528,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/capybara/tee/stroke-front.webp",
+      "seam": "critters/capybara/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/capybara/tee/stroke-r.webp",
@@ -554,7 +578,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/capybara/tee/stroke-r-front.webp",
+      "seam": "critters/capybara/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/capybara/tee/hey.webp",
@@ -602,7 +628,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/capybara/tee/hey-front.webp",
+      "seam": "critters/capybara/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/capybara/tee/nice.webp",
@@ -650,7 +678,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -14
+      "deckTilt": -14,
+      "front": "critters/capybara/tee/nice-front.webp",
+      "seam": "critters/capybara/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/capybara/tee/miss.webp",
@@ -698,7 +728,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/capybara/tee/miss-front.webp",
+      "seam": "critters/capybara/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/capybara/tee/chug.webp",
@@ -746,7 +778,9 @@
       },
       "deckR": 24,
       "chestShown": 0.99,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/capybara/tee/chug-front.webp",
+      "seam": "critters/capybara/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/capybara/tee/cheer.webp",
@@ -794,7 +828,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/capybara/tee/cheer-front.webp",
+      "seam": "critters/capybara/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/capybara/tee/out.webp",
@@ -842,7 +878,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/capybara/tee/out-front.webp",
+      "seam": "critters/capybara/tee/out-seam.webp"
      }
     }
    }
@@ -913,7 +951,9 @@
       "headW": 153,
       "eyeSpan": 92,
       "tilt": -0.8
-     }
+     },
+     "front": "critters/javelina/idle-front.webp",
+     "seam": "critters/javelina/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/javelina/stroke.webp",
@@ -948,7 +988,9 @@
       "headW": 152,
       "eyeSpan": 82,
       "tilt": 11.1
-     }
+     },
+     "front": "critters/javelina/stroke-front.webp",
+     "seam": "critters/javelina/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/javelina/stroke-r.webp",
@@ -983,7 +1025,9 @@
       "headW": 133,
       "eyeSpan": 85,
       "tilt": -1
-     }
+     },
+     "front": "critters/javelina/stroke-r-front.webp",
+     "seam": "critters/javelina/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/javelina/hey.webp",
@@ -1018,7 +1062,9 @@
       "headW": 156,
       "eyeSpan": 89,
       "tilt": 2.7
-     }
+     },
+     "front": "critters/javelina/hey-front.webp",
+     "seam": "critters/javelina/hey-seam.webp"
     },
     "nice": {
      "src": "critters/javelina/nice.webp",
@@ -1053,7 +1099,9 @@
       "headW": 153,
       "eyeSpan": 92,
       "tilt": 0
-     }
+     },
+     "front": "critters/javelina/nice-front.webp",
+     "seam": "critters/javelina/nice-seam.webp"
     },
     "miss": {
      "src": "critters/javelina/miss.webp",
@@ -1088,7 +1136,9 @@
       "headW": 153,
       "eyeSpan": 92,
       "tilt": 0
-     }
+     },
+     "front": "critters/javelina/miss-front.webp",
+     "seam": "critters/javelina/miss-seam.webp"
     },
     "chug": {
      "src": "critters/javelina/chug.webp",
@@ -1123,7 +1173,9 @@
       "headW": 153,
       "eyeSpan": 92,
       "tilt": 0
-     }
+     },
+     "front": "critters/javelina/chug-front.webp",
+     "seam": "critters/javelina/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/javelina/cheer.webp",
@@ -1158,7 +1210,9 @@
       "headW": 142,
       "eyeSpan": 80,
       "tilt": 0.6
-     }
+     },
+     "front": "critters/javelina/cheer-front.webp",
+     "seam": "critters/javelina/cheer-seam.webp"
     },
     "out": {
      "src": "critters/javelina/out.webp",
@@ -1193,7 +1247,9 @@
       "headW": 153,
       "eyeSpan": 92,
       "tilt": 0
-     }
+     },
+     "front": "critters/javelina/out-front.webp",
+     "seam": "critters/javelina/out-seam.webp"
     }
    },
    "portrait": {
@@ -1233,7 +1289,9 @@
      "tilt": -0.2
     },
     "deckR": 54,
-    "deckTilt": 10
+    "deckTilt": 10,
+    "front": "critters/javelina/portrait-front.webp",
+    "seam": "critters/javelina/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -1289,7 +1347,9 @@
       },
       "deckR": 21,
       "chestShown": 0.7,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/javelina/tee/idle-front.webp",
+      "seam": "critters/javelina/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/javelina/tee/stroke.webp",
@@ -1337,7 +1397,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/javelina/tee/stroke-front.webp",
+      "seam": "critters/javelina/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/javelina/tee/stroke-r.webp",
@@ -1385,7 +1447,9 @@
       },
       "deckR": 22,
       "chestShown": 0.96,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/javelina/tee/stroke-r-front.webp",
+      "seam": "critters/javelina/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/javelina/tee/hey.webp",
@@ -1433,7 +1497,9 @@
       },
       "deckR": 22,
       "chestShown": 0.79,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/javelina/tee/hey-front.webp",
+      "seam": "critters/javelina/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/javelina/tee/nice.webp",
@@ -1481,7 +1547,9 @@
       },
       "deckR": 21,
       "chestShown": 0.66,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/javelina/tee/nice-front.webp",
+      "seam": "critters/javelina/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/javelina/tee/miss.webp",
@@ -1529,7 +1597,9 @@
       },
       "deckR": 22,
       "chestShown": 0.83,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/javelina/tee/miss-front.webp",
+      "seam": "critters/javelina/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/javelina/tee/chug.webp",
@@ -1577,7 +1647,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/javelina/tee/chug-front.webp",
+      "seam": "critters/javelina/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/javelina/tee/cheer.webp",
@@ -1625,7 +1697,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/javelina/tee/cheer-front.webp",
+      "seam": "critters/javelina/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/javelina/tee/out.webp",
@@ -1673,7 +1747,9 @@
       },
       "deckR": 20,
       "chestShown": 0.71,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/javelina/tee/out-front.webp",
+      "seam": "critters/javelina/tee/out-seam.webp"
      }
     }
    }
@@ -1744,7 +1820,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/idle-front.webp",
+     "seam": "critters/roadrunner/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/roadrunner/stroke.webp",
@@ -1779,7 +1857,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/stroke-front.webp",
+     "seam": "critters/roadrunner/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/roadrunner/stroke-r.webp",
@@ -1814,7 +1894,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/stroke-r-front.webp",
+     "seam": "critters/roadrunner/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/roadrunner/hey.webp",
@@ -1849,7 +1931,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/hey-front.webp",
+     "seam": "critters/roadrunner/hey-seam.webp"
     },
     "nice": {
      "src": "critters/roadrunner/nice.webp",
@@ -1884,7 +1968,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/nice-front.webp",
+     "seam": "critters/roadrunner/nice-seam.webp"
     },
     "miss": {
      "src": "critters/roadrunner/miss.webp",
@@ -1919,7 +2005,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/miss-front.webp",
+     "seam": "critters/roadrunner/miss-seam.webp"
     },
     "chug": {
      "src": "critters/roadrunner/chug.webp",
@@ -1954,7 +2042,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/chug-front.webp",
+     "seam": "critters/roadrunner/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/roadrunner/cheer.webp",
@@ -1989,7 +2079,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/cheer-front.webp",
+     "seam": "critters/roadrunner/cheer-seam.webp"
     },
     "out": {
      "src": "critters/roadrunner/out.webp",
@@ -2024,7 +2116,9 @@
       "headW": 89,
       "eyeSpan": 50,
       "tilt": 0
-     }
+     },
+     "front": "critters/roadrunner/out-front.webp",
+     "seam": "critters/roadrunner/out-seam.webp"
     }
    },
    "portrait": {
@@ -2064,7 +2158,9 @@
      "tilt": 0
     },
     "deckR": 55,
-    "deckTilt": 14
+    "deckTilt": 14,
+    "front": "critters/roadrunner/portrait-front.webp",
+    "seam": "critters/roadrunner/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -2120,7 +2216,9 @@
       },
       "deckR": 20,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/roadrunner/tee/idle-front.webp",
+      "seam": "critters/roadrunner/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/roadrunner/tee/stroke.webp",
@@ -2168,7 +2266,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/roadrunner/tee/stroke-front.webp",
+      "seam": "critters/roadrunner/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/roadrunner/tee/stroke-r.webp",
@@ -2216,7 +2316,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": -14
+      "deckTilt": -14,
+      "front": "critters/roadrunner/tee/stroke-r-front.webp",
+      "seam": "critters/roadrunner/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/roadrunner/tee/hey.webp",
@@ -2264,7 +2366,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/roadrunner/tee/hey-front.webp",
+      "seam": "critters/roadrunner/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/roadrunner/tee/nice.webp",
@@ -2312,7 +2416,9 @@
       },
       "deckR": 20,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/roadrunner/tee/nice-front.webp",
+      "seam": "critters/roadrunner/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/roadrunner/tee/miss.webp",
@@ -2360,7 +2466,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/roadrunner/tee/miss-front.webp",
+      "seam": "critters/roadrunner/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/roadrunner/tee/chug.webp",
@@ -2408,7 +2516,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/roadrunner/tee/chug-front.webp",
+      "seam": "critters/roadrunner/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/roadrunner/tee/cheer.webp",
@@ -2456,7 +2566,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/roadrunner/tee/cheer-front.webp",
+      "seam": "critters/roadrunner/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/roadrunner/tee/out.webp",
@@ -2504,10 +2616,13 @@
       },
       "deckR": 19,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/roadrunner/tee/out-front.webp",
+      "seam": "critters/roadrunner/tee/out-seam.webp"
      }
     }
-   }
+   },
+   "hatScale": 1.15
   },
   "jackrabbit": {
    "anchor": {
@@ -2575,7 +2690,9 @@
       "headW": 89,
       "eyeSpan": 58,
       "tilt": 1.1
-     }
+     },
+     "front": "critters/jackrabbit/idle-front.webp",
+     "seam": "critters/jackrabbit/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/jackrabbit/stroke.webp",
@@ -2610,7 +2727,9 @@
       "headW": 89,
       "eyeSpan": 54,
       "tilt": 7.9
-     }
+     },
+     "front": "critters/jackrabbit/stroke-front.webp",
+     "seam": "critters/jackrabbit/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/jackrabbit/stroke-r.webp",
@@ -2645,7 +2764,9 @@
       "headW": 89,
       "eyeSpan": 52,
       "tilt": -8.1
-     }
+     },
+     "front": "critters/jackrabbit/stroke-r-front.webp",
+     "seam": "critters/jackrabbit/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/jackrabbit/hey.webp",
@@ -2680,7 +2801,9 @@
       "headW": 89,
       "eyeSpan": 56,
       "tilt": 8.3
-     }
+     },
+     "front": "critters/jackrabbit/hey-front.webp",
+     "seam": "critters/jackrabbit/hey-seam.webp"
     },
     "nice": {
      "src": "critters/jackrabbit/nice.webp",
@@ -2715,7 +2838,9 @@
       "headW": 89,
       "eyeSpan": 58,
       "tilt": 0
-     }
+     },
+     "front": "critters/jackrabbit/nice-front.webp",
+     "seam": "critters/jackrabbit/nice-seam.webp"
     },
     "miss": {
      "src": "critters/jackrabbit/miss.webp",
@@ -2750,7 +2875,9 @@
       "headW": 89,
       "eyeSpan": 58,
       "tilt": 0
-     }
+     },
+     "front": "critters/jackrabbit/miss-front.webp",
+     "seam": "critters/jackrabbit/miss-seam.webp"
     },
     "chug": {
      "src": "critters/jackrabbit/chug.webp",
@@ -2785,7 +2912,9 @@
       "headW": 89,
       "eyeSpan": 58,
       "tilt": 0
-     }
+     },
+     "front": "critters/jackrabbit/chug-front.webp",
+     "seam": "critters/jackrabbit/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/jackrabbit/cheer.webp",
@@ -2820,7 +2949,9 @@
       "headW": 89,
       "eyeSpan": 53,
       "tilt": -0.1
-     }
+     },
+     "front": "critters/jackrabbit/cheer-front.webp",
+     "seam": "critters/jackrabbit/cheer-seam.webp"
     },
     "out": {
      "src": "critters/jackrabbit/out.webp",
@@ -2855,7 +2986,9 @@
       "headW": 93,
       "eyeSpan": 49,
       "tilt": -0.7
-     }
+     },
+     "front": "critters/jackrabbit/out-front.webp",
+     "seam": "critters/jackrabbit/out-seam.webp"
     }
    },
    "portrait": {
@@ -2895,7 +3028,9 @@
      "tilt": 1.2
     },
     "deckR": 59,
-    "deckTilt": -2
+    "deckTilt": -2,
+    "front": "critters/jackrabbit/portrait-front.webp",
+    "seam": "critters/jackrabbit/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -2951,7 +3086,9 @@
       },
       "deckR": 24,
       "chestShown": 0.8,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/jackrabbit/tee/idle-front.webp",
+      "seam": "critters/jackrabbit/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/jackrabbit/tee/stroke.webp",
@@ -2999,7 +3136,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/jackrabbit/tee/stroke-front.webp",
+      "seam": "critters/jackrabbit/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/jackrabbit/tee/stroke-r.webp",
@@ -3047,7 +3186,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/jackrabbit/tee/stroke-r-front.webp",
+      "seam": "critters/jackrabbit/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/jackrabbit/tee/hey.webp",
@@ -3095,7 +3236,9 @@
       },
       "deckR": 24,
       "chestShown": 0.8,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/jackrabbit/tee/hey-front.webp",
+      "seam": "critters/jackrabbit/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/jackrabbit/tee/nice.webp",
@@ -3143,7 +3286,9 @@
       },
       "deckR": 24,
       "chestShown": 0.84,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/jackrabbit/tee/nice-front.webp",
+      "seam": "critters/jackrabbit/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/jackrabbit/tee/miss.webp",
@@ -3191,7 +3336,9 @@
       },
       "deckR": 22,
       "chestShown": 0.84,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/jackrabbit/tee/miss-front.webp",
+      "seam": "critters/jackrabbit/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/jackrabbit/tee/chug.webp",
@@ -3239,7 +3386,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/jackrabbit/tee/chug-front.webp",
+      "seam": "critters/jackrabbit/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/jackrabbit/tee/cheer.webp",
@@ -3287,7 +3436,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/jackrabbit/tee/cheer-front.webp",
+      "seam": "critters/jackrabbit/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/jackrabbit/tee/out.webp",
@@ -3335,10 +3486,13 @@
       },
       "deckR": 18,
       "chestShown": 0.46,
-      "deckTilt": -14
+      "deckTilt": -14,
+      "front": "critters/jackrabbit/tee/out-front.webp",
+      "seam": "critters/jackrabbit/tee/out-seam.webp"
      }
     }
-   }
+   },
+   "hatScale": 1.25
   },
   "tortoise": {
    "anchor": {
@@ -3406,7 +3560,9 @@
       "headW": 111,
       "eyeSpan": 72,
       "tilt": 1.6
-     }
+     },
+     "front": "critters/tortoise/idle-front.webp",
+     "seam": "critters/tortoise/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/tortoise/stroke.webp",
@@ -3441,7 +3597,9 @@
       "headW": 112,
       "eyeSpan": 69,
       "tilt": 9.8
-     }
+     },
+     "front": "critters/tortoise/stroke-front.webp",
+     "seam": "critters/tortoise/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/tortoise/stroke-r.webp",
@@ -3476,7 +3634,9 @@
       "headW": 98,
       "eyeSpan": 73,
       "tilt": -7.9
-     }
+     },
+     "front": "critters/tortoise/stroke-r-front.webp",
+     "seam": "critters/tortoise/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/tortoise/hey.webp",
@@ -3511,7 +3671,9 @@
       "headW": 142,
       "eyeSpan": 70,
       "tilt": 7.9
-     }
+     },
+     "front": "critters/tortoise/hey-front.webp",
+     "seam": "critters/tortoise/hey-seam.webp"
     },
     "nice": {
      "src": "critters/tortoise/nice.webp",
@@ -3546,7 +3708,9 @@
       "headW": 111,
       "eyeSpan": 72,
       "tilt": 0
-     }
+     },
+     "front": "critters/tortoise/nice-front.webp",
+     "seam": "critters/tortoise/nice-seam.webp"
     },
     "miss": {
      "src": "critters/tortoise/miss.webp",
@@ -3581,7 +3745,9 @@
       "headW": 117,
       "eyeSpan": 60,
       "tilt": 1.8
-     }
+     },
+     "front": "critters/tortoise/miss-front.webp",
+     "seam": "critters/tortoise/miss-seam.webp"
     },
     "chug": {
      "src": "critters/tortoise/chug.webp",
@@ -3616,7 +3782,9 @@
       "headW": 111,
       "eyeSpan": 72,
       "tilt": 0
-     }
+     },
+     "front": "critters/tortoise/chug-front.webp",
+     "seam": "critters/tortoise/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/tortoise/cheer.webp",
@@ -3651,7 +3819,9 @@
       "headW": 111,
       "eyeSpan": 64,
       "tilt": 1.6
-     }
+     },
+     "front": "critters/tortoise/cheer-front.webp",
+     "seam": "critters/tortoise/cheer-seam.webp"
     },
     "out": {
      "src": "critters/tortoise/out.webp",
@@ -3686,7 +3856,9 @@
       "headW": 111,
       "eyeSpan": 65,
       "tilt": 0.3
-     }
+     },
+     "front": "critters/tortoise/out-front.webp",
+     "seam": "critters/tortoise/out-seam.webp"
     }
    },
    "portrait": {
@@ -3726,7 +3898,9 @@
      "tilt": 0.1
     },
     "deckR": 59,
-    "deckTilt": 6
+    "deckTilt": 6,
+    "front": "critters/tortoise/portrait-front.webp",
+    "seam": "critters/tortoise/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -3782,7 +3956,9 @@
       },
       "deckR": 22,
       "chestShown": 0.88,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/tortoise/tee/idle-front.webp",
+      "seam": "critters/tortoise/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/tortoise/tee/stroke.webp",
@@ -3830,7 +4006,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/tortoise/tee/stroke-front.webp",
+      "seam": "critters/tortoise/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/tortoise/tee/stroke-r.webp",
@@ -3878,7 +4056,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/tortoise/tee/stroke-r-front.webp",
+      "seam": "critters/tortoise/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/tortoise/tee/hey.webp",
@@ -3926,7 +4106,9 @@
       },
       "deckR": 23,
       "chestShown": 0.92,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/tortoise/tee/hey-front.webp",
+      "seam": "critters/tortoise/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/tortoise/tee/nice.webp",
@@ -3974,7 +4156,9 @@
       },
       "deckR": 23,
       "chestShown": 0.88,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/tortoise/tee/nice-front.webp",
+      "seam": "critters/tortoise/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/tortoise/tee/miss.webp",
@@ -4022,7 +4206,9 @@
       },
       "deckR": 23,
       "chestShown": 0.93,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/tortoise/tee/miss-front.webp",
+      "seam": "critters/tortoise/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/tortoise/tee/chug.webp",
@@ -4070,7 +4256,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/tortoise/tee/chug-front.webp",
+      "seam": "critters/tortoise/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/tortoise/tee/cheer.webp",
@@ -4118,7 +4306,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/tortoise/tee/cheer-front.webp",
+      "seam": "critters/tortoise/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/tortoise/tee/out.webp",
@@ -4166,7 +4356,9 @@
       },
       "deckR": 18,
       "chestShown": 0.25,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/tortoise/tee/out-front.webp",
+      "seam": "critters/tortoise/tee/out-seam.webp"
      }
     }
    }
@@ -4237,7 +4429,9 @@
       "headW": 134,
       "eyeSpan": 86,
       "tilt": 3.4
-     }
+     },
+     "front": "critters/gila/idle-front.webp",
+     "seam": "critters/gila/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/gila/stroke.webp",
@@ -4272,7 +4466,9 @@
       "headW": 119,
       "eyeSpan": 90,
       "tilt": 21.2
-     }
+     },
+     "front": "critters/gila/stroke-front.webp",
+     "seam": "critters/gila/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/gila/stroke-r.webp",
@@ -4307,7 +4503,9 @@
       "headW": 114,
       "eyeSpan": 87,
       "tilt": -11.8
-     }
+     },
+     "front": "critters/gila/stroke-r-front.webp",
+     "seam": "critters/gila/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/gila/hey.webp",
@@ -4342,7 +4540,9 @@
       "headW": 134,
       "eyeSpan": 86,
       "tilt": 0
-     }
+     },
+     "front": "critters/gila/hey-front.webp",
+     "seam": "critters/gila/hey-seam.webp"
     },
     "nice": {
      "src": "critters/gila/nice.webp",
@@ -4377,7 +4577,9 @@
       "headW": 134,
       "eyeSpan": 86,
       "tilt": 0
-     }
+     },
+     "front": "critters/gila/nice-front.webp",
+     "seam": "critters/gila/nice-seam.webp"
     },
     "miss": {
      "src": "critters/gila/miss.webp",
@@ -4412,7 +4614,9 @@
       "headW": 134,
       "eyeSpan": 86,
       "tilt": 0
-     }
+     },
+     "front": "critters/gila/miss-front.webp",
+     "seam": "critters/gila/miss-seam.webp"
     },
     "chug": {
      "src": "critters/gila/chug.webp",
@@ -4447,7 +4651,9 @@
       "headW": 134,
       "eyeSpan": 86,
       "tilt": 0
-     }
+     },
+     "front": "critters/gila/chug-front.webp",
+     "seam": "critters/gila/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/gila/cheer.webp",
@@ -4482,7 +4688,9 @@
       "headW": 104,
       "eyeSpan": 84,
       "tilt": 21.3
-     }
+     },
+     "front": "critters/gila/cheer-front.webp",
+     "seam": "critters/gila/cheer-seam.webp"
     },
     "out": {
      "src": "critters/gila/out.webp",
@@ -4517,7 +4725,9 @@
       "headW": 149,
       "eyeSpan": 91,
       "tilt": 2.7
-     }
+     },
+     "front": "critters/gila/out-front.webp",
+     "seam": "critters/gila/out-seam.webp"
     }
    },
    "portrait": {
@@ -4557,7 +4767,9 @@
      "tilt": 3.6
     },
     "deckR": 58,
-    "deckTilt": 10
+    "deckTilt": 10,
+    "front": "critters/gila/portrait-front.webp",
+    "seam": "critters/gila/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -4613,7 +4825,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/gila/tee/idle-front.webp",
+      "seam": "critters/gila/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/gila/tee/stroke.webp",
@@ -4661,7 +4875,9 @@
       },
       "deckR": 25,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/gila/tee/stroke-front.webp",
+      "seam": "critters/gila/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/gila/tee/stroke-r.webp",
@@ -4709,7 +4925,9 @@
       },
       "deckR": 25,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/gila/tee/stroke-r-front.webp",
+      "seam": "critters/gila/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/gila/tee/hey.webp",
@@ -4757,7 +4975,9 @@
       },
       "deckR": 25,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/gila/tee/hey-front.webp",
+      "seam": "critters/gila/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/gila/tee/nice.webp",
@@ -4805,7 +5025,9 @@
       },
       "deckR": 25,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/gila/tee/nice-front.webp",
+      "seam": "critters/gila/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/gila/tee/miss.webp",
@@ -4853,7 +5075,9 @@
       },
       "deckR": 15,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/gila/tee/miss-front.webp",
+      "seam": "critters/gila/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/gila/tee/chug.webp",
@@ -4901,7 +5125,9 @@
       },
       "deckR": 25,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/gila/tee/chug-front.webp",
+      "seam": "critters/gila/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/gila/tee/cheer.webp",
@@ -4949,7 +5175,9 @@
       },
       "deckR": 25,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/gila/tee/cheer-front.webp",
+      "seam": "critters/gila/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/gila/tee/out.webp",
@@ -4997,7 +5225,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/gila/tee/out-front.webp",
+      "seam": "critters/gila/tee/out-seam.webp"
      }
     }
    }
@@ -5068,7 +5298,9 @@
       "headW": 147,
       "eyeSpan": 90,
       "tilt": 1.7
-     }
+     },
+     "front": "critters/hornedlizard/idle-front.webp",
+     "seam": "critters/hornedlizard/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/hornedlizard/stroke.webp",
@@ -5103,7 +5335,9 @@
       "headW": 144,
       "eyeSpan": 91,
       "tilt": 12.8
-     }
+     },
+     "front": "critters/hornedlizard/stroke-front.webp",
+     "seam": "critters/hornedlizard/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/hornedlizard/stroke-r.webp",
@@ -5138,7 +5372,9 @@
       "headW": 119,
       "eyeSpan": 82,
       "tilt": -7.5
-     }
+     },
+     "front": "critters/hornedlizard/stroke-r-front.webp",
+     "seam": "critters/hornedlizard/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/hornedlizard/hey.webp",
@@ -5173,7 +5409,9 @@
       "headW": 118,
       "eyeSpan": 89,
       "tilt": -2.3
-     }
+     },
+     "front": "critters/hornedlizard/hey-front.webp",
+     "seam": "critters/hornedlizard/hey-seam.webp"
     },
     "nice": {
      "src": "critters/hornedlizard/nice.webp",
@@ -5208,7 +5446,9 @@
       "headW": 147,
       "eyeSpan": 90,
       "tilt": 0
-     }
+     },
+     "front": "critters/hornedlizard/nice-front.webp",
+     "seam": "critters/hornedlizard/nice-seam.webp"
     },
     "miss": {
      "src": "critters/hornedlizard/miss.webp",
@@ -5243,7 +5483,9 @@
       "headW": 147,
       "eyeSpan": 90,
       "tilt": 0
-     }
+     },
+     "front": "critters/hornedlizard/miss-front.webp",
+     "seam": "critters/hornedlizard/miss-seam.webp"
     },
     "chug": {
      "src": "critters/hornedlizard/chug.webp",
@@ -5278,7 +5520,9 @@
       "headW": 147,
       "eyeSpan": 90,
       "tilt": 0
-     }
+     },
+     "front": "critters/hornedlizard/chug-front.webp",
+     "seam": "critters/hornedlizard/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/hornedlizard/cheer.webp",
@@ -5313,7 +5557,9 @@
       "headW": 137,
       "eyeSpan": 78,
       "tilt": -0.4
-     }
+     },
+     "front": "critters/hornedlizard/cheer-front.webp",
+     "seam": "critters/hornedlizard/cheer-seam.webp"
     },
     "out": {
      "src": "critters/hornedlizard/out.webp",
@@ -5348,7 +5594,9 @@
       "headW": 155,
       "eyeSpan": 75,
       "tilt": 6.9
-     }
+     },
+     "front": "critters/hornedlizard/out-front.webp",
+     "seam": "critters/hornedlizard/out-seam.webp"
     }
    },
    "portrait": {
@@ -5388,7 +5636,9 @@
      "tilt": 1.7
     },
     "deckR": 66,
-    "deckTilt": -14
+    "deckTilt": -14,
+    "front": "critters/hornedlizard/portrait-front.webp",
+    "seam": "critters/hornedlizard/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -5444,7 +5694,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/hornedlizard/tee/idle-front.webp",
+      "seam": "critters/hornedlizard/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/hornedlizard/tee/stroke.webp",
@@ -5492,7 +5744,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/hornedlizard/tee/stroke-front.webp",
+      "seam": "critters/hornedlizard/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/hornedlizard/tee/stroke-r.webp",
@@ -5540,7 +5794,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/hornedlizard/tee/stroke-r-front.webp",
+      "seam": "critters/hornedlizard/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/hornedlizard/tee/hey.webp",
@@ -5588,7 +5844,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/hornedlizard/tee/hey-front.webp",
+      "seam": "critters/hornedlizard/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/hornedlizard/tee/nice.webp",
@@ -5636,7 +5894,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/hornedlizard/tee/nice-front.webp",
+      "seam": "critters/hornedlizard/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/hornedlizard/tee/miss.webp",
@@ -5684,7 +5944,9 @@
       },
       "deckR": 23,
       "chestShown": 0.94,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/hornedlizard/tee/miss-front.webp",
+      "seam": "critters/hornedlizard/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/hornedlizard/tee/chug.webp",
@@ -5732,7 +5994,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/hornedlizard/tee/chug-front.webp",
+      "seam": "critters/hornedlizard/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/hornedlizard/tee/cheer.webp",
@@ -5780,7 +6044,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/hornedlizard/tee/cheer-front.webp",
+      "seam": "critters/hornedlizard/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/hornedlizard/tee/out.webp",
@@ -5828,7 +6094,9 @@
       },
       "deckR": 18,
       "chestShown": 0.98,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/hornedlizard/tee/out-front.webp",
+      "seam": "critters/hornedlizard/tee/out-seam.webp"
      }
     }
    }
@@ -5899,7 +6167,9 @@
       "headW": 191,
       "eyeSpan": 71,
       "tilt": 0.1
-     }
+     },
+     "front": "critters/bighorn/idle-front.webp",
+     "seam": "critters/bighorn/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/bighorn/stroke.webp",
@@ -5934,7 +6204,9 @@
       "headW": 191,
       "eyeSpan": 64,
       "tilt": 14.6
-     }
+     },
+     "front": "critters/bighorn/stroke-front.webp",
+     "seam": "critters/bighorn/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/bighorn/stroke-r.webp",
@@ -5969,7 +6241,9 @@
       "headW": 184,
       "eyeSpan": 70,
       "tilt": 5.6
-     }
+     },
+     "front": "critters/bighorn/stroke-r-front.webp",
+     "seam": "critters/bighorn/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/bighorn/hey.webp",
@@ -6004,7 +6278,9 @@
       "headW": 191,
       "eyeSpan": 69,
       "tilt": -1.5
-     }
+     },
+     "front": "critters/bighorn/hey-front.webp",
+     "seam": "critters/bighorn/hey-seam.webp"
     },
     "nice": {
      "src": "critters/bighorn/nice.webp",
@@ -6039,7 +6315,9 @@
       "headW": 191,
       "eyeSpan": 71,
       "tilt": 0
-     }
+     },
+     "front": "critters/bighorn/nice-front.webp",
+     "seam": "critters/bighorn/nice-seam.webp"
     },
     "miss": {
      "src": "critters/bighorn/miss.webp",
@@ -6074,7 +6352,9 @@
       "headW": 191,
       "eyeSpan": 71,
       "tilt": 0
-     }
+     },
+     "front": "critters/bighorn/miss-front.webp",
+     "seam": "critters/bighorn/miss-seam.webp"
     },
     "chug": {
      "src": "critters/bighorn/chug.webp",
@@ -6109,7 +6389,9 @@
       "headW": 191,
       "eyeSpan": 71,
       "tilt": 0
-     }
+     },
+     "front": "critters/bighorn/chug-front.webp",
+     "seam": "critters/bighorn/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/bighorn/cheer.webp",
@@ -6144,7 +6426,9 @@
       "headW": 157,
       "eyeSpan": 60,
       "tilt": -1.5
-     }
+     },
+     "front": "critters/bighorn/cheer-front.webp",
+     "seam": "critters/bighorn/cheer-seam.webp"
     },
     "out": {
      "src": "critters/bighorn/out.webp",
@@ -6179,7 +6463,9 @@
       "headW": 160,
       "eyeSpan": 63,
       "tilt": 0.1
-     }
+     },
+     "front": "critters/bighorn/out-front.webp",
+     "seam": "critters/bighorn/out-seam.webp"
     }
    },
    "portrait": {
@@ -6219,7 +6505,9 @@
      "tilt": 0.2
     },
     "deckR": 65,
-    "deckTilt": -6
+    "deckTilt": -6,
+    "front": "critters/bighorn/portrait-front.webp",
+    "seam": "critters/bighorn/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -6275,7 +6563,9 @@
       },
       "deckR": 24,
       "chestShown": 0.76,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/bighorn/tee/idle-front.webp",
+      "seam": "critters/bighorn/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/bighorn/tee/stroke.webp",
@@ -6323,7 +6613,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/bighorn/tee/stroke-front.webp",
+      "seam": "critters/bighorn/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/bighorn/tee/stroke-r.webp",
@@ -6371,7 +6663,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/bighorn/tee/stroke-r-front.webp",
+      "seam": "critters/bighorn/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/bighorn/tee/hey.webp",
@@ -6419,7 +6713,9 @@
       },
       "deckR": 24,
       "chestShown": 0.82,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/bighorn/tee/hey-front.webp",
+      "seam": "critters/bighorn/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/bighorn/tee/nice.webp",
@@ -6467,7 +6763,9 @@
       },
       "deckR": 24,
       "chestShown": 0.83,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/bighorn/tee/nice-front.webp",
+      "seam": "critters/bighorn/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/bighorn/tee/miss.webp",
@@ -6515,7 +6813,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/bighorn/tee/miss-front.webp",
+      "seam": "critters/bighorn/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/bighorn/tee/chug.webp",
@@ -6563,7 +6863,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/bighorn/tee/chug-front.webp",
+      "seam": "critters/bighorn/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/bighorn/tee/cheer.webp",
@@ -6611,7 +6913,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/bighorn/tee/cheer-front.webp",
+      "seam": "critters/bighorn/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/bighorn/tee/out.webp",
@@ -6659,10 +6963,13 @@
       },
       "deckR": 22,
       "chestShown": 0.68,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/bighorn/tee/out-front.webp",
+      "seam": "critters/bighorn/tee/out-seam.webp"
      }
     }
-   }
+   },
+   "hatScale": 0.8
   },
   "quail": {
    "anchor": {
@@ -6730,7 +7037,9 @@
       "headW": 99,
       "eyeSpan": 71,
       "tilt": -0.6
-     }
+     },
+     "front": "critters/quail/idle-front.webp",
+     "seam": "critters/quail/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/quail/stroke.webp",
@@ -6765,7 +7074,9 @@
       "headW": 106,
       "eyeSpan": 70,
       "tilt": 5
-     }
+     },
+     "front": "critters/quail/stroke-front.webp",
+     "seam": "critters/quail/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/quail/stroke-r.webp",
@@ -6800,7 +7111,9 @@
       "headW": 104,
       "eyeSpan": 68,
       "tilt": 7.1
-     }
+     },
+     "front": "critters/quail/stroke-r-front.webp",
+     "seam": "critters/quail/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/quail/hey.webp",
@@ -6835,7 +7148,9 @@
       "headW": 130,
       "eyeSpan": 71,
       "tilt": 0
-     }
+     },
+     "front": "critters/quail/hey-front.webp",
+     "seam": "critters/quail/hey-seam.webp"
     },
     "nice": {
      "src": "critters/quail/nice.webp",
@@ -6870,7 +7185,9 @@
       "headW": 99,
       "eyeSpan": 71,
       "tilt": 0
-     }
+     },
+     "front": "critters/quail/nice-front.webp",
+     "seam": "critters/quail/nice-seam.webp"
     },
     "miss": {
      "src": "critters/quail/miss.webp",
@@ -6905,7 +7222,9 @@
       "headW": 99,
       "eyeSpan": 71,
       "tilt": 0
-     }
+     },
+     "front": "critters/quail/miss-front.webp",
+     "seam": "critters/quail/miss-seam.webp"
     },
     "chug": {
      "src": "critters/quail/chug.webp",
@@ -6940,7 +7259,9 @@
       "headW": 99,
       "eyeSpan": 71,
       "tilt": 0
-     }
+     },
+     "front": "critters/quail/chug-front.webp",
+     "seam": "critters/quail/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/quail/cheer.webp",
@@ -6975,7 +7296,9 @@
       "headW": 129,
       "eyeSpan": 68,
       "tilt": 1
-     }
+     },
+     "front": "critters/quail/cheer-front.webp",
+     "seam": "critters/quail/cheer-seam.webp"
     },
     "out": {
      "src": "critters/quail/out.webp",
@@ -7010,7 +7333,9 @@
       "headW": 127,
       "eyeSpan": 63,
       "tilt": 6.2
-     }
+     },
+     "front": "critters/quail/out-front.webp",
+     "seam": "critters/quail/out-seam.webp"
     }
    },
    "portrait": {
@@ -7050,7 +7375,9 @@
      "tilt": 0.2
     },
     "deckR": 63,
-    "deckTilt": 10
+    "deckTilt": 10,
+    "front": "critters/quail/portrait-front.webp",
+    "seam": "critters/quail/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -7106,7 +7433,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/quail/tee/idle-front.webp",
+      "seam": "critters/quail/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/quail/tee/stroke.webp",
@@ -7154,7 +7483,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/quail/tee/stroke-front.webp",
+      "seam": "critters/quail/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/quail/tee/stroke-r.webp",
@@ -7202,7 +7533,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/quail/tee/stroke-r-front.webp",
+      "seam": "critters/quail/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/quail/tee/hey.webp",
@@ -7250,7 +7583,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/quail/tee/hey-front.webp",
+      "seam": "critters/quail/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/quail/tee/nice.webp",
@@ -7298,7 +7633,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/quail/tee/nice-front.webp",
+      "seam": "critters/quail/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/quail/tee/miss.webp",
@@ -7346,7 +7683,9 @@
       },
       "deckR": 20,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/quail/tee/miss-front.webp",
+      "seam": "critters/quail/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/quail/tee/chug.webp",
@@ -7394,7 +7733,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/quail/tee/chug-front.webp",
+      "seam": "critters/quail/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/quail/tee/cheer.webp",
@@ -7442,7 +7783,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/quail/tee/cheer-front.webp",
+      "seam": "critters/quail/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/quail/tee/out.webp",
@@ -7490,7 +7833,9 @@
       },
       "deckR": 19,
       "chestShown": 0.75,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/quail/tee/out-front.webp",
+      "seam": "critters/quail/tee/out-seam.webp"
      }
     }
    }
@@ -7561,7 +7906,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/idle-front.webp",
+     "seam": "critters/armadillo/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/armadillo/stroke.webp",
@@ -7596,7 +7943,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/stroke-front.webp",
+     "seam": "critters/armadillo/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/armadillo/stroke-r.webp",
@@ -7631,7 +7980,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/stroke-r-front.webp",
+     "seam": "critters/armadillo/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/armadillo/hey.webp",
@@ -7666,7 +8017,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/hey-front.webp",
+     "seam": "critters/armadillo/hey-seam.webp"
     },
     "nice": {
      "src": "critters/armadillo/nice.webp",
@@ -7701,7 +8054,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/nice-front.webp",
+     "seam": "critters/armadillo/nice-seam.webp"
     },
     "miss": {
      "src": "critters/armadillo/miss.webp",
@@ -7736,7 +8091,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/miss-front.webp",
+     "seam": "critters/armadillo/miss-seam.webp"
     },
     "chug": {
      "src": "critters/armadillo/chug.webp",
@@ -7771,7 +8128,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/chug-front.webp",
+     "seam": "critters/armadillo/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/armadillo/cheer.webp",
@@ -7806,7 +8165,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/cheer-front.webp",
+     "seam": "critters/armadillo/cheer-seam.webp"
     },
     "out": {
      "src": "critters/armadillo/out.webp",
@@ -7841,7 +8202,9 @@
       "headW": 112,
       "eyeSpan": 74,
       "tilt": 0
-     }
+     },
+     "front": "critters/armadillo/out-front.webp",
+     "seam": "critters/armadillo/out-seam.webp"
     }
    },
    "portrait": {
@@ -7881,7 +8244,9 @@
      "tilt": 0
     },
     "deckR": 66,
-    "deckTilt": 6
+    "deckTilt": 6,
+    "front": "critters/armadillo/portrait-front.webp",
+    "seam": "critters/armadillo/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -7937,7 +8302,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/armadillo/tee/idle-front.webp",
+      "seam": "critters/armadillo/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/armadillo/tee/stroke.webp",
@@ -7985,7 +8352,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/armadillo/tee/stroke-front.webp",
+      "seam": "critters/armadillo/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/armadillo/tee/stroke-r.webp",
@@ -8033,7 +8402,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -14
+      "deckTilt": -14,
+      "front": "critters/armadillo/tee/stroke-r-front.webp",
+      "seam": "critters/armadillo/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/armadillo/tee/hey.webp",
@@ -8081,7 +8452,9 @@
       },
       "deckR": 22,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/armadillo/tee/hey-front.webp",
+      "seam": "critters/armadillo/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/armadillo/tee/nice.webp",
@@ -8129,7 +8502,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/armadillo/tee/nice-front.webp",
+      "seam": "critters/armadillo/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/armadillo/tee/miss.webp",
@@ -8177,7 +8552,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/armadillo/tee/miss-front.webp",
+      "seam": "critters/armadillo/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/armadillo/tee/chug.webp",
@@ -8225,7 +8602,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -14
+      "deckTilt": -14,
+      "front": "critters/armadillo/tee/chug-front.webp",
+      "seam": "critters/armadillo/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/armadillo/tee/cheer.webp",
@@ -8273,7 +8652,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/armadillo/tee/cheer-front.webp",
+      "seam": "critters/armadillo/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/armadillo/tee/out.webp",
@@ -8321,7 +8702,9 @@
       },
       "deckR": 17,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/armadillo/tee/out-front.webp",
+      "seam": "critters/armadillo/tee/out-seam.webp"
      }
     }
    }
@@ -8392,7 +8775,9 @@
       "headW": 129,
       "eyeSpan": 59,
       "tilt": 5.6
-     }
+     },
+     "front": "critters/coyote/idle-front.webp",
+     "seam": "critters/coyote/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/coyote/stroke.webp",
@@ -8427,7 +8812,9 @@
       "headW": 143,
       "eyeSpan": 56,
       "tilt": 16.6
-     }
+     },
+     "front": "critters/coyote/stroke-front.webp",
+     "seam": "critters/coyote/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/coyote/stroke-r.webp",
@@ -8462,7 +8849,9 @@
       "headW": 131,
       "eyeSpan": 55,
       "tilt": 9.3
-     }
+     },
+     "front": "critters/coyote/stroke-r-front.webp",
+     "seam": "critters/coyote/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/coyote/hey.webp",
@@ -8497,7 +8886,9 @@
       "headW": 134,
       "eyeSpan": 57,
       "tilt": 14
-     }
+     },
+     "front": "critters/coyote/hey-front.webp",
+     "seam": "critters/coyote/hey-seam.webp"
     },
     "nice": {
      "src": "critters/coyote/nice.webp",
@@ -8532,7 +8923,9 @@
       "headW": 129,
       "eyeSpan": 59,
       "tilt": 0
-     }
+     },
+     "front": "critters/coyote/nice-front.webp",
+     "seam": "critters/coyote/nice-seam.webp"
     },
     "miss": {
      "src": "critters/coyote/miss.webp",
@@ -8567,7 +8960,9 @@
       "headW": 129,
       "eyeSpan": 59,
       "tilt": 0
-     }
+     },
+     "front": "critters/coyote/miss-front.webp",
+     "seam": "critters/coyote/miss-seam.webp"
     },
     "chug": {
      "src": "critters/coyote/chug.webp",
@@ -8602,7 +8997,9 @@
       "headW": 129,
       "eyeSpan": 59,
       "tilt": 0
-     }
+     },
+     "front": "critters/coyote/chug-front.webp",
+     "seam": "critters/coyote/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/coyote/cheer.webp",
@@ -8637,7 +9034,9 @@
       "headW": 126,
       "eyeSpan": 53,
       "tilt": 8.3
-     }
+     },
+     "front": "critters/coyote/cheer-front.webp",
+     "seam": "critters/coyote/cheer-seam.webp"
     },
     "out": {
      "src": "critters/coyote/out.webp",
@@ -8672,7 +9071,9 @@
       "headW": 129,
       "eyeSpan": 46,
       "tilt": 6.5
-     }
+     },
+     "front": "critters/coyote/out-front.webp",
+     "seam": "critters/coyote/out-seam.webp"
     }
    },
    "portrait": {
@@ -8712,7 +9113,9 @@
      "tilt": 5.3
     },
     "deckR": 55,
-    "deckTilt": 6
+    "deckTilt": 6,
+    "front": "critters/coyote/portrait-front.webp",
+    "seam": "critters/coyote/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -8768,7 +9171,9 @@
       },
       "deckR": 21,
       "chestShown": 0.99,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/coyote/tee/idle-front.webp",
+      "seam": "critters/coyote/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/coyote/tee/stroke.webp",
@@ -8816,7 +9221,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/coyote/tee/stroke-front.webp",
+      "seam": "critters/coyote/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/coyote/tee/stroke-r.webp",
@@ -8864,7 +9271,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/coyote/tee/stroke-r-front.webp",
+      "seam": "critters/coyote/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/coyote/tee/hey.webp",
@@ -8912,7 +9321,9 @@
       },
       "deckR": 21,
       "chestShown": 0.94,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/coyote/tee/hey-front.webp",
+      "seam": "critters/coyote/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/coyote/tee/nice.webp",
@@ -8960,7 +9371,9 @@
       },
       "deckR": 21,
       "chestShown": 0.96,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/coyote/tee/nice-front.webp",
+      "seam": "critters/coyote/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/coyote/tee/miss.webp",
@@ -9008,7 +9421,9 @@
       },
       "deckR": 21,
       "chestShown": 0.85,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/coyote/tee/miss-front.webp",
+      "seam": "critters/coyote/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/coyote/tee/chug.webp",
@@ -9056,7 +9471,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/coyote/tee/chug-front.webp",
+      "seam": "critters/coyote/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/coyote/tee/cheer.webp",
@@ -9104,7 +9521,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/coyote/tee/cheer-front.webp",
+      "seam": "critters/coyote/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/coyote/tee/out.webp",
@@ -9152,7 +9571,9 @@
       },
       "deckR": 21,
       "chestShown": 0.67,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/coyote/tee/out-front.webp",
+      "seam": "critters/coyote/tee/out-seam.webp"
      }
     }
    }
@@ -9223,7 +9644,9 @@
       "headW": 169,
       "eyeSpan": 81,
       "tilt": -0.1
-     }
+     },
+     "front": "critters/otter/idle-front.webp",
+     "seam": "critters/otter/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/otter/stroke.webp",
@@ -9258,7 +9681,9 @@
       "headW": 149,
       "eyeSpan": 76,
       "tilt": 9.4
-     }
+     },
+     "front": "critters/otter/stroke-front.webp",
+     "seam": "critters/otter/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/otter/stroke-r.webp",
@@ -9293,7 +9718,9 @@
       "headW": 170,
       "eyeSpan": 77,
       "tilt": -10.5
-     }
+     },
+     "front": "critters/otter/stroke-r-front.webp",
+     "seam": "critters/otter/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/otter/hey.webp",
@@ -9328,7 +9755,9 @@
       "headW": 142,
       "eyeSpan": 77,
       "tilt": 8.1
-     }
+     },
+     "front": "critters/otter/hey-front.webp",
+     "seam": "critters/otter/hey-seam.webp"
     },
     "nice": {
      "src": "critters/otter/nice.webp",
@@ -9363,7 +9792,9 @@
       "headW": 169,
       "eyeSpan": 81,
       "tilt": 0
-     }
+     },
+     "front": "critters/otter/nice-front.webp",
+     "seam": "critters/otter/nice-seam.webp"
     },
     "miss": {
      "src": "critters/otter/miss.webp",
@@ -9398,7 +9829,9 @@
       "headW": 169,
       "eyeSpan": 81,
       "tilt": 0
-     }
+     },
+     "front": "critters/otter/miss-front.webp",
+     "seam": "critters/otter/miss-seam.webp"
     },
     "chug": {
      "src": "critters/otter/chug.webp",
@@ -9433,7 +9866,9 @@
       "headW": 169,
       "eyeSpan": 81,
       "tilt": 0
-     }
+     },
+     "front": "critters/otter/chug-front.webp",
+     "seam": "critters/otter/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/otter/cheer.webp",
@@ -9468,7 +9903,9 @@
       "headW": 157,
       "eyeSpan": 74,
       "tilt": 3.2
-     }
+     },
+     "front": "critters/otter/cheer-front.webp",
+     "seam": "critters/otter/cheer-seam.webp"
     },
     "out": {
      "src": "critters/otter/out.webp",
@@ -9503,7 +9940,9 @@
       "headW": 160,
       "eyeSpan": 75,
       "tilt": 9.9
-     }
+     },
+     "front": "critters/otter/out-front.webp",
+     "seam": "critters/otter/out-seam.webp"
     }
    },
    "portrait": {
@@ -9543,7 +9982,9 @@
      "tilt": -1.7
     },
     "deckR": 65,
-    "deckTilt": -6
+    "deckTilt": -6,
+    "front": "critters/otter/portrait-front.webp",
+    "seam": "critters/otter/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -9599,7 +10040,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/otter/tee/idle-front.webp",
+      "seam": "critters/otter/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/otter/tee/stroke.webp",
@@ -9647,7 +10090,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/otter/tee/stroke-front.webp",
+      "seam": "critters/otter/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/otter/tee/stroke-r.webp",
@@ -9695,7 +10140,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/otter/tee/stroke-r-front.webp",
+      "seam": "critters/otter/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/otter/tee/hey.webp",
@@ -9743,7 +10190,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/otter/tee/hey-front.webp",
+      "seam": "critters/otter/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/otter/tee/nice.webp",
@@ -9791,7 +10240,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -6
+      "deckTilt": -6,
+      "front": "critters/otter/tee/nice-front.webp",
+      "seam": "critters/otter/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/otter/tee/miss.webp",
@@ -9839,7 +10290,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/otter/tee/miss-front.webp",
+      "seam": "critters/otter/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/otter/tee/chug.webp",
@@ -9887,7 +10340,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/otter/tee/chug-front.webp",
+      "seam": "critters/otter/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/otter/tee/cheer.webp",
@@ -9935,7 +10390,9 @@
       },
       "deckR": 23,
       "chestShown": 1,
-      "deckTilt": -10
+      "deckTilt": -10,
+      "front": "critters/otter/tee/cheer-front.webp",
+      "seam": "critters/otter/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/otter/tee/out.webp",
@@ -9983,7 +10440,9 @@
       },
       "deckR": 19,
       "chestShown": 0.77,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/otter/tee/out-front.webp",
+      "seam": "critters/otter/tee/out-seam.webp"
      }
     }
    }
@@ -10054,7 +10513,9 @@
       "headW": 182,
       "eyeSpan": 114,
       "tilt": 0.1
-     }
+     },
+     "front": "critters/frog/idle-front.webp",
+     "seam": "critters/frog/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/frog/stroke.webp",
@@ -10089,7 +10550,9 @@
       "headW": 166,
       "eyeSpan": 104,
       "tilt": 13.2
-     }
+     },
+     "front": "critters/frog/stroke-front.webp",
+     "seam": "critters/frog/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/frog/stroke-r.webp",
@@ -10124,7 +10587,9 @@
       "headW": 164,
       "eyeSpan": 103,
       "tilt": -12.2
-     }
+     },
+     "front": "critters/frog/stroke-r-front.webp",
+     "seam": "critters/frog/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/frog/hey.webp",
@@ -10159,7 +10624,9 @@
       "headW": 163,
       "eyeSpan": 102,
       "tilt": 11.5
-     }
+     },
+     "front": "critters/frog/hey-front.webp",
+     "seam": "critters/frog/hey-seam.webp"
     },
     "nice": {
      "src": "critters/frog/nice.webp",
@@ -10194,7 +10661,9 @@
       "headW": 182,
       "eyeSpan": 114,
       "tilt": 0
-     }
+     },
+     "front": "critters/frog/nice-front.webp",
+     "seam": "critters/frog/nice-seam.webp"
     },
     "miss": {
      "src": "critters/frog/miss.webp",
@@ -10229,7 +10698,9 @@
       "headW": 169,
       "eyeSpan": 105,
       "tilt": 7.5
-     }
+     },
+     "front": "critters/frog/miss-front.webp",
+     "seam": "critters/frog/miss-seam.webp"
     },
     "chug": {
      "src": "critters/frog/chug.webp",
@@ -10264,7 +10735,9 @@
       "headW": 166,
       "eyeSpan": 104,
       "tilt": 5.1
-     }
+     },
+     "front": "critters/frog/chug-front.webp",
+     "seam": "critters/frog/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/frog/cheer.webp",
@@ -10299,7 +10772,9 @@
       "headW": 155,
       "eyeSpan": 97,
       "tilt": 6.4
-     }
+     },
+     "front": "critters/frog/cheer-front.webp",
+     "seam": "critters/frog/cheer-seam.webp"
     },
     "out": {
      "src": "critters/frog/out.webp",
@@ -10334,7 +10809,9 @@
       "headW": 169,
       "eyeSpan": 105,
       "tilt": 16.7
-     }
+     },
+     "front": "critters/frog/out-front.webp",
+     "seam": "critters/frog/out-seam.webp"
     }
    },
    "portrait": {
@@ -10374,7 +10851,9 @@
      "tilt": -0.1
     },
     "deckR": 56,
-    "deckTilt": -6
+    "deckTilt": -6,
+    "front": "critters/frog/portrait-front.webp",
+    "seam": "critters/frog/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -10430,7 +10909,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/frog/tee/idle-front.webp",
+      "seam": "critters/frog/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/frog/tee/stroke.webp",
@@ -10478,7 +10959,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/frog/tee/stroke-front.webp",
+      "seam": "critters/frog/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/frog/tee/stroke-r.webp",
@@ -10526,7 +11009,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": -2
+      "deckTilt": -2,
+      "front": "critters/frog/tee/stroke-r-front.webp",
+      "seam": "critters/frog/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/frog/tee/hey.webp",
@@ -10574,7 +11059,9 @@
       },
       "deckR": 21,
       "chestShown": 0.95,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/frog/tee/hey-front.webp",
+      "seam": "critters/frog/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/frog/tee/nice.webp",
@@ -10622,7 +11109,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/frog/tee/nice-front.webp",
+      "seam": "critters/frog/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/frog/tee/miss.webp",
@@ -10670,7 +11159,9 @@
       },
       "deckR": 21,
       "chestShown": 0.98,
-      "deckTilt": 2
+      "deckTilt": 2,
+      "front": "critters/frog/tee/miss-front.webp",
+      "seam": "critters/frog/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/frog/tee/chug.webp",
@@ -10718,7 +11209,9 @@
       },
       "deckR": 21,
       "chestShown": 0.91,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/frog/tee/chug-front.webp",
+      "seam": "critters/frog/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/frog/tee/cheer.webp",
@@ -10766,7 +11259,9 @@
       },
       "deckR": 21,
       "chestShown": 1,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/frog/tee/cheer-front.webp",
+      "seam": "critters/frog/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/frog/tee/out.webp",
@@ -10814,7 +11309,9 @@
       },
       "deckR": 16,
       "chestShown": 0.83,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/frog/tee/out-front.webp",
+      "seam": "critters/frog/tee/out-seam.webp"
      }
     }
    }
@@ -10885,7 +11382,9 @@
       "headW": 179,
       "eyeSpan": 57,
       "tilt": 1.3
-     }
+     },
+     "front": "critters/winnie/idle-front.webp",
+     "seam": "critters/winnie/idle-seam.webp"
     },
     "stroke": {
      "src": "critters/winnie/stroke.webp",
@@ -10920,7 +11419,9 @@
       "headW": 175,
       "eyeSpan": 53,
       "tilt": 10.5
-     }
+     },
+     "front": "critters/winnie/stroke-front.webp",
+     "seam": "critters/winnie/stroke-seam.webp"
     },
     "stroke-r": {
      "src": "critters/winnie/stroke-r.webp",
@@ -10955,7 +11456,9 @@
       "headW": 176,
       "eyeSpan": 54,
       "tilt": -10.1
-     }
+     },
+     "front": "critters/winnie/stroke-r-front.webp",
+     "seam": "critters/winnie/stroke-r-seam.webp"
     },
     "hey": {
      "src": "critters/winnie/hey.webp",
@@ -10990,7 +11493,9 @@
       "headW": 170,
       "eyeSpan": 58,
       "tilt": 12
-     }
+     },
+     "front": "critters/winnie/hey-front.webp",
+     "seam": "critters/winnie/hey-seam.webp"
     },
     "nice": {
      "src": "critters/winnie/nice.webp",
@@ -11025,7 +11530,9 @@
       "headW": 179,
       "eyeSpan": 57,
       "tilt": 0
-     }
+     },
+     "front": "critters/winnie/nice-front.webp",
+     "seam": "critters/winnie/nice-seam.webp"
     },
     "miss": {
      "src": "critters/winnie/miss.webp",
@@ -11060,7 +11567,9 @@
       "headW": 179,
       "eyeSpan": 57,
       "tilt": 0
-     }
+     },
+     "front": "critters/winnie/miss-front.webp",
+     "seam": "critters/winnie/miss-seam.webp"
     },
     "chug": {
      "src": "critters/winnie/chug.webp",
@@ -11095,7 +11604,9 @@
       "headW": 179,
       "eyeSpan": 57,
       "tilt": 0
-     }
+     },
+     "front": "critters/winnie/chug-front.webp",
+     "seam": "critters/winnie/chug-seam.webp"
     },
     "cheer": {
      "src": "critters/winnie/cheer.webp",
@@ -11130,7 +11641,9 @@
       "headW": 153,
       "eyeSpan": 54,
       "tilt": 8.8
-     }
+     },
+     "front": "critters/winnie/cheer-front.webp",
+     "seam": "critters/winnie/cheer-seam.webp"
     },
     "out": {
      "src": "critters/winnie/out.webp",
@@ -11165,7 +11678,9 @@
       "headW": 159,
       "eyeSpan": 51,
       "tilt": 5.8
-     }
+     },
+     "front": "critters/winnie/out-front.webp",
+     "seam": "critters/winnie/out-seam.webp"
     }
    },
    "portrait": {
@@ -11205,7 +11720,9 @@
      "tilt": 1.6
     },
     "deckR": 54,
-    "deckTilt": 14
+    "deckTilt": 14,
+    "front": "critters/winnie/portrait-front.webp",
+    "seam": "critters/winnie/portrait-seam.webp"
    },
    "kayak": true,
    "tee": {
@@ -11261,7 +11778,9 @@
       },
       "deckR": 22,
       "chestShown": 0.95,
-      "deckTilt": 6
+      "deckTilt": 6,
+      "front": "critters/winnie/tee/idle-front.webp",
+      "seam": "critters/winnie/tee/idle-seam.webp"
      },
      "stroke": {
       "src": "critters/winnie/tee/stroke.webp",
@@ -11309,7 +11828,9 @@
       },
       "deckR": 24,
       "chestShown": 0.95,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/winnie/tee/stroke-front.webp",
+      "seam": "critters/winnie/tee/stroke-seam.webp"
      },
      "stroke-r": {
       "src": "critters/winnie/tee/stroke-r.webp",
@@ -11357,7 +11878,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": -14
+      "deckTilt": -14,
+      "front": "critters/winnie/tee/stroke-r-front.webp",
+      "seam": "critters/winnie/tee/stroke-r-seam.webp"
      },
      "hey": {
       "src": "critters/winnie/tee/hey.webp",
@@ -11405,7 +11928,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/winnie/tee/hey-front.webp",
+      "seam": "critters/winnie/tee/hey-seam.webp"
      },
      "nice": {
       "src": "critters/winnie/tee/nice.webp",
@@ -11453,7 +11978,9 @@
       },
       "deckR": 22,
       "chestShown": 0.99,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/winnie/tee/nice-front.webp",
+      "seam": "critters/winnie/tee/nice-seam.webp"
      },
      "miss": {
       "src": "critters/winnie/tee/miss.webp",
@@ -11501,7 +12028,9 @@
       },
       "deckR": 23,
       "chestShown": 0.98,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/winnie/tee/miss-front.webp",
+      "seam": "critters/winnie/tee/miss-seam.webp"
      },
      "chug": {
       "src": "critters/winnie/tee/chug.webp",
@@ -11549,7 +12078,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/winnie/tee/chug-front.webp",
+      "seam": "critters/winnie/tee/chug-seam.webp"
      },
      "cheer": {
       "src": "critters/winnie/tee/cheer.webp",
@@ -11597,7 +12128,9 @@
       },
       "deckR": 24,
       "chestShown": 1,
-      "deckTilt": 10
+      "deckTilt": 10,
+      "front": "critters/winnie/tee/cheer-front.webp",
+      "seam": "critters/winnie/tee/cheer-seam.webp"
      },
      "out": {
       "src": "critters/winnie/tee/out.webp",
@@ -11645,7 +12178,9 @@
       },
       "deckR": 18,
       "chestShown": 0.47,
-      "deckTilt": 14
+      "deckTilt": 14,
+      "front": "critters/winnie/tee/out-front.webp",
+      "seam": "critters/winnie/tee/out-seam.webp"
      }
     }
    }
@@ -12430,11 +12965,12 @@
    "h": 201,
    "anchor": [
     160,
-    197
+    176
    ],
-   "fit": 1.22,
+   "fit": 1.5,
    "depth": 0.2,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.62
   },
   "party": {
    "src": "looks/hats/party.webp",
@@ -12445,9 +12981,10 @@
     160,
     425
    ],
-   "fit": 0.55,
+   "fit": 0.6,
    "depth": 0.05,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.12
   },
   "crown": {
    "src": "props/crown.webp",
@@ -12458,9 +12995,10 @@
     100,
     152
    ],
-   "fit": 0.8,
+   "fit": 0.82,
    "depth": 0.05,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.14
   },
   "froggy": {
    "src": "looks/hats/froggy.webp",
@@ -12472,9 +13010,10 @@
     160,
     234
    ],
-   "fit": 1.16,
+   "fit": 1.22,
    "depth": 0.24,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.58
   },
   "beanie": {
    "src": "looks/hats/beanie.webp",
@@ -12485,9 +13024,10 @@
     160,
     290
    ],
-   "fit": 1.02,
+   "fit": 1.12,
    "depth": 0.26,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.6
   },
   "propeller": {
    "src": "looks/hats/propeller.webp",
@@ -12496,11 +13036,12 @@
    "h": 290,
    "anchor": [
     160,
-    285
+    282
    ],
-   "fit": 1.04,
+   "fit": 1.12,
    "depth": 0.22,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.58
   },
   "tophat": {
    "src": "looks/hats/tophat.webp",
@@ -12511,9 +13052,10 @@
     160,
     314
    ],
-   "fit": 0.84,
+   "fit": 1,
    "depth": 0.08,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.36
   },
   "viking": {
    "src": "looks/hats/viking.webp",
@@ -12527,7 +13069,8 @@
    ],
    "fit": 1.62,
    "depth": 0.24,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.55
   },
   "fishing": {
    "src": "looks/hats/fishing.webp",
@@ -12538,9 +13081,10 @@
     160,
     289
    ],
-   "fit": 1.12,
+   "fit": 1.2,
    "depth": 0.22,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.58
   },
   "sunhat": {
    "src": "looks/hats/sunhat.webp",
@@ -12551,9 +13095,10 @@
     160,
     168
    ],
-   "fit": 1.36,
+   "fit": 1.55,
    "depth": 0.18,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.6
   },
   "halo": {
    "src": "looks/hats/halo.webp",
@@ -12578,9 +13123,10 @@
     160,
     215
    ],
-   "fit": 1.18,
+   "fit": 1.28,
    "depth": 0.26,
-   "gap": 0.08
+   "gap": 0.08,
+   "sink": 0.55
   }
  },
  "shades": {

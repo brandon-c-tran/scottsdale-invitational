@@ -105,7 +105,8 @@ function loadPixelFont(m) {
 
 export const knownCritter = id => ALL_CRITTER_IDS.includes(id);
 
-/* a critter's entry ({ anchor, measure, poses, portrait, tee }); an unknown id is the capybara */
+/* a critter's entry ({ anchor, measure, poses, portrait, tee, hatScale }); an unknown id is the capybara.
+   hatScale: its skull's width over its measured head's (horns or fluff measured in), for hats */
 export function critterArt(id, m = manifest) {
   if (!m?.critters) return null;
   return m.critters[id] || m.critters[FALLBACK_CRITTER] || Object.values(m.critters)[0] || null;
@@ -201,6 +202,9 @@ const MIN_HEAD_SHARE = 0.2;
 export const DECK_ASPECT = 1.7;
 /* glasses: as wide as the eyes ask, within these shares of the head */
 const SHADES_MIN = 0.62, SHADES_MAX = 0.95;
+/* the ink of the line art, and the hat's shadow on the head (ink, this strong) */
+const INK = "#1d1b22";
+const SHADOW_INK = "#1d1b22", SHADOW_ALPHA = 0.2;
 const measureOf = (entry, fallback = DEFAULT_MEASURE) => ({ ...fallback, ...(entry?.measure || {}) });
 
 /* ---- painting (a browser's canvas; node has none and gets the bare files) ---- */
@@ -264,9 +268,11 @@ function tinted(src, mask, color) {
    the tee's shirt) in the colour, then the photo printed round on the
    chest (on a kayak, a sticker on the hull at anchor.deck, deckR), the glasses at the eyes, the hat on the head. Anchors and sizes
    are in the art's own px (boxW wide). layers: { photo, shades:{ img, w,
-   h, anchor, span }, hat:{ img, w, h, anchor (its base), fit, depth, gap } }. `crown` is
-   the old single-crown form ({ img, at, anchor:[share x, share y], share }). */
-export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, anchor = null, measure = DEFAULT_MEASURE, chestR = 0, deckR = 0, deckTilt = 0, layers = {}, crown = null }) {
+   h, anchor, span }, hat:{ img, w, h, anchor (its front edge), fit, sink (or the older depth, gap),
+   shadow } }. front / seam: the pose's parts that stand in front of what it wears and the ink at
+   their base (scripts/float-art-seat.mjs), drawn only where a hat or glasses went. `crown` is the
+   old single-crown form ({ img, at, anchor:[share x, share y], share }). */
+export function paintSprite({ src, tube, shirt = null, front = null, seam = null, color, w, h, boxW = w, anchor = null, measure = DEFAULT_MEASURE, chestR = 0, deckR = 0, deckTilt = 0, layers = {}, crown = null }) {
   const out = canvas(w, h);
   const g = out.getContext("2d");
   g.drawImage(src, 0, 0, w, h);
@@ -309,7 +315,7 @@ export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, an
     pg.restore();
     shape(rx, r);
     pg.lineWidth = Math.max(1, r * (onDeck ? 0.12 : 0.1));
-    pg.strokeStyle = "#1d1b22";
+    pg.strokeStyle = INK;
     pg.stroke();
     if (keep) {
       pg.globalCompositeOperation = "destination-in";
@@ -320,31 +326,96 @@ export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, an
   /* glasses and hat turn with the eye line (measure.tilt, degrees) about their own anchor */
   const tilt = Math.max(-25, Math.min(25, Number(measure.tilt) || 0)) * Math.PI / 180;
   const headW = Math.max(measure.headW || DEFAULT_MEASURE.headW, boxW * MIN_HEAD_SHARE);
-  if (shades?.img && anchor?.eyes) {
-    /* lenses on the eyes' span, the frame never wider than the head */
-    const lensFit = (measure.eyeSpan || headW * 0.42) * (shades.w / shades.span) * (shades.fit ?? 0.95);
-    const gw = Math.max(headW * SHADES_MIN, Math.min(headW * SHADES_MAX, lensFit));
-    const sc = gw / shades.w;
-    g.save();
-    g.translate(anchor.eyes[0] * k, anchor.eyes[1] * k);
-    g.rotate(tilt);
-    g.drawImage(shades.img, -shades.anchor[0] * sc * k, -shades.anchor[1] * sc * k, shades.w * sc * k, shades.h * sc * k);
-    g.restore();
-  }
-  if (hat?.img && anchor?.head) {
-    /* the base under the head's top, but never down over the eyes */
-    const sc = (hat.fit * headW) / hat.w;
-    let baseY = (hat.depth ?? hat.sink ?? 0.1) * headW;
-    if (anchor.eyes) {
-      const ex = anchor.eyes[0] - anchor.head[0], ey = anchor.eyes[1] - anchor.head[1];
-      const eyeY = -ex * Math.sin(tilt) + ey * Math.cos(tilt);
-      baseY = Math.min(baseY, eyeY - (hat.gap ?? 0.08) * headW);
+  /* each worn thing on its own layer: the glasses, the hat; a cast shadow under both, the parts that
+     stand in front of them (ears, horns, a crest, a paddle overhead, the cup) drawn back over them */
+  const wearsShades = !!(shades?.img && anchor?.eyes), wearsHat = !!(hat?.img && anchor?.head);
+  if (wearsShades || wearsHat) {
+    const glassesLayer = wearsShades ? canvas(w, h) : null, hatLayer = wearsHat ? canvas(w, h) : null;
+    if (wearsShades) {
+      /* lenses on the eyes' span, the frame never wider than the head; a face turned three quarters
+         has its eyes closer than a front face's, so the frame narrows with them but keeps its height */
+      const gg = glassesLayer.getContext("2d");
+      const lensFit = (measure.eyeSpan || headW * 0.42) * (shades.w / shades.span) * (shades.fit ?? 0.95);
+      const gw = Math.max(headW * SHADES_MIN, Math.min(headW * SHADES_MAX, lensFit));
+      const sc = gw / shades.w;
+      const sy = measure.turn ? sc / Math.max(0.6, 1 - measure.turn * 0.4) : sc;
+      gg.translate(anchor.eyes[0] * k, anchor.eyes[1] * k);
+      gg.rotate(tilt);
+      gg.drawImage(shades.img, -shades.anchor[0] * sc * k, -shades.anchor[1] * sy * k, shades.w * sc * k, shades.h * sy * k);
+      /* never past the critter's own outline: on a three quarter face the far lens goes behind the snout */
+      gg.setTransform(1, 0, 0, 1, 0, 0);
+      gg.globalCompositeOperation = "destination-in";
+      gg.drawImage(src, 0, 0, w, h);
     }
+    if (wearsHat) {
+      const hg = hatLayer.getContext("2d");
+      /* a critter whose measured head takes in its horns or fluff wears its hat at its skull's width */
+      const skullW = Math.max(boxW * MIN_HEAD_SHARE, (measure.headW || DEFAULT_MEASURE.headW) * (measure.hatScale ?? 1));
+      const sc = (hat.fit * skullW) / hat.w;
+      let baseY;
+      if (hat.sink != null && anchor.eyes) {
+        /* seated: the hat's front edge on the brow, `sink` of the way from the head's top down to the
+           eye line, so the skull goes into the crown instead of the hat perching on it */
+        const ex = anchor.eyes[0] - anchor.head[0], ey = anchor.eyes[1] - anchor.head[1];
+        const eyeY = -ex * Math.sin(tilt) + ey * Math.cos(tilt);
+        baseY = Math.max(skullW * 0.12, eyeY) * hat.sink;
+      } else {
+        /* the base under the head's top, but never down over the eyes */
+        baseY = (hat.depth ?? 0.1) * headW;
+        if (anchor.eyes) {
+          const ex = anchor.eyes[0] - anchor.head[0], ey = anchor.eyes[1] - anchor.head[1];
+          const eyeY = -ex * Math.sin(tilt) + ey * Math.cos(tilt);
+          baseY = Math.min(baseY, eyeY - (hat.gap ?? 0.08) * headW);
+        }
+      }
+      hg.translate(anchor.head[0] * k, anchor.head[1] * k);
+      hg.rotate(tilt);
+      hg.drawImage(hat.img, -hat.anchor[0] * sc * k, (baseY - hat.anchor[1] * sc) * k, hat.w * sc * k, hat.h * sc * k);
+    }
+    /* the cast shadow: each layer's shape a little down the head, on the critter only, in ink */
+    const shadow = canvas(w, h);
+    const sg = shadow.getContext("2d");
+    const drop = (layer, by) => { if (layer) sg.drawImage(layer, -Math.sin(tilt) * by * k, Math.cos(tilt) * by * k); };
+    drop(glassesLayer, headW * 0.022);
+    drop(hatLayer, headW * (hat?.shadow ?? 0.045));
+    sg.globalCompositeOperation = "source-in";
+    sg.fillStyle = SHADOW_INK;
+    sg.fillRect(0, 0, w, h);
+    sg.globalCompositeOperation = "destination-in";
+    sg.drawImage(src, 0, 0, w, h);
+    if (glassesLayer) { sg.globalCompositeOperation = "destination-out"; sg.drawImage(glassesLayer, 0, 0); }
     g.save();
-    g.translate(anchor.head[0] * k, anchor.head[1] * k);
-    g.rotate(tilt);
-    g.drawImage(hat.img, -hat.anchor[0] * sc * k, (baseY - hat.anchor[1] * sc) * k, hat.w * sc * k, hat.h * sc * k);
+    g.globalAlpha = SHADOW_ALPHA;
+    g.drawImage(shadow, 0, 0);
     g.restore();
+    if (glassesLayer) g.drawImage(glassesLayer, 0, 0);
+    if (hatLayer) g.drawImage(hatLayer, 0, 0);
+    /* in front: the sprite's own ears, horns, crest, paddle and cup, drawn back over what was worn;
+       a part the hat swallows whole (a capybara's little ears under a cowboy hat) stays under it */
+    if (front) {
+      const worn = canvas(w, h), wg = worn.getContext("2d");
+      if (glassesLayer) wg.drawImage(glassesLayer, 0, 0);
+      if (hatLayer) wg.drawImage(hatLayer, 0, 0);
+      const f = canvas(w, h);
+      const fg = f.getContext("2d");
+      fg.drawImage(front, 0, 0, w, h);
+      const sm = seam && hatLayer ? canvas(w, h) : null;
+      if (sm) sm.getContext("2d").drawImage(seam, 0, 0, w, h);
+      keepStandingOut(f, worn, sm, w, h);
+      fg.globalCompositeOperation = "destination-in";
+      fg.drawImage(worn, 0, 0);
+      g.drawImage(f, 0, 0);
+      /* where an ear comes out of the crown, its base inked */
+      if (sm) {
+        const smg = sm.getContext("2d");
+        smg.globalCompositeOperation = "source-in";
+        smg.fillStyle = INK;
+        smg.fillRect(0, 0, w, h);
+        smg.globalCompositeOperation = "destination-in";
+        smg.drawImage(hatLayer, 0, 0);
+        g.drawImage(sm, 0, 0);
+      }
+    }
   }
   if (crown?.img && crown.at) {
     const cw = boxW * (crown.share || CROWN_SHARE) * k;
@@ -353,6 +424,29 @@ export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, an
     g.drawImage(crown.img, crown.at[0] * k - cw * ax, crown.at[1] * k - ch * ay, cw, ch);
   }
   return out;
+}
+
+/* The front parts that stand out of what was worn: only the pieces of `front` that reach outside
+   the worn layer (an ear through the crown, a paddle across it) are kept, in front and in the seam;
+   a piece wholly inside (an ear the hat covers) is cleared. 4-connected, through front's alpha. */
+function keepStandingOut(front, worn, seam, w, h) {
+  const fg = front.getContext("2d"), wg = worn.getContext("2d");
+  const fd = fg.getImageData(0, 0, w, h), wd = wg.getImageData(0, 0, w, h).data;
+  const a = fd.data, n = w * h;
+  const reach = new Uint8Array(n), stack = [];
+  for (let i = 0; i < n; i++) if (a[i * 4 + 3] > 24 && wd[i * 4 + 3] < 40) { reach[i] = 1; stack.push(i); }
+  while (stack.length) {
+    const i = stack.pop(), x = i % w;
+    const next = [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w];
+    for (const j of next) if (j >= 0 && j < n && !reach[j] && a[j * 4 + 3] > 24) { reach[j] = 1; stack.push(j); }
+  }
+  for (let i = 0; i < n; i++) if (!reach[i]) a[i * 4 + 3] = 0;
+  fg.putImageData(fd, 0, 0);
+  if (seam) {
+    const sg = seam.getContext("2d"), sd = sg.getImageData(0, 0, w, h);
+    for (let i = 0; i < n; i++) if (!reach[i]) sd.data[i * 4 + 3] = 0;
+    sg.putImageData(sd, 0, 0);
+  }
 }
 
 async function canvasUrl(c) {
@@ -393,6 +487,12 @@ async function layersOf(m, look) {
 
 /* the set a look's poses come from: the tee's with the photo tee (when the critter has one), else the plain one */
 const artSet = (c, look) => (look.shirt && c?.tee?.poses ? c.tee : c);
+/* a pose's front parts and seam, loaded only when something is worn (null when the art has none) */
+const wornParts = (art, layers) => {
+  const worn = !!(layers?.hat || layers?.shades);
+  return [worn && art?.front ? loadImage(grooveUrl(art.front)).catch(() => null) : null,
+    worn && layers?.hat && art?.seam ? loadImage(grooveUrl(art.seam)).catch(() => null) : null];
+};
 
 /* The size a sprite is painted at: the smallest of 128, 256 and 512 that
    covers the drawn size in device pixels (a TV's small riders keep a
@@ -470,15 +570,16 @@ export function riderSprites(raw = {}) {
       for (const pose of m.poses || POSES) {
         const art = set.poses?.[pose] || set.poses?.idle;
         const at = { ...c.anchor, ...(set.anchor || {}), ...(art?.anchor || {}) };
-        const measure = measureOf(art, measureOf(set, measureOf(c)));
+        const measure = { ...measureOf(art, measureOf(set, measureOf(c))), hatScale:c.hatScale ?? 1 };
         const fileKey = `${art?.src}|${art?.tube}|${art?.shirt || ""}|${JSON.stringify(at)}|${JSON.stringify(measure)}`;
         if (done.has(fileKey)) { urls[pose] = done.get(fileKey); continue; }
-        const [src, tube, shirt] = await Promise.all([
+        const [src, tube, shirt, front, seam] = await Promise.all([
           loadImage(grooveUrl(art.src)),
           loadImage(grooveUrl(art.tube)).catch(() => null),
           art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null,
+          ...wornParts(art, layers),
         ]);
-        const out = paintSprite({ src, tube, shirt, color:look.color, w:Math.round(px * box[0] / BOX), h:Math.round(px * box[1] / BOX), boxW:box[0], anchor:at, measure, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers });
+        const out = paintSprite({ src, tube, shirt, front, seam, color:look.color, w:Math.round(px * box[0] / BOX), h:Math.round(px * box[1] / BOX), boxW:box[0], anchor:at, measure, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers });
         urls[pose] = await canvasUrl(out);
         /* poses that share one file and anchors (the placeholders) are painted once */
         done.set(fileKey, urls[pose]);
@@ -534,24 +635,24 @@ export async function riderPortrait(entrant = {}, { size = 256, frame = "full" }
     if (tee) {
       const art = tee.poses.idle;
       const box = m.box || [BOX, BOX];
-      const [src, tube, shirt] = await Promise.all([loadImage(grooveUrl(art.src)), loadImage(grooveUrl(art.tube)).catch(() => null), art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null]);
-      const full = paintSprite({ src, tube, shirt, color:look.color, w:box[0], h:box[1], boxW:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor }, measure:measureOf(art, measureOf(c)), chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers });
+      const [src, tube, shirt, front, seam] = await Promise.all([loadImage(grooveUrl(art.src)), loadImage(grooveUrl(art.tube)).catch(() => null), art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null, ...wornParts(art, layers)]);
+      const full = paintSprite({ src, tube, shirt, front, seam, color:look.color, w:box[0], h:box[1], boxW:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor }, measure:{ ...measureOf(art, measureOf(c)), hatScale:c.hatScale ?? 1 }, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers });
       const [fx, fy, fw] = head ? headSquare({ ...c.anchor, ...art.anchor }, measureOf(art, measureOf(c)), box[0]) : tee.frame || [0, 0, box[0]];
       const out = canvas(px, px);
       out.getContext("2d").drawImage(full, fx, fy, fw, fw, 0, 0, px, px);
       return canvasDataUrl(out);
     }
-    const [src, tube] = await Promise.all([loadImage(grooveUrl(c.portrait.src)), loadImage(grooveUrl(c.portrait.tube)).catch(() => null)]);
-    const pm = measureOf(c.portrait, { headW:DEFAULT_MEASURE.headW * 2, eyeSpan:DEFAULT_MEASURE.eyeSpan * 2 });
+    const [src, tube, front, seam] = await Promise.all([loadImage(grooveUrl(c.portrait.src)), loadImage(grooveUrl(c.portrait.tube)).catch(() => null), ...wornParts(c.portrait, layers)]);
+    const pm = { ...measureOf(c.portrait, { headW:DEFAULT_MEASURE.headW * 2, eyeSpan:DEFAULT_MEASURE.eyeSpan * 2 }), hatScale:c.hatScale ?? 1 };
     const PW = c.portrait.w || 1024;
     if (head) {
-      const full = paintSprite({ src, tube, color:look.color, w:PW, h:PW, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
+      const full = paintSprite({ src, tube, front, seam, color:look.color, w:PW, h:PW, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
       const [fx, fy, fw] = headSquare(c.portrait.anchor, pm, PW);
       const out = canvas(px, px);
       out.getContext("2d").drawImage(full, fx, fy, fw, fw, 0, 0, px, px);
       return canvasDataUrl(out);
     }
-    const out = paintSprite({ src, tube, color:look.color, w:px, h:px, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
+    const out = paintSprite({ src, tube, front, seam, color:look.color, w:px, h:px, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
     return canvasDataUrl(out);
   })();
   job.catch(() => portraits.delete(key));

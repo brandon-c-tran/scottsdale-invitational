@@ -1,0 +1,42 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;background:#9fe3e0;font:bold 14px system-ui}
+#g{display:grid;gap:0}
+.c{position:relative;width:var(--s);height:var(--s);outline:1px solid #0002}
+.c img{width:100%;height:100%;display:block}
+.c b{position:absolute;left:4px;top:2px;font-size:12px;color:#123}
+</style></head><body><div id="g"></div>
+<script type="module">
+import { setGrooveBase, loadGrooveArt, riderSprites, riderPortrait } from "/float/client/art/groove/index.js";
+const q = new URLSearchParams(location.search);
+setGrooveBase(q.get("base") || "/public/float/groove/");
+const m = await loadGrooveArt();
+const critters = (q.get("critters") || Object.keys(m.critters).join(",")).split(",");
+const poses = (q.get("poses") || m.poses.join(",")).split(",");
+const looks = (q.get("looks") || "cowboy:aviators").split(",").map(s => { const [hat, shades] = s.split(":"); return { hat:hat||"none", shades:shades||"none" }; });
+const S = +(q.get("s") || 160);
+const colors = ["#e53935","#fdd835","#00897b","#3949ab","#8e24aa","#fb8c00"];
+const g = document.getElementById("g");
+const portrait = q.has("portrait");
+const cols = portrait ? looks.length : poses.length * looks.length;
+g.style.gridTemplateColumns = `repeat(${cols}, ${S}px)`;
+document.body.style.setProperty("--s", S + "px");
+let r = 0;
+for (const critter of critters) {
+  for (const [li, look] of looks.entries()) {
+    const color = colors[(r + li) % colors.length];
+    const base = { critter, color, groom:q.has("groom"), hat:look.hat, shades:look.shades, shirt:q.has("tee") ? "photo" : "none", photo:q.has("tee") ? "/public/float/groove/looks/sample-photo.webp" : null };
+    if (portrait) {
+      const url = await riderPortrait(base, { size:S*2, frame:q.get("frame") || "full" });
+      const d = document.createElement("div"); d.className = "c"; d.innerHTML = `<img src="${url}"><b>${critter} ${look.hat}/${look.shades}</b>`; g.append(d);
+      continue;
+    }
+    const urls = await riderSprites({ ...base, size:512 });
+    for (const pose of poses) {
+      const d = document.createElement("div"); d.className = "c"; d.innerHTML = `<img src="${urls[pose]}"><b>${critter} ${pose} ${look.hat}/${look.shades}</b>`; g.append(d);
+    }
+  }
+  r++;
+}
+await Promise.all([...document.images].map(i => i.decode().catch(()=>{})));
+document.title = "done"; window.done = [g.scrollWidth, g.scrollHeight];
+</script></body></html>

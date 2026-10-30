@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { dispatch } from "../../lib/client.js";
-import { serverNow } from "../../lib/serverClock.js";
+import { serverNow, useServerWake } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import { freshFrameNow, playSound, unlockSound } from "../../lib/sound.js";
 import { disp } from "../../../shared/core.js";
@@ -25,29 +25,18 @@ import "./board.css";
 export const sendBoard = (type, payload) => dispatch(type, payload, { retry:true });
 const useIso = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-/* the phone's clock for the board: the server clock, woken on the
-   instants the view changes by itself (the buzzer lighting on the beat) */
+/* The phone's clock for the board: the server clock, woken on the
+   instants the view changes by itself (the buzzer lighting on the beat,
+   the answer turn opening). The wake can't land early and stay there
+   (useServerWake): a wake that fired a hair short of its instant, the
+   clock's estimate having moved back meanwhile, used to re-render on the
+   same instant and arm nothing more, so a phone with no frame coming (a
+   solo game, a quiet room) sat dark until the turn timed out. */
 function useBoardNow(state, me, fixed) {
-  const [, wake] = useState(0);
   const now = fixed ?? serverNow();
   const next = fixed === undefined ? nextBoardInstant(boardView(state, me, now), now) : 0;
-  useEffect(() => {
-    if (!next) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, next - serverNow()) + 5);
-    return () => clearTimeout(timer);
-  }, [next]);
+  useServerWake(next, { drawnAt:now });
   return now;
-}
-/* wake once at a local server instant (a lockout ending) */
-function useWakeAt(at) {
-  const [, wake] = useState(0);
-  useEffect(() => {
-    if (!at) return undefined;
-    const wait = at - serverNow();
-    if (wait <= 0) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), wait + 5);
-    return () => clearTimeout(timer);
-  }, [at]);
 }
 
 /* what is left of a window, draining on the server clock */
@@ -144,10 +133,10 @@ export function Buzzer({ view, onBuzz, now: drawn }) {
   const [sent, setSent] = useState(null);
   const [shake, setShake] = useState(0);
   const painted = useRef({ perf:null, server:null });
-  useWakeAt(lockUntil);
   /* its own wakes (a lockout ending) read the clock afresh, never the
      instant the sheet last drew */
   const now = Math.max(Number(drawn) || 0, serverNow());
+  useServerWake(lockUntil, { drawnAt:now });
   const mine = view.myBuzz || sent;
   const state = buzzerState({ armAt:view.armAt, now, lockoutUntil:lockUntil, buzzed:!!mine, open:view.phase === "clue" });
   /* the reaction clock starts on the frame that paints the lit buzzer */
@@ -172,7 +161,11 @@ export function Buzzer({ view, onBuzz, now: drawn }) {
       tapServer:serverNow(), armAt:view.armAt });
     setSent({ ms });
     playSound("buzzPress", { bus:"you" });
-    onBuzz({ clueId:view.clueId, ms, race:view.race });
+    /* a buzz the server refused is not in: the buzzer lets go (lit again
+       while the window is open) and the screen says why under it */
+    Promise.resolve(onBuzz({ clueId:view.clueId, ms, race:view.race })).then(result => {
+      if (result && result.ok !== true && !result.uncertain) setSent(null);
+    });
   };
   const label = { off:"Buzzer, not live yet", locked:"Buzzer locked", live:"Buzz", in:"In", closed:"Buzzers closed" }[state];
   return <div className={`fd-buzzer is-${state}`}>
@@ -202,6 +195,7 @@ function BuzzScreen({ state, view, me, onAct, now }) {
   const buzz = async payload => {
     const result = await onAct("boardBuzz", payload);
     if (result?.ok !== true && !result?.uncertain && race.current === `${payload.clueId}:${payload.race}`) setError(writeError(result));
+    return result;
   };
   return <main className={`fd-board-body is-buzz${view.rebound ? " is-rebound" : ""}`}>
     <ClueHead view={view} />
@@ -294,7 +288,10 @@ function Answer({ state, view, me, onAct, now }) {
     const result = await onAct("boardAnswer", { clueId:view.clueId, choice:i });
     if (result?.ok !== true && !result?.uncertain) { setError(writeError(result)); setChosen(null); playSound("S26", { bus:"you" }); }
   };
-  return <main className={`fd-board-body is-answer${live ? " is-live" : ""}`}>
+  /* the order stands on the TV a beat before the turn opens: until then
+     the options wait, and say so */
+  const waiting = turn === "wait";
+  return <main className={`fd-board-body is-answer${live ? " is-live" : ""}${waiting ? " is-wait" : ""}`}>
     <div className="fd-board-prompt">
       <ClueHead view={view} />
       {!view.dd && view.order.length > 1 && <OrderStrip state={state} view={view} me={me} />}
@@ -302,7 +299,8 @@ function Answer({ state, view, me, onAct, now }) {
     {/* the answers dock at the foot, in the thumb's reach, lit while yours */}
     <div className={`fd-board-dock${live ? " is-live" : ""}`}>
       <div className="fd-board-yourturn">
-        <span className="fd-board-turnlamp"><i className="fd-insert fd-board-lamp" aria-hidden="true" /><span>Your turn</span></span>
+        <span className={`fd-board-turnlamp${waiting ? " is-wait" : ""}`}><i className="fd-insert fd-board-lamp" aria-hidden="true" />
+          <span>{waiting ? "Get ready" : "Your turn"}</span></span>
         {view.turnAt > 0 && <Drain key={`${view.clueId}:${view.turn}`} from={view.turnAt} until={view.turnEnd} now={now} className="is-turn" />}
       </div>
       <Options view={view} onChoose={choose} live={live} chosen={chosen} />
@@ -316,9 +314,11 @@ function AnswerWatch({ state, view, me, now }) {
   return <main className="fd-board-body is-watch">
     <div className="fd-board-prompt">
       <ClueHead view={view} />
+      {/* someone else won the buzz: who, said outright, and the options
+          below stand inactive */}
       {on && <div className="fd-board-answerer">
         <ChipFace p={on} size={56} />
-        <span className="fd-board-answerer-name">{disp(state, on)}</span>
+        <span className="fd-board-answerer-name">{disp(state, on)} is answering</span>
         {view.turnAt > 0 && now >= view.turnAt - ANSWER_EARLY_MS && <Drain key={`${view.clueId}:${view.turn}`} from={view.turnAt}
           until={view.turnEnd} now={now} className="is-turn" />}
       </div>}

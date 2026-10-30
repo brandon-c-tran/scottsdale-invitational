@@ -262,7 +262,8 @@ test("a room of 13: buzzes at once order by each phone's reaction; one answers; 
     const state = room();
     const players = state.trivia.players;
     assert.ok(players.length >= 12, `${players.length} here`);
-    pick(state, "fx-kim-3", state.trivia.pickAt + 10);
+    /* a 200 (the Daily Double hides on 300 and up: a 300 picked here was it one deal in 21) */
+    pick(state, "fx-kim-2", state.trivia.pickAt + 10);
     const log = logOf(state);
     /* every buzz reaches the server at the same instant; the reactions decide */
     const reactions = players.map((player, i) => ({ player, ms:180 + ((i * 37) % 13) * 11 + i }));
@@ -285,7 +286,7 @@ test("a room of 13: buzzes at once order by each phone's reaction; one answers; 
     assert.equal(at(logOf(state).revealedAt + 10, () => act(state, "boardNext", { clueId:id })).ok, true);
     assert.equal(at(logOf(state)?.revealedAt ?? Date.now(), () => applyAction(state, "boardNext", { clueId:id }, gm())).extra.unchanged, true);
     const row = boardStandings(state.trivia).find(item => item.player === fastest);
-    assert.deepEqual([row.score, row.right], [300, 1], "the value once");
+    assert.deepEqual([row.score, row.right], [200, 1], "the value once");
     assert.equal(boardStandings(state.trivia).filter(item => item.score !== 0).length, 1);
   } finally { restore(); }
 });

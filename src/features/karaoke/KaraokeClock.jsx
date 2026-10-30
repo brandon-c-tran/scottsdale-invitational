@@ -1,20 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
-import { serverNow } from "../../lib/serverClock.js";
+import { serverNow, useServerWake } from "../../lib/serverClock.js";
 import { clockText, nextKaraokeInstant } from "./karaokeModel.js";
 
 /* The phone's clock for karaoke: the server clock, woken on the game's own
    instants (karaokeInstants: the window's end, each walk-up, song, end and
    close, the reveal's steps), never ticking through a song. `fixed` holds
-   an instant (tests, rehearsals). */
+   an instant (tests, rehearsals). The wake can't land short and stay
+   there (useServerWake, the board's Oct 29 fix): a phone with no frame
+   coming would otherwise sit on its last screen. */
 export function useKaraokeNow(game, fixed) {
-  const [, wake] = useState(0);
   const now = fixed ?? serverNow();
   const next = fixed === undefined ? nextKaraokeInstant(game, now) : 0;
-  useEffect(() => {
-    if (!next) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, next - serverNow()) + 5);
-    return () => clearTimeout(timer);
-  }, [next]);
+  useServerWake(next, { drawnAt:now });
   return now;
 }
 

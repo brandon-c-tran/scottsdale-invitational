@@ -76,3 +76,43 @@ export function useServerNow(periodMs = 1000) {
   }, [periodMs]);
   return now;
 }
+
+/* A wake on a server instant that can't come early. A screen that wakes
+   on the instants it changes by itself (a buzzer lighting, an answer turn
+   opening) arms a timer for the gap on the server clock; when the timer
+   fires a hair short of the instant (the clock's estimate moved back
+   between arming and firing: the max of the last samples drops as its best
+   one ages out, every few frames; or the timer itself ran early), a plain
+   wake re-renders on the same instant and arms nothing more, and the
+   screen sits on its last state until some frame happens along. In a
+   solo game nothing does: the options never light and the turn times out
+   (Oct 29 playtest). This one checks the server clock when it fires and
+   arms again until the instant has come, then wakes once.
+
+   armServerWake is the loop, pure over its clock and timers (tested);
+   useServerWake re-renders at `at` (0: none), an instant after `drawnAt`,
+   the server time the caller drew with, and arms again after every wake,
+   so a render that still read short of `at` keeps waiting for it. An `at`
+   the drawing already reached wakes nothing: it can never loop. */
+export function armServerWake(at, onWake, { slack = 5, now = serverNow, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  let timer = null;
+  let live = true;
+  const check = () => {
+    timer = null;
+    if (!live) return;
+    const wait = Number(at) - now();
+    if (wait <= 0) { onWake(); return; }
+    timer = setTimer(check, wait + slack);
+  };
+  check();
+  return () => { live = false; if (timer !== null) clearTimer(timer); };
+}
+export function useServerWake(at, { drawnAt = 0, slack = 5 } = {}) {
+  const [woke, wake] = useState(0);
+  const pending = !!at && !(Number(drawnAt) >= Number(at));
+  useEffect(() => {
+    if (!pending) return undefined;
+    return armServerWake(at, () => wake(n => n + 1), { slack });
+  }, [at, pending, woke, slack]);
+  return woke;
+}

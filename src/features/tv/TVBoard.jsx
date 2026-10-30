@@ -6,7 +6,7 @@ import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
-import { serverNow } from "../../lib/serverClock.js";
+import { serverNow, useServerWake } from "../../lib/serverClock.js";
 import { useTuneClip } from "../trivia/tuneClip.js";
 import { boardClipPlan, shownMediaOf, useAudioClip, useMediaReady, useVideoClip } from "../trivia/boardMedia.js";
 import { LETTERS, ordinal, triviaPhotoSrc } from "../trivia/triviaModel.js";
@@ -516,14 +516,10 @@ function Rail({ state, view, scene, now }) {
    on the instants it changes by itself (a lamp lighting, a turn opening),
    never only on the TV's one-second tick. `fixed` holds a still. */
 function useBoardNow(state, tick, fixed) {
-  const [, wake] = useState(0);
   const now = fixed ? tick : Math.max(tick || 0, serverNow());
   const next = nextBoardInstant(boardView(state, null, now), now);
-  useEffect(() => {
-    if (fixed || !next) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, next - serverNow()) + 10);
-    return () => clearTimeout(timer);
-  }, [next, fixed]);
+  /* a wake that lands short of its instant arms again (src/lib/serverClock.js) */
+  useServerWake(fixed ? 0 : next, { drawnAt:now, slack:10 });
   return now;
 }
 
@@ -574,15 +570,10 @@ export function boardChrome(state, now) {
 }
 /* TVMode's hook: the chase changes on the board's own instants */
 export function useBoardChrome(state, fixedNow) {
-  const [, wake] = useState(0);
   const fixed = fixedNow !== undefined;
   const now = fixed ? fixedNow : serverNow();
   const view = boardView(state, null, now);
   const next = view ? nextBoardInstant(view, now) : 0;
-  useEffect(() => {
-    if (fixed || !next) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, next - serverNow()) + 10);
-    return () => clearTimeout(timer);
-  }, [next, fixed]);
+  useServerWake(fixed ? 0 : next, { drawnAt:now, slack:10 });
   return boardChrome(state, now);
 }

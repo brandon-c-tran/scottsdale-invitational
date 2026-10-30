@@ -138,16 +138,19 @@ export function reportMediaReady(clueId) {
 export const mediaWaiting = view => !!view?.clueId && view.phase === "clue" && view.race === 0 && !!view.log?.mediaWait
   && !!clueMediaOf(view.clue);
 
-/* Fetch the clue's file (an image decoded), then report it ready. */
+/* Fetch the clue's file (an image decoded), then report it ready; a Daily
+   Double's only warms the cache. */
 export function useMediaReady(view, { fixed = false, report = reportMediaReady } = {}) {
   const waiting = !fixed && mediaWaiting(view);
-  const clueId = waiting ? view.clueId : null;
-  const src = waiting ? clueMediaOf(view.clue).src : null;
-  const kind = waiting ? clueMediaOf(view.clue).kind : null;
+  /* a Daily Double's media loads while its picker wagers (nothing waits on it) */
+  const warming = !fixed && !waiting && view?.phase === "dd-wager" && !!clueMediaOf(view?.clue);
+  const clueId = waiting || warming ? view.clueId : null;
+  const src = clueId ? clueMediaOf(view.clue).src : null;
+  const kind = clueId ? clueMediaOf(view.clue).kind : null;
   useEffect(() => {
     if (!clueId || !src) return undefined;
     let gone = false;
-    const done = () => { if (!gone) report(clueId); };
+    const done = () => { if (!gone && waiting) report(clueId); };
     if (kind === "image" && typeof Image !== "undefined") {
       const img = new Image();
       img.src = src;
@@ -156,5 +159,5 @@ export function useMediaReady(view, { fixed = false, report = reportMediaReady }
       fetch(src).then(res => res.ok ? res.blob() : null).then(blob => { if (blob) done(); }, () => {});
     }
     return () => { gone = true; };
-  }, [clueId, src, kind, report]);
+  }, [clueId, src, kind, report, waiting]);
 }

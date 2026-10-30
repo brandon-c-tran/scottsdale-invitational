@@ -475,3 +475,14 @@ test("end to end over the sockets: the host picks each kind of clue, the TV read
     restore();
   }
 });
+
+test("QA: a jump through Trivia plays the plan game to its posted result (media clues arm at the cap with no TV)", () => {
+  const restore = withFixtureBank();
+  try {
+    const state = room({ start:false });
+    act(state, "qaAdvance", { target:"event:trivia:done", seed:7 });
+    assert.ok(state.results.trivia, "the result posted");
+    assert.deepEqual(state.trivia.values, QBANK_VALUES, "the plan was the game");
+    assert.equal(state.trivia.played.length, 35);
+  } finally { restore(); }
+});

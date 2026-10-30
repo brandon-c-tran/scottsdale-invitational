@@ -30,6 +30,7 @@ let sheets = values("--sheet").map(parse);
 if (!sheets.length && REVIEW) {
   sheets = [
     ...hatIds.map(hat => ({ hat, shades:"none", across:"1", poses:"idle", size:"130", name:`hat-${hat}` })),
+    { hat:"none", shades:"none", tee:"1", size:"170", name:"tee-photo-all-poses" },
     ...shadeIds.map(shades => ({ hat:"none", shades, across:"1", poses:"idle", size:"130", name:`shades-${shades}` })),
     { hat:"propeller", shades:"round", tee:"1", size:"170", ids:"capybara,roadrunner,gila,bighorn", name:"poses-tee-a" },
     { hat:"froggy", shades:"hearts", tee:"1", size:"170", ids:"jackrabbit,quail,coyote,winnie", name:"poses-tee-b" },

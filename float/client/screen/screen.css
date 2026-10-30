@@ -329,7 +329,9 @@
 .lb-count { position:absolute; right:70px; top:60px; display:flex; align-items:baseline; gap:14px; padding:12px 30px 16px; border-radius:99px;
   background:var(--bone); box-shadow:0 0 0 6px var(--ink), 0 8px 0 0 var(--ink); }
 .lb-count-n { font-family:var(--num); font-size:60px; font-weight:800; line-height:1; color:var(--magenta); }
-.lb-host { position:absolute; right:60px; bottom:40px; display:flex; align-items:center; gap:30px; padding:16px 18px 16px 30px; border-radius:30px;
+/* the host's row along the bottom right, from y 950 with its ring: the
+   front row's tags end above it (flotilla.js LOBBY_SHAPES) */
+.lb-host { position:absolute; right:60px; bottom:34px; display:flex; align-items:center; gap:30px; padding:12px 16px 12px 28px; border-radius:30px;
   background:var(--bone); box-shadow:0 0 0 6px var(--ink), 0 10px 0 0 var(--ink); z-index:2; }
 .lb-group { display:flex; align-items:center; gap:12px; }
 .lb-group .lb-label { margin-right:4px; }
@@ -338,7 +340,7 @@
 .fs-step { width:58px; height:58px; border-radius:16px; background:#f1ead9; font-size:38px; box-shadow:0 0 0 4px var(--ink), 0 5px 0 0 var(--ink); }
 .fs-seg { height:58px; padding:0 22px; border-radius:16px; background:#f1ead9; font-size:30px; box-shadow:0 0 0 4px var(--ink), 0 5px 0 0 var(--ink); }
 .fs-seg.is-on { background:#7fd6f2; }
-.fs-start { height:78px; padding:0 54px; border-radius:20px; background:var(--yellow); font-size:44px; box-shadow:0 0 0 5px var(--ink), 0 8px 0 0 var(--ink); }
+.fs-start { height:66px; padding:0 48px; border-radius:20px; background:var(--yellow); font-size:40px; box-shadow:0 0 0 5px var(--ink), 0 8px 0 0 var(--ink); }
 .fs-step:disabled, .fs-start:disabled { opacity:0.4; cursor:default; }
 .fs-step:focus-visible, .fs-seg:focus-visible, .fs-start:focus-visible { outline:5px solid var(--magenta); outline-offset:6px; }
 .fs-start:not(:disabled):hover { filter:brightness(1.05); }
@@ -414,13 +416,25 @@
 .hd-rank-cut[data-on="1"] { opacity:1; }
 
 /* ── the cut as a show: grade stamps, award cards, the call ── */
-.fl-grade { display:block; padding:5px 13px 8px; border-radius:14px; background:var(--bone); box-shadow:0 0 0 5px var(--ink), 0 7px 0 0 var(--ink);
-  animation:fl-stamp 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) both; white-space:nowrap; }
-@keyframes fl-stamp { from { opacity:0; transform:scale(2.1) rotate(-6deg); } to { opacity:1; transform:none; } }
-.fl-grade span { font-family:var(--px); font-size:32px; font-weight:700; line-height:1; color:var(--ink); }
-.fl-grade.is-superb { background:var(--gold); }
+/* the grades (GROOVE.md "After a song"): one stamp over every rider at
+   once, told apart by colour and shape: Superb gold, biggest, tilted and
+   lifted; OK the pale blue, square and lifted; Try again grey, flat and a
+   size down. Each lands like a stamp (1.4 down to 1, a short settle;
+   reduced motion rests on the end state). A pill keeps inside the popup's
+   slot (flotilla.js POPUP_BOX, 188 x 100 at size 1), so 13 at once never
+   cover a face or a tag: "Try again" is the widest word, hence its size.
+   The pop-in's own transform centres it; the stamp and the tilt ride the
+   scale and rotate properties. */
+.fl-grade { display:block; padding:5px 11px 8px; border-radius:14px; background:var(--bone); box-shadow:0 0 0 5px var(--ink), 0 7px 0 0 var(--ink);
+  transform-origin:50% 60%; animation:fl-grade-stamp 0.38s cubic-bezier(0.2, 1.2, 0.3, 1) both; white-space:nowrap; }
+@keyframes fl-grade-stamp { 0% { opacity:0; scale:1.4; } 30% { opacity:1; } 62% { scale:0.95; } 100% { scale:1; } }
+.fl-grade span { font-family:var(--px); font-size:42px; font-weight:700; line-height:1; color:var(--ink); letter-spacing:-0.01em; }
+.fl-grade.is-superb { background:var(--gold); rotate:-4deg; box-shadow:0 0 0 6px var(--ink), 0 8px 0 0 var(--ink); animation-name:fl-grade-superb; }
+.fl-grade.is-superb span { font-size:44px; }
+@keyframes fl-grade-superb { 0% { opacity:0; scale:1.45; rotate:-14deg; } 30% { opacity:1; } 62% { scale:0.95; rotate:-2deg; } 100% { scale:1; rotate:-4deg; } }
 .fl-grade.is-ok { background:#7fd6f2; }
-.fl-grade.is-tryagain { background:var(--grey); }
+.fl-grade.is-tryagain { background:var(--grey); box-shadow:0 0 0 5px var(--ink); padding:4px 10px 6px; }
+.fl-grade.is-tryagain span { font-size:36px; color:#3b3645; }
 .hd-awards { position:absolute; left:380px; right:40px; top:226px; display:flex; justify-content:center; gap:30px; }
 .hd-award { width:420px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 18px 16px; border-radius:26px; background:var(--bone);
   box-shadow:0 0 0 6px var(--ink), 0 10px 0 0 var(--ink); animation:hd-card-up 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }

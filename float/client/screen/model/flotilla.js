@@ -35,11 +35,13 @@ const ROW_SHAPES = Object.freeze({
 });
 /* the final three, big in one row */
 const FINAL_SHAPE = Object.freeze([{ y:860, scale:0.9, lo:300, hi:1840 }]);
-/* the lobby's riders, to the right of the code and the QR */
+/* the lobby's riders, to the right of the code and the QR; the front row's
+   tags (dropped clear of the hull, nameDrop) stay above the host's row of
+   controls along the bottom (screen.css .lb-host, from y 950) */
 const LOBBY_SHAPES = Object.freeze({
   1:[{ y:760, scale:0.62, lo:720, hi:1880 }],
   2:[{ y:640, scale:0.44, lo:720, hi:1890 }, { y:840, scale:0.54, lo:700, hi:1880 }],
-  3:[{ y:566, scale:0.34, lo:720, hi:1890 }, { y:724, scale:0.4, lo:700, hi:1890 }, { y:884, scale:0.45, lo:690, hi:1880 }],
+  3:[{ y:566, scale:0.34, lo:720, hi:1890 }, { y:724, scale:0.4, lo:700, hi:1890 }, { y:876, scale:0.45, lo:690, hi:1880 }],
 });
 /* the formation's middle, a little right of the stage's (the host stands
    left); the lobby's, right of its card */
@@ -318,8 +320,15 @@ export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_
 export const NAME_H = 36;
 export const nameWidth = name => 14 * String(name || "").length + 32;
 /* where a name may go, as shares of its own box: right under its tube,
-   lower, to a side, a touch higher */
-const NAME_TRIES = Object.freeze([[0, 0], [0, 0.7], [-0.32, 0.35], [0.32, 0.35], [0, -0.45], [-0.55, 0], [0.55, 0], [0, 1.4]]);
+   lower, to a side, lower still (never higher: that puts it on the hull) */
+const NAME_TRIES = Object.freeze([[0, 0], [0, 0.7], [-0.32, 0.35], [0.32, 0.35], [-0.55, 0], [0.55, 0], [0, 1.1]]);
+/* A tag is one size at any distance (NAME_H), and the cast hangs it a
+   share of the rider's own height under the waterline, so under a small
+   rider (the lobby's back row, 0.34) its top sits half as far under the
+   hull as under a big one (a song's front row, 0.53) and reads as stuck
+   to the kayak. The small rider's tag drops the difference (stage px), so
+   every tag clears its hull and its ripple by the front row's margin. */
+export const nameDrop = scale => Math.max(0, Math.round(38 - 72 * (Number(scale) || 0.6)));
 
 /* Every name's spot under its own tube, on the layer over everything, so a
    player always finds themself: names never overlap each other, and keep
@@ -335,9 +344,10 @@ export function nameSlots(names = [], { faces = [], popups = [] } = {}) {
   const order = list.slice().sort((a, b) => (b.scale || 0) - (a.scale || 0) || a.x - b.x);
   for (const n of order) {
     const w = n.w || nameWidth(n.name), h = n.h || NAME_H;
+    const under = n.y + nameDrop(n.scale);
     let best = null;
     for (const [fx, fy] of NAME_TRIES) {
-      const cx = Math.max(w / 2 + 8, Math.min(STAGE_W - w / 2 - 8, n.x + fx * w)), cy = Math.min(1080 - h / 2 - 4, n.y + fy * h);
+      const cx = Math.max(w / 2 + 8, Math.min(STAGE_W - w / 2 - 8, n.x + fx * w)), cy = Math.min(1080 - h / 2 - 4, under + fy * h);
       const rect = { x0:cx - w / 2, x1:cx + w / 2, y0:cy - h / 2, y1:cy + h / 2 };
       let cost = (Math.abs(fx) * 1.2 + Math.abs(fy) * 0.8) * w * h * 0.35;
       for (const p of placed) cost += 40 * overlap(rect, p);

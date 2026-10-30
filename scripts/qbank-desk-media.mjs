@@ -1,4 +1,4 @@
-/* The Question bank desk's fixture media (dev/fit/qbankFixtures.js): made-up
+/* The Question bank desk's fixture media (dev/fit/qbankDeskFixtures.js): made-up
    pictures (a face, a team's colors, a silhouette and its original, a
    screenshot crop and the whole page), tones and a test card, written to
    public/tq/ under the bank's neutral names (/tq/<12 hex>.<ext>) so the

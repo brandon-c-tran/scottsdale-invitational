@@ -1,5 +1,5 @@
 /* The Question bank desk (docs/TRIVIA-QBANK.md "The desk") over the fixture
-   bank (dev/fit/qbankFixtures.js) swapped in as the Worker's bank: its
+   bank (dev/fit/qbankDeskFixtures.js) swapped in as the Worker's bank: its
    states built by the bank's real writes (worker/qbank.js), the bank read
    as GET /api/trivia/qbank answers. The model: the board's seven columns
    of five, labels and lamps, the bank's warnings by slot, the filters and
@@ -23,7 +23,7 @@ import {
 import { clipBounds, clipProgress } from "../src/features/trivia/qbankMedia.js";
 import {
   QBANK_FIXTURE_RECOMMENDED, QBANK_FIXTURE_RECORDS, deskWrite, qbankFixtureResponse, qbankFixtureState, useDeskBank,
-} from "../dev/fit/qbankFixtures.js";
+} from "../dev/fit/qbankDeskFixtures.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const read = path => readFileSync(join(ROOT, path), "utf8");

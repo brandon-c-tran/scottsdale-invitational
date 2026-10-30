@@ -164,3 +164,68 @@ Content builders write only their own `worker/triviaQBank/<category>.json`,
 `public/tq/` files they made, and `scripts/tq/<category>.*`. The integrator
 writes `recommended.json` from their picks and the validator test
 `tests/trivia-qbank.test.mjs` is the engine builder's.
+
+## Engine as built (Oct 29, `tq/engine`)
+
+Where the contract was silent, these are the calls; every name below is code.
+
+- **Record rules** (`shared/triviaQBank.js cleanQBankRecord`, run on every
+  file by `tests/trivia-qbank.test.mjs`): `format` and `media.kind` agree
+  (`choice` has no media; a photo makes it `image`); `media.src` is
+  `/tq/<12 hex>.<ext>` with ext webp|jpg|png (image), mp3|m4a (audio),
+  mp4|webm (video); image and video need `w`/`h`; audio and video need
+  `duration` 0 to 30 s (`start` defaults to 0); `poster` only on video;
+  `revealMedia` is an image. `ready` needs a source with `checkedAt` or
+  `verified.by:"provided"`, a non-empty `reveal`, and every file present in
+  `public/tq/`. `personal` only in `kim`/`lore`; `needs-brandon` stays
+  `confirm` (or `rejected`) and never plays, even forced. Optional
+  `flags:["reveals-answer"]` marks an asset the builder knows gives it
+  away. Unknown fields are refused. Option ids: 1 to 8 lowercase
+  letters/digits.
+- **Files**: `aux` is `aux-bank.json` (Windows). `_fixtures.json` (and its
+  media in `public/tq/`) is TEST data from `scripts/tq/fixtures.mjs`; the
+  Worker never loads it. `recommended.json` is the plan's shape or `null`.
+- **The plan**: `state.triviaPlan` loads as the recommended board marked
+  `from:"recommended"` and keeps following it on every load until the
+  commissioner changes anything. Forcing is per clue: `qbankAssign { col,
+  slot, qid, force:true }` (stored as `plan.forced[qid]`). `qbankAssign` of a
+  clue already on the board moves it. `qbankEdit` patches land on the edit
+  already kept, field by field (options by id, the clip's `start` and
+  `duration` only); a field set back to the bank's value drops out; `patch:
+  null` reverts. The commissioner setting `status:"ready"` stamps
+  `verified:{ by:"provided", at:today }` (and `personal:"provided"`).
+- **Which game deals**: board format, and any slot set: the plan deals,
+  refused until all 35 are filled and ready/forced ("Fill all 35 slots in
+  the Question bank first", "N clues aren't ready"); an empty plan plays the
+  set list as before. `triviaConfigured` (and so Lock and start's automatic
+  start, the Start beat, the Ready check row) counts the plan. The format
+  must be Board: the desk should offer the switch beside the bank.
+- **A dealt bank clue**: `{ format:"choice", text, subject?, options:[text],
+  optionIds:[id], answer:index, reveal?, media?, revealMedia?, source:qid,
+  category }`, options in an order seeded by game id + qid. The game has
+  `values:[100..500]`; the Daily Double hides on 300+; its and the Final's
+  most read the top value (500).
+- **Media first**: a media clue picks with `armAt` at its reading time plus
+  `MEDIA_READY_CAP_MS` (2.5 s) and `log.mediaWait`; the first
+  `boardMediaReady { clueId }` from a TV socket (or the commissioner) moves
+  the arm to `MEDIA_ARM_LEAD_MS` (0.5 s) after it, never before the reading
+  time, only on the first race before any buzz. A clip clue keeps the
+  buzzers open for its length plus 2 s.
+- **Host cues**: `boardMediaCue { clueId, action:"replay"|"pause" }`, the
+  pill's tray "Replay clip" / "Pause clip" while a clip clue is up. A replay
+  starts 0.4 s on (and, before any buzz, keeps the buzzers open to its end).
+  `clipStart(game)` is the one answer to "when does the clip play".
+- **Screens**: `src/features/trivia/boardMedia.js` (the plan, the audio
+  through the app's one media element, the video in the clue's own
+  `<video>`, the ready report). The TV letters the subject under an image,
+  a bar runs with a clip, the reveal swaps in `revealMedia` with the
+  `reveal` note. Phones show an image small (and the reveal's), never a
+  clip, and the grid uses each category's `short` name. Rehearse at
+  `/dev/trivia-preview.html` ("Bank:" steps); fit views `tv-bank-*` and
+  `bank-*` (`dev/fit/qbankFixtures.js bankStage`).
+- **The desk's read** `GET /api/trivia/qbank` (GM token): `{ ok,
+  categories:[{ id, name, short }], values, records:[record merged with its
+  edit, mark, edited, original? ], plan, recommended, edits, marks,
+  status:{ total, filled, empty, missing, unready, full }, warnings:[{ col,
+  slot, qid, kind, text }] }`. The commissioner's frames also carry
+  `triviaPlan`, `triviaBankEdits` and `triviaBankMarks`; no other frame does.

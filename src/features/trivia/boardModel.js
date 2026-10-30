@@ -18,8 +18,9 @@ import { isActivePlayer, isAway } from "../../../shared/core.js";
 import {
   ANSWER_GRACE_MS, BOARD_CLIP_MS, BOARD_CLUE_FORMATS, BOARD_COLUMNS_MAX, BOARD_VALUES, BUZZ_SHOW_MS, DD_MIN, DD_STING_MS,
   DD_WAGER_MS, FINAL_INTRO_MS, FINAL_PHASES, WAGER_STEP, answeredOn, boardRace, boardStandings, boardTopValue, clampBuzzMs, ddDefault,
-  ddMax, finalEligible, finalMax, finalRevealSchedule, isBoardGame, struckChoices, turnMs, turnPlayer,
+  ddMax, finalEligible, finalMax, finalRevealSchedule, isBoardGame, struckChoices, turnMs, turnPlayer, clipStart,
 } from "../../../shared/triviaBoard.js";
+import { qbankCategory } from "../../../shared/triviaQBank.js";
 
 const num = value => Number(value) || 0;
 export const fmtPoints = n => Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-US") : "";
@@ -52,7 +53,7 @@ export function boardView(state, me = null, now = Date.now()) {
   const playing = !!me && !isAway(state, me) && Array.isArray(game.players) && (players.includes(me) || isActivePlayer(me, state));
   const played = new Set(game.played || []);
   const columns = (game.columns || []).map((column, col) => ({
-    name:String(column?.name || ""), col,
+    name:String(column?.name || ""), col, category:column?.category || null, short:columnShort(column),
     cells:(column?.clues || []).map(id => {
       const clue = game.clues?.[id] || {};
       return { id, col, row:num(clue.row), value:num(clue.value), played:played.has(id), current:game.current === id,
@@ -234,11 +235,13 @@ export function boardInstants(view, now) {
   switch (view.phase) {
     case "clue":
       add(view.shownAt); add(view.armAt); add(view.armAt + BOARD_CLIP_MS); add(view.openUntil);
+      clipMarks(view, add);
       break;
     case "answer":
     case "dd-clue":
       add(view.shownAt); add(view.turnAt - ANSWER_EARLY_MS); add(view.turnAt); add(view.turnEnd); add(view.turnEnd + ANSWER_GRACE_MS);
       if (view.closedAt) add(view.closedAt + BUZZ_SHOW_MS);
+      clipMarks(view, add);
       break;
     case "dd-wager":
       add(view.pickedAt + DD_STING_MS); add(ddWagerUntil(view));
@@ -260,6 +263,19 @@ export function boardInstants(view, now) {
   return [...new Set(marks)].sort((a, b) => a - b);
 }
 export const nextBoardInstant = (view, now) => boardInstants(view, now)[0] || 0;
+/* a question bank clue's clip: when it starts and ends (a replay too) */
+function clipMarks(view, add) {
+  const clip = view?.game && view.clueId ? clipStart(view.game, view.clueId) : null;
+  if (clip) { add(clip.at); add(clip.at + clip.ms); }
+}
+/* A column's name on a phone: a question bank category's own short name
+   while the column keeps the category's board name (seven columns on a
+   phone leave a word about six letters), else its name. */
+export function columnShort(column) {
+  const category = qbankCategory(column?.category);
+  const name = String(column?.name || "");
+  return category && (!name || name === category.name) ? category.short : name;
+}
 
 /* stereo place by the rail's slot, left to right */
 export const railPan = (index, count) => count > 1 ? Math.round((-0.8 + 1.6 * index / (count - 1)) * 100) / 100 : 0;

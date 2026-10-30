@@ -18,7 +18,8 @@ import { songBeatOf } from "../../shared/bitMusic.js";
 import { bitById } from "../../src/features/gags/bits/registry.js";
 import { recordCards } from "../../src/features/tv/recordsModel.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
-import { qbankFixtureState, useDeskBank } from "./qbankFixtures.js";
+import { bankStage } from "./qbankFixtures.js";
+import { qbankFixtureState, useDeskBank } from "./qbankDeskFixtures.js";
 import { karaokeStage } from "./karaokeFixtures.js";
 import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
 import {
@@ -1341,6 +1342,19 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-board-real-answer", build:() => boardPlayed("answer"), at:{ board:0 } },
   { id:"tv-board-real-reveal", build:() => boardPlayed("reveal"), at:{ board:0 }, wait:1500 },
   { id:"tv-board-real-final-reveal", build:() => boardPlayed("final-reveal"), at:{ board:0 } },
+  /* the question bank's board (dev/fit/qbankFixtures.js, the real writes
+     on the test fixtures): seven columns at 100 to 500, a headshot with
+     its name, a sound clip's speaker and bar, a video, a silhouette and a
+     crop, and their reveals with the note */
+  { id:"tv-bank-pick", build:() => bankStage("pick", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-text", build:() => bankStage("text", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-image", build:() => bankStage("image", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-audio", build:() => bankStage("audio", { now:Date.now() }).state, at:{ board:0 }, pause:true, wait:150 },
+  { id:"tv-bank-video", build:() => bankStage("video", { now:Date.now() }).state, at:{ board:0 }, pause:true, wait:150 },
+  { id:"tv-bank-audio-answer", build:() => bankStage("audio-answer", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-sil", build:() => bankStage("sil", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-sil-reveal", build:() => bankStage("sil-reveal", { now:Date.now() }).state, at:{ board:0 }, wait:1500 },
+  { id:"tv-bank-crop-reveal", build:() => bankStage("crop-reveal", { now:Date.now() }).state, at:{ board:0 }, wait:1500 },
   /* Karaoke (dev/fit/karaokeFixtures.js, built from its contract and
      projected as a TV's frame carries it): the pick window, the order
      dealing, a singer up next, a song (the video's stand-in, a practice
@@ -1674,7 +1688,7 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-final-clue", build:() => boardStage("final-clue"), settle:false, freeze:true, tabs:["home"] },
   { id:"desk-board", build:boardDeskStage, viewer:"gm", tabs:[], sheets:["trivia-desk"] },
   /* the Question bank desk (docs/TRIVIA-QBANK.md) over the fixture bank
-     (dev/fit/qbankFixtures.js): the board and bank, a slot's alternatives,
+     (dev/fit/qbankDeskFixtures.js): the board and bank, a slot's alternatives,
      the editor, the warnings; and a desk with nothing picked yet */
   { id:"qbank", build:() => { useDeskBank(); return qbankFixtureState("worked", fresh("locker")); }, viewer:"gm", qbank:true, tabs:[],
     sheets:["qbank-desk", "qbank-compare", "qbank-edit", "qbank-warnings"], sheetSizes:["375"] },
@@ -1684,6 +1698,14 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-real-rebound", build:() => boardPlayed("rebound"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-answer", build:() => boardPlayed("answer"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-final-clue", build:() => boardPlayed("final-clue"), settle:false, freeze:true, tabs:["home"] },
+  /* the question bank's board on a phone: seven columns with short names,
+     a headshot small over the buzzer, a sound (nothing plays here), the
+     silhouette's original at the reveal */
+  { id:"bank-pick-mine", build:() => bankStage("pick", { now:Date.now(), viewer:FIT_GUEST }).state, settle:false, freeze:true, tabs:["home"],
+    sheets:["game-closed"] },
+  { id:"bank-buzz-image", build:() => bankStage("image", { now:Date.now() }).state, settle:false, freeze:true, tabs:["home"] },
+  { id:"bank-buzz-audio", build:() => bankStage("audio", { now:Date.now() }).state, settle:false, freeze:true, tabs:["home"] },
+  { id:"bank-reveal-sil", build:() => bankStage("sil-reveal", { now:Date.now() }).state, settle:false, freeze:true, tabs:["home"] },
   /* Karaoke on the guest's phone (dev/fit/karaokePhoneFixtures.js, built
      from its contract; `freeze` holds the page's clock on the moment): the
      pick window (your song, Change's picker, a failed video, locked in),

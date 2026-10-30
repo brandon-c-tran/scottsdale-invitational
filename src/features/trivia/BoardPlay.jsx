@@ -12,6 +12,7 @@ import { NowRow } from "../../ui/NowRow.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { writeError } from "../../lib/writeErrors.js";
 import { LETTERS, triviaPhotoSrc } from "./triviaModel.js";
+import { shownMediaOf } from "./boardMedia.js";
 import {
   ANSWER_EARLY_MS, DD_RANGE, FINAL_RANGE, boardScreen, boardView, buzzReaction, buzzerState, columnNameSize, ddWagerUntil,
   finalSteps, fmtPoints, fmtReaction, nextBoardInstant, signedPoints, turnState, wagerItems,
@@ -77,9 +78,10 @@ function PickGrid({ view, onPick, pending, mine }) {
   const n = Math.max(1, view.columns.length);
   const width = Math.floor(358 / n) - 6;
   /* one size for every column's name, the longest word's */
-  const size = Math.min(...view.columns.map(column => columnNameSize(column.name, width)));
+  const label = column => column.short || column.name;
+  const size = Math.min(...view.columns.map(column => columnNameSize(label(column), width)));
   return <div className={`fd-board-grid${mine ? " is-mine" : ""}`} style={{ "--cols":n }}>
-    {view.columns.map(column => <span key={column.col} className="fd-board-colname" style={{ fontSize:size }}>{column.name}</span>)}
+    {view.columns.map(column => <span key={column.col} className="fd-board-colname" style={{ fontSize:size }}>{label(column)}</span>)}
     {Array.from({ length:view.rows }, (_, row) => view.columns.map(column => {
       const cell = column.cells[row];
       if (!cell) return <span key={`${column.col}:${row}`} className="fd-board-cell is-empty" aria-hidden="true" />;
@@ -116,6 +118,18 @@ function Pick({ state, view, me, onAct, now }) {
     </div>
     {error && <p className="fd-board-error" role="alert">{error}</p>}
   </main>;
+}
+
+/* A question bank clue's picture, small, so a phone can look again: its
+   image (at the reveal, the reveal's). Audio and video play on the TV only:
+   a phone never sounds or shows a clip. */
+function ClueImage({ view, revealed = false }) {
+  const media = shownMediaOf(view.clue, revealed);
+  if (media?.kind !== "image") return null;
+  return <figure className="fd-board-media">
+    <img src={media.src} alt="" />
+    {view.clue.subject && <figcaption>{view.clue.subject}</figcaption>}
+  </figure>;
 }
 
 /* ── the buzzer ── */
@@ -191,7 +205,7 @@ function BuzzScreen({ state, view, me, onAct, now }) {
   };
   return <main className={`fd-board-body is-buzz${view.rebound ? " is-rebound" : ""}`}>
     <ClueHead view={view} />
-    {view.rebound && <StruckRow view={view} />}
+    {view.rebound ? <StruckRow view={view} /> : <ClueImage view={view} />}
     {view.playing ? <Buzzer key={`${view.clueId}:${view.race}`} view={view} onBuzz={buzz} now={now} />
       : <InRow state={state} view={view} />}
     {error && <p className="fd-board-error" role="alert">{error}</p>}
@@ -321,6 +335,7 @@ function Reveal({ state, view, me }) {
   /* what it did to you; your score itself rolls in the header */
   return <main className="fd-board-body is-reveal">
     <ClueHead view={view} />
+    <ClueImage view={view} revealed />
     {mine.length > 0 && <div className={`fd-board-delta ${delta > 0 ? "is-up" : "is-down"}`}>
       <b>{delta > 0 ? "+" : "−"}{fmtPoints(Math.abs(delta))}</b>
     </div>}

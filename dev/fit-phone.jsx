@@ -12,7 +12,7 @@ import { bankForDesk } from "../worker/trivia.js";
 import { publishFrame } from "../src/lib/frameGate.js";
 import { provideFloatPart } from "../src/features/float/floatParts.js";
 import { FIT_ARRIVE_CODE, FIT_GM, FIT_GUEST, PHONE_SCENARIOS, buildScenario } from "./fit/scenarios.js";
-import { qbankFixtureResponse } from "./fit/qbankFixtures.js";
+import { qbankFixtureResponse } from "./fit/qbankDeskFixtures.js";
 import qrcode from "qrcode-generator";
 import FloatController from "../float/client/controller/FloatController.jsx";
 import { createMockRoom } from "../float/client/controller/mockRoom.js";

@@ -1,5 +1,5 @@
 /* The Question bank desk, rehearsed (docs/TRIVIA-QBANK.md "The desk"): the
-   real desk over the fixture bank (dev/fit/qbankFixtures.js), every write
+   real desk over the fixture bank (dev/fit/qbankDeskFixtures.js), every write
    the Worker's own reducer (worker/qbank.js through applyAction) on a
    state in memory, the bank read as GET /api/trivia/qbank answers it. No
    socket, no Durable Object; a reload starts over.
@@ -18,7 +18,7 @@ import { createRoot } from "react-dom/client";
 import { QBankDesk } from "../src/features/trivia/QBankDesk.jsx";
 import { Shell } from "../src/ui/Shell.jsx";
 import { Sheet } from "../src/ui/controls.jsx";
-import { deskWrite, qbankFixtureResponse, qbankFixtureState, useDeskBank } from "./fit/qbankFixtures.js";
+import { deskWrite, qbankFixtureResponse, qbankFixtureState, useDeskBank } from "./fit/qbankDeskFixtures.js";
 import "../src/ui/shell.css";
 
 const params = new URLSearchParams(location.search);

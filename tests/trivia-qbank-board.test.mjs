@@ -224,6 +224,8 @@ test("the host replays or pauses a clip; the rebound plays it again from its own
     pick(state, "fx-aux-2", state.trivia.pickAt + 10);
     ready(state, logOf(state).pickedAt + 200);
     const arm = logOf(state).armAt;
+    assert.deepEqual(triviaBeat(state, trivia(state)).tray.map(item => [item.label, item.write, item.payload.action]),
+      [["Replay clip", "boardMediaCue", "replay"], ["Pause clip", "boardMediaCue", "pause"]], "the pill's tray carries the cues");
     assert.equal(refuse(state, "boardMediaCue", { clueId:audio.id, action:"replay" }, as("Evan")), "Commissioner only");
     assert.equal(refuse(state, "boardMediaCue", { clueId:audio.id, action:"rewind" }), "Replay or pause");
     const ctx = gm();
@@ -249,6 +251,7 @@ test("the host replays or pauses a clip; the rebound plays it again from its own
     const picture = room();
     pick(picture, "fx-nba-1", picture.trivia.pickAt + 10);
     assert.equal(refuse(picture, "boardMediaCue", { clueId:picture.trivia.current, action:"replay" }), "That clue has no clip");
+    assert.equal(triviaBeat(picture, trivia(picture)).tray, undefined, "no clip, no cues");
     assert.equal(refuse(picture, "boardMediaCue", { clueId:clueFor(picture, "fx-aux-2").id, action:"replay" }), "That clue isn't up");
   } finally { restore(); }
 });

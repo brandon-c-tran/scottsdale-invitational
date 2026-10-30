@@ -523,7 +523,11 @@ export function boardBeat(state, ev) {
   const name = player => player ? disp(state, player) : "";
   const id = game.current, log = boardLog(game), clue = boardClue(game);
   const cell = clue ? `${game.columns?.[clue.col]?.name || "Trivia"} ${clue.value}` : "";
-  const step = (label, subject, write, payload) => ({ type:"board-step", label, subject, write, payload });
+  /* a clip clue up: the host's Replay clip and Pause clip in the tray */
+  const clip = ["clue", "answer", "dd-clue"].includes(game.phase) && isClipClue(clue)
+    ? [{ label:"Replay clip", write:"boardMediaCue", payload:{ clueId:id, action:"replay" } },
+      { label:"Pause clip", write:"boardMediaCue", payload:{ clueId:id, action:"pause" } }] : null;
+  const step = (label, subject, write, payload) => ({ type:"board-step", label, subject, write, payload, ...(clip ? { tray:clip } : {}) });
   switch (game.phase) {
     case "pick": {
       /* the autopilot's own pick (its payload too), so the pill draws its

@@ -116,7 +116,7 @@ function Edit({ room, draft, groom, setDraft, onJoin, onBack, onLocker }) {
 
 function LockerSheet({ draft, setDraft, groom, onDone }) {
   return <section className="flj-screen flj-sheet">
-    <div className="flj-top"><h2 className="flj-sheet-title">Critter</h2>
+    <div className="flj-top"><h2 className="flj-sheet-title">Look</h2>
       <button type="button" className="flj-done" onClick={() => { tapTick(); onDone(); }}>Done</button></div>
     <div className="flj-sheet-body">
       <LockerPicker look={draft.look} onChange={look => setDraft(d => ({ ...d, look }))} groom={groom} color={draft.color} name={draft.name}

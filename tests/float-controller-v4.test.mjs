@@ -34,14 +34,20 @@ test("your taps this song: one entry a cue, the room's restamp corrects it in pl
   assert.equal(foldTaps(list, null), list);
 });
 
-test("the streak: Nice or better in a row, broken visibly by Early, Late or a Miss; an OK neither grows nor breaks it loudly", () => {
+test("the streak: Nice or better grows it, OK keeps it, Early, Late or a Miss break it (the sound's own rule)", async () => {
+  const sound = await import("../float/client/sound/groovePhone.js");
+  const { streakStep } = await import("../float/client/controller/controllerModel.js");
+  for (const n of [0, 2, 3, 9, 19, 29, 40]) for (const q of ["perfect", "nice", "ok", "early", "late", "miss", null])
+    assert.deepEqual(streakStep(n, q), sound.streakStep(n, q), `streakStep(${n}, ${q})`);
   assert.equal(tapsView(run([[1, "perfect", 10], [2, "nice", -80], [3, "perfect", 0]])).streak, 3);
   const broke = tapsView(run([[1, "perfect", 10], [2, "nice", -80], [3, "perfect", 0], [4, "late", 200]]));
   assert.deepEqual([broke.streak, broke.broken], [0, { n:3, key:"k4" }]);
   assert.deepEqual(tapsView(run([[1, "perfect", 10], [2, "nice", -80], [3, "perfect", 0], [4, "miss", null]])).broken, { n:3, key:"k4" });
   assert.equal(tapsView(run([[1, "perfect", 10], [2, "late", 200]])).broken, null, `a streak under ${STREAK_SHOW} breaks quietly`);
   const ok = tapsView(run([[1, "perfect", 10], [2, "nice", -80], [3, "perfect", 0], [4, "ok", 130]]));
-  assert.deepEqual([ok.streak, ok.broken], [0, null]);
+  assert.deepEqual([ok.streak, ok.broken], [3, null], "an OK keeps it");
+  const ten = tapsView(run(Array.from({ length:10 }, (_, k) => [k, "nice", 60])));
+  assert.deepEqual([ten.streak, ten.milestone], [10, { n:10, key:"k9" }], "10 in a row: the run's sound");
 });
 
 test("the meter: your last 8 taps as signed ticks, misses leave none", () => {

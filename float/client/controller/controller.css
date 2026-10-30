@@ -575,6 +575,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-streak.is-empty { visibility: hidden; padding: 0; width: 0; }
 .flc-streak.is-hot { background: #f5b82e; box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 4px var(--me), 0 4px 0 rgba(43, 34, 51, 0.22); }
 @keyframes flc-streak-up { from { transform: scale(1.22); } }
+/* 10, 20, 30: a bigger pop with the run's sound */
+.flc-streak.is-milestone { animation: flc-streak-mile 520ms var(--spring) both; }
+@keyframes flc-streak-mile { 0% { transform: scale(1.7) rotate(-4deg); } 60% { transform: scale(0.94) rotate(1deg); } 100% { transform: none; } }
 /* a streak broken: struck through, grey, and it drops away */
 .flc-streak.is-broken { background: #c3c1cc; color: var(--ink-2); text-decoration: line-through 3px; animation: flc-streak-break 1100ms ease-in both; }
 @keyframes flc-streak-break { 0% { transform: rotate(0) translateY(0); } 12% { transform: rotate(-6deg) scale(1.08); } 60% { opacity: 1; transform: rotate(-9deg) translateY(4px); }

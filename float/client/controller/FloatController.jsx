@@ -37,7 +37,7 @@ import Screens from "./Screens.jsx";
 import { useRoom } from "./useRoom.js";
 import { foldTaps, indexOf, lastCallJudged, offsetOf, roundShape, roundSong, screenOf, seatView, songAtOf, wakeFor } from "./controllerModel.js";
 import { createGate, createPad, padTap, restamp, serverStamp, stampOf } from "./rhythm.js";
-import { cheerSound, doneSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
+import { cheerSound, doneSound, missSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
 import { usePreloadArt } from "./art.jsx";
 import "./controller.css";
 
@@ -208,6 +208,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
       const s = live.current;
       if (msg.t === "ev" && msg.q === "miss" && (!fresh || up.c < msg.c) && s.screen === "song") {
         show({ c:msg.c, q:"miss", d:null });
+        missSound();
         seq.current += 1;
         setAct({ key:seq.current, kind:"miss", q:"miss", at:perfNow() });
       }

@@ -14,7 +14,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Critter, Host, Popup } from "./art.jsx";
 import { STREAK_SHOW, autoRowPose, beatCounter, darkAt, demoAt, narrationAt, numberTone, pendingCalls, rankView, songView, tapsView } from "./controllerModel.js";
-import { streakBreakSound } from "./sound.js";
+import { streakBreakSound, streakSound } from "./sound.js";
 import { cueTime } from "../../shared/chart.js";
 import { CutLine, Scenery } from "./parts.jsx";
 import SeatMap from "./SeatMap.jsx";
@@ -255,7 +255,7 @@ function Streak({ view }) {
   const broke = useShown(view.broken ? { key:view.broken.key, at:view.brokeAt, n:view.broken.n } : null, 1100);
   if (broke) return <b className="flc-streak is-broken" key={`broke-${broke.key}`} role="status">{broke.n} in a row</b>;
   if (view.streak < STREAK_SHOW) return <span className="flc-streak is-empty" aria-hidden="true" />;
-  return <b className={`flc-streak${view.streak >= 10 ? " is-hot" : ""}`} key={`s${view.streak}`} role="status">{view.streak} in a row</b>;
+  return <b className={`flc-streak${view.streak >= 10 ? " is-hot" : ""}${view.streak % 10 === 0 ? " is-milestone" : ""}`} key={`s${view.streak}`} role="status">{view.streak} in a row</b>;
 }
 export const METER_MS = 300;
 function Meter({ ticks }) {
@@ -304,6 +304,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
   const answer = lastTap ? { key:lastTap.key, q:lastTap.q, at:lastAt.current.at } : null;
   useNudge(stageRef, answer);
   useEffect(() => { if (tapState.broken) streakBreakSound(tapState.broken.n); }, [tapState.broken?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tapState.milestone) streakSound(tapState.milestone.n); }, [tapState.milestone?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   usePad(rootRef, onTap);
   const now = useSongNow(serverNow, songAt, chart?.beatMs);
   const view = songView(chart, songAt, now);

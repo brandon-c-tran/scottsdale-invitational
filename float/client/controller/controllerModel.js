@@ -527,17 +527,23 @@ export const METER_TICKS = 8;
 export const COACH_AFTER = 3;
 const offSide = row => row.q === "miss" || !Number.isFinite(row.d) ? null
   : row.q === "late" || (row.q === "ok" && row.d > 0) ? "late" : row.q === "early" || (row.q === "ok" && row.d < 0) ? "early" : null;
+/* the streak's rule, the sound's own (float/client/sound streakStep, the
+   tests hold them equal): Nice or better grows it, OK keeps it, Early, Late
+   and a Miss break it; a break of 3 or more sounds, and every 10 a run */
+export const STREAK_BREAK_MIN = 3;
+export function streakStep(streak = 0, q = null) {
+  const n = Math.max(0, Math.floor(Number(streak) || 0));
+  if (q === "perfect" || q === "nice") { const next = n + 1; return { streak:next, sound:next >= 10 && next % 10 === 0 ? "streak" : null }; }
+  if (q === "early" || q === "late" || q === "miss") return { streak:0, sound:n >= STREAK_BREAK_MIN ? "break" : null };
+  return { streak:n, sound:null };
+}
 export function tapsView(list) {
   const items = Array.isArray(list) ? list : [];
-  let streak = 0;
-  for (let k = items.length - 1; k >= 0 && GOOD.includes(items[k].q); k--) streak++;
-  let broken = null;
+  let streak = 0, step = null, before = 0;
+  for (const row of items) { before = streak; step = streakStep(streak, row.q); streak = step.streak; }
   const last = items[items.length - 1];
-  if (last && !GOOD.includes(last.q) && last.q !== "ok") {
-    let n = 0;
-    for (let k = items.length - 2; k >= 0 && GOOD.includes(items[k].q); k--) n++;
-    if (n >= STREAK_SHOW) broken = { n, key:last.key };
-  }
+  const broken = last && step?.sound === "break" ? { n:before, key:last.key } : null;
+  const milestone = last && step?.sound === "streak" ? { n:streak, key:last.key } : null;
   const ticks = items.filter(row => row.q !== "miss" && Number.isFinite(row.d)).slice(-METER_TICKS).map(row => ({ d:row.d, q:row.q, key:row.key }));
   let coach = null;
   const tail = items.slice(-COACH_AFTER);
@@ -546,7 +552,7 @@ export function tapsView(list) {
     if (sides.every(side => side === "late")) coach = "Tap earlier";
     else if (sides.every(side => side === "early")) coach = "Tap later";
   }
-  return { streak, broken, ticks, coach, last:last || null };
+  return { streak, broken, milestone, ticks, coach, last:last || null };
 }
 /* the pad's answer to one judgement: its strength by grade, and which way an early or late nudges it */
 export const ANSWERS = Object.freeze({ perfect:"perfect", nice:"nice", ok:"ok", early:"early", late:"late", miss:"miss" });

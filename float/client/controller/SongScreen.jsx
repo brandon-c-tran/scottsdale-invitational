@@ -135,8 +135,11 @@ export function useMove(ref, act) {
   }, [act?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/* the pose a tap leaves: its action, then pleased for a Perfect or a Nice; a miss flubs */
-const ACTION_POSE = Object.freeze({ paddle:"stroke", hey:"hey", hop:"stroke", spin:"stroke", drop:"hey", rocket:"hey", miss:"miss", cheer:"cheer" });
+/* the pose a tap leaves: its action, then pleased for a Perfect or a Nice; a
+   miss flubs. A hop raises the paddle and a spin throws an arm up, the same
+   poses the TV strikes (model/motion.js ACTIONS), so your phone and your
+   critter in the room agree */
+const ACTION_POSE = Object.freeze({ paddle:"stroke", hey:"hey", hop:"cheer", spin:"hey", drop:"hey", rocket:"hey", miss:"miss", cheer:"cheer" });
 export function usePose(act, base = "idle", side = null) {
   const [, bump] = useState(0);
   const at = act?.at ?? -Infinity;

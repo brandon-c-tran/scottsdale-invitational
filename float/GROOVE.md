@@ -388,6 +388,26 @@ kept in `float/look/groove`):
   (`bar-6q`...) and has its own trick (the clock races, a spring, a
   clatter). Review renders: `.impeccable/review/float-sound-v3/`
   (`fireworks-room.mp3` has three riders' bursts).
+- As built, v4 (groove/sound, Oct 29): outside Paddle Party the band rows
+  softly on 1 and 3 (`gAutoRow`, a kayak stroke at `GROOVE_AUTO_ROW` 0.42
+  of the band, left then right; never on a sixteenth a cue or a host's call
+  has, never in the dark or the breakdown). The phone (`groovePhone.js`):
+  `floatMissSound()`, `floatStreakBreakSound(n)` (silent under
+  `STREAK_BREAK_MIN` 3), `floatStreakSound(n)` at 10, 20, 30 and every ten
+  after, `streakStep(streak, q)` the rule (Nice or better grows it, OK keeps
+  it, Early, Late, Miss break it); an Early tap's slap leans up, a Late
+  one's sags. The mix (measured, BS.1770): the host was 14 LU over the band
+  and peaking on its own, pumping the master's compressor under every call;
+  now `floatVoice` 1.6 (from 2.2), the bartender 1.6, the band 0.68 (from
+  0.6), calls about 10.5 LU on top; Rock Hop's boing +3.5 dB; the songs
+  -16.6 to -18.4 LUFS integrated on the TV render, true peaks under 0 dBTP;
+  13 riders missing at once stay inside the flub density rule (the room
+  renders `*-room13.mp3` within 0.1 LU of the plain ones). A fuse that
+  lands under a host's word is lit softly (`opts.soft`) and every fuse's
+  sizzle stops 50 ms short of the next voice or crowd Hey. Renders:
+  `.impeccable/review/float-sound-v4/`. Unused clips (no line names them):
+  the rowing lines (`say-row`, `say-rowhop`, `say-rowspin`, `say-rowall`,
+  `say-rowfuse`, `say-twonow`) and `say-readyhey`.
 
 ## The screen (TV) and the phone
 

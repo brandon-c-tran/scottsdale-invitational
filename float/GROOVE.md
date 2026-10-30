@@ -720,6 +720,45 @@ already saved stays valid (`looks.js` keeps old ids; one that is retired
 maps to the nearest new one in `cleanLook`). No other company's characters
 or marks.
 
+**As built, Oct 30 (Brandon: "the accessories still don't sit right and are
+just floaty / not even laying correctly").** The anchors were close; the
+hat was a flat sticker set on the head's measured top, so it perched over
+the skull and hid everything thin above it. Now a hat is worn:
+- **Seated.** Each hat's `anchor` is its lowest front edge and `sink` says
+  where that edge sits, a share of the way from the skull's top down to
+  the eyes (cowboy 0.62, beanie 0.6, top hat 0.36, party 0.12; the halo
+  keeps `depth` and floats). It rides the pose's eyes at the critter's own
+  brow height and never rises above its skull's top, so the skull goes into
+  the crown in every pose.
+- **One size per critter.** `wearOf(c)`: idle's head width and eye span
+  size every pose's hat and glasses (the measured head moved up to 13%
+  between stroke and stroke-r, which alternate on the beat). `hatScale`
+  corrects a head measured with horns or fluff (bighorn 0.8) or too
+  narrow (jackrabbit 1.25, roadrunner 1.15); `browShare` gives the frog,
+  whose eyes are its top, a brow height.
+- **Shadow.** The hat's and the glasses' shapes drop a little down the head
+  in ink at 24%, on the critter only.
+- **In front.** `scripts/float-art-seat.mjs` writes, per pose (plain, tee)
+  and portrait, `front` (the sprite's own parts thinner than a skull near
+  the head: ears, horns, crests, the quail's plume, arms and a paddle held
+  overhead, the cup) and `seam` (ink at a part's base), plus
+  `measure.skullTop` (the opened body's top, so never an ear's tip). The
+  painter draws back over the hat and glasses only the parts that cross
+  out of them, inking the base where an ear leaves the crown; a part the
+  hat swallows whole (a capybara's little ears under a cowboy hat) stays
+  under it. Run it after `float-art-fit-anchors.mjs`, which rewrites every
+  measure.
+- **Glasses** stay inside the critter's outline (a three quarter face's far
+  lens goes behind the snout).
+- **Portraits** paint with headroom and take in a hat that rises over the
+  frame; the Locker's hat and glasses chips frame the whole hat.
+- Review: `dev/acc/sheet.html` paints the real module (any critters, poses,
+  `looks=hat:shades,...`, `tee`, `portrait`, `frame=head`, `size`);
+  `node dev/acc/shoot.mjs <out.png> "<query>"` shoots it headless (a static
+  server on :8765 at the repo root). Three quarter hat art was weighed and
+  not made: only the capybara turns its head far, and a front hat seated on
+  it reads.
+
 ### 2. Numbers in more colours than red (shared tone scale)
 
 "its hard to tell in last call who did best and who did worse, i think we

@@ -306,3 +306,10 @@ button.fd-board-option:disabled { cursor:default; }
   .fd-board-in li.is-in, .fd-board-option.is-right, .fd-board-delta, .fd-board-primary.is-done, .fd-board-dd-word { animation:none !important; }
   .fd-buzzer-cap { transition:none; }
 }
+
+/* a question bank clue's image, small (the TV has it large); audio and
+   video stay on the TV */
+.fd-board-media { margin:0; display:grid; justify-items:center; gap:6px; }
+.fd-board-media img { display:block; max-width:100%; max-height:150px; border-radius:10px; object-fit:contain;
+  background:var(--ink0); box-shadow:inset 0 0 0 1px var(--line); }
+.fd-board-media figcaption { font-family:var(--fd-show); font-weight:900; font-size:18px; line-height:1.15; color:var(--sun); text-align:center; }

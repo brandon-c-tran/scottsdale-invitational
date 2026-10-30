@@ -38,7 +38,7 @@ export const QBANK_CATEGORIES = Object.freeze([
   Object.freeze({ id:"kim", name:"Kim & Winnie", short:"Kim & Winnie" }),
   Object.freeze({ id:"lore", name:"Brandon Lore", short:"Lore" }),
   Object.freeze({ id:"aux", name:"Pass the Aux", short:"Aux" }),
-  Object.freeze({ id:"web", name:"Internet Archaeology", short:"Internet" }),
+  Object.freeze({ id:"web", name:"Internet Archaeology", short:"Old Web" }),
   Object.freeze({ id:"sound", name:"You Know This Sound", short:"Sounds" }),
   Object.freeze({ id:"sil", name:"Silhouette Showdown", short:"Shadows" }),
 ]);

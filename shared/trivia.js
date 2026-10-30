@@ -39,7 +39,7 @@
    questions leaves it alone; triviaAutoBeat, triviaBeat and projectTrivia
    hand a board game to its own module, and triviaLive answers for both. */
 
-import { boardAutoBeat, boardBeat, isBoardGame, projectBoard } from "./triviaBoard.js";
+import { BOARD_FORMAT, boardAutoBeat, boardBeat, isBoardGame, projectBoard, triviaFormatOf } from "./triviaBoard.js";
 import { cleanFreeText } from "./freeText.js";
 
 export const TRIVIA_FORMATS = Object.freeze(["choice", "number", "tune", "picture"]);
@@ -141,7 +141,14 @@ export const triviaRoundCount = round => round?.source === "bank" ? (round.picks
   : round?.source === "final" ? 0 : (round?.questions || []).length;
 export const triviaFinalEntry = rounds => (rounds || []).find(round => round?.source === "final") || null;
 export const triviaQuestionTotal = rounds => (rounds || []).reduce((sum, round) => sum + triviaRoundCount(round), 0);
-export const triviaConfigured = state => triviaQuestionTotal(state?.triviaRounds) > 0;
+/* the question bank's board (docs/TRIVIA-QBANK.md): in the board format,
+   once any slot holds a clue, it is what the game deals (the Worker checks
+   it is full and ready at the start) */
+export const triviaPlanned = state => triviaFormatOf(state) === BOARD_FORMAT
+  && (state?.triviaPlan?.columns || []).some(column => (column?.slots || []).some(Boolean));
+/* how many clues the question bank's board holds */
+export const triviaPlanCount = state => (state?.triviaPlan?.columns || []).reduce((sum, column) => sum + (column?.slots || []).filter(Boolean).length, 0);
+export const triviaConfigured = state => triviaQuestionTotal(state?.triviaRounds) > 0 || triviaPlanned(state);
 
 /* the game the room is on (one at a time) */
 export const triviaGame = (state, evId = null) => state?.trivia?.questions?.length && (!evId || state.trivia.eventId === evId)

@@ -1,1 +1,3981 @@
-[]
+[
+  {
+    "id": "sound-app-skype-call",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which app is calling?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Discord"
+      },
+      {
+        "id": "b",
+        "text": "MSN Messenger"
+      },
+      {
+        "id": "c",
+        "text": "Skype"
+      },
+      {
+        "id": "d",
+        "text": "TeamSpeak"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Skype incoming call (the classic version).",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/fa9c4fb8f706.mp3",
+      "start": 0,
+      "duration": 3.64,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/SkypeSounds",
+        "note": "Internet Archive item SkypeSounds (Pre-Metro Skype Sounds Dump). File \"CALL_IN.WAV\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/SkypeSounds/CALL_IN.WAV",
+        "note": "Downloaded 2026-10-29, sha1 0187324b6957, 117970 bytes. Trimmed to 3.64 s; -16.44 LUFS, -7.38 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-con-ps1",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which console starts up with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nintendo 64"
+      },
+      {
+        "id": "b",
+        "text": "Sega Dreamcast"
+      },
+      {
+        "id": "c",
+        "text": "Xbox"
+      },
+      {
+        "id": "d",
+        "text": "PlayStation"
+      }
+    ],
+    "answer": "d",
+    "reveal": "PlayStation (1994).",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b3e18e655d69.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/ps1-startup-recorded",
+        "note": "Internet Archive item ps1-startup-recorded. File \"PS1-Startup_Full.wav\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/ps1-startup-recorded/PS1-Startup_Full.wav",
+        "note": "Downloaded 2026-10-29, sha1 628c5e242d3d, 6646268 bytes. Trimmed to 8.00 s; -17.12 LUFS, -1.87 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "consoles"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Archive upload recorded from a console; listen to confirm it is the console's own startup."
+  },
+  {
+    "id": "sound-con-ps2",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which console starts up with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "PlayStation 2"
+      },
+      {
+        "id": "b",
+        "text": "Xbox"
+      },
+      {
+        "id": "c",
+        "text": "GameCube"
+      },
+      {
+        "id": "d",
+        "text": "Sega Dreamcast"
+      }
+    ],
+    "answer": "a",
+    "reveal": "PlayStation 2.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/e513e9db9bcf.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/playstation2startup60fps",
+        "note": "Internet Archive item playstation2startup60fps. File \"PlayStation 2 Startup (60fps).mp4\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/playstation2startup60fps/PlayStation%202%20Startup%20(60fps).mp4",
+        "note": "Downloaded 2026-10-29, sha1 9b589640fc26, 2530746 bytes. Trimmed to 8.00 s; -16.67 LUFS, -3.97 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "consoles"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Archive upload of a video capture; listen to confirm it is the console's own startup."
+  },
+  {
+    "id": "sound-game-mario-coin",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which game makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Sonic the Hedgehog"
+      },
+      {
+        "id": "b",
+        "text": "Kirby's Dream Land"
+      },
+      {
+        "id": "c",
+        "text": "Super Mario Bros."
+      },
+      {
+        "id": "d",
+        "text": "Pac-Man"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Super Mario Bros. The coin.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/1df6df35c81c.mp3",
+      "start": 0,
+      "duration": 0.87,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/11SuperMarioBros.",
+        "note": "Internet Archive item 11SuperMarioBros.. File \"11 Super Mario Bros. _ コイン.m4a\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/11SuperMarioBros./11%20Super%20Mario%20Bros.%20_%20%E3%82%B3%E3%82%A4%E3%83%B3.m4a",
+        "note": "Downloaded 2026-10-29, sha1 61a95c0bad50, 21938 bytes. Trimmed to 0.87 s; -16.44 LUFS, -8.47 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "nintendo"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-game-roblox-oof",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which game's old death sound is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Minecraft"
+      },
+      {
+        "id": "b",
+        "text": "Roblox"
+      },
+      {
+        "id": "c",
+        "text": "Fortnite"
+      },
+      {
+        "id": "d",
+        "text": "Terraria"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Roblox. The classic oof, replaced in 2022.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/a7c806fe81f3.mp3",
+      "start": 0,
+      "duration": 0.3,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/uuhhh",
+        "note": "Internet Archive item uuhhh (Classic Roblox OOF). File \"uuhhh.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/uuhhh/uuhhh.mp3",
+        "note": "Downloaded 2026-10-29, sha1 8f4e7b8a7fff, 5461 bytes. Trimmed to 0.30 s; -16.33 LUFS, -7.29 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "roblox"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Brandon works at Roblox (provided); the sound is editorial."
+  },
+  {
+    "id": "sound-game-wasted",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which game plays this when you die?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Grand Theft Auto IV"
+      },
+      {
+        "id": "b",
+        "text": "Red Dead Redemption 2"
+      },
+      {
+        "id": "c",
+        "text": "Grand Theft Auto V"
+      },
+      {
+        "id": "d",
+        "text": "Max Payne 3"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Grand Theft Auto V. The Wasted screen.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b2ef908fb81c.mp3",
+      "start": 0,
+      "duration": 6.97,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/Gta5WastedSoundEffect",
+        "note": "Internet Archive item Gta5WastedSoundEffect. File \"Gta 5 Wasted Sound effect.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/Gta5WastedSoundEffect/Gta%205%20Wasted%20Sound%20effect.mp3",
+        "note": "Downloaded 2026-10-29, sha1 b5f4813bb16e, 217526 bytes. Trimmed to 6.97 s; -18.07 LUFS, -1.08 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "gta"
+      ],
+      "likely": [
+        "Eyob",
+        "Henry",
+        "Ben"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Archive upload with no named creator; listen to confirm it is the game's own sound."
+  },
+  {
+    "id": "sound-mc-creeper-hiss",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which Minecraft mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Enderman"
+      },
+      {
+        "id": "b",
+        "text": "Creeper"
+      },
+      {
+        "id": "c",
+        "text": "Zombie"
+      },
+      {
+        "id": "d",
+        "text": "Spider"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Creeper. The hiss is its fuse lighting.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/2426fb1b6bed.mp3",
+      "start": 0,
+      "duration": 4.87,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Creeper_fuse.ogg",
+        "note": "Minecraft Wiki. File \"Creeper_fuse.ogg\", uploaded 2018-04-30.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Creeper_fuse.ogg?2ff0e",
+        "note": "Downloaded 2026-10-29, sha1 0335f580523d, 43007 bytes. Trimmed to 4.87 s; -17.82 LUFS, -1.24 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-eating",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "What is the player doing in Minecraft?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Drinking a potion"
+      },
+      {
+        "id": "b",
+        "text": "Equipping armor"
+      },
+      {
+        "id": "c",
+        "text": "Breaking a block"
+      },
+      {
+        "id": "d",
+        "text": "Eating food"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Eating food.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/956bb3af3673.mp3",
+      "start": 0,
+      "duration": 0.25,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Eat1.ogg",
+        "note": "Minecraft Wiki. File \"Eat1.ogg\", uploaded 2021-04-19.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Eat1.ogg?20ed5",
+        "note": "Downloaded 2026-10-29, sha1 dfee39084c77, 5678 bytes. Trimmed to 0.25 s; -17.5 LUFS, -1.92 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-pig",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which Minecraft animal makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pig"
+      },
+      {
+        "id": "b",
+        "text": "Cow"
+      },
+      {
+        "id": "c",
+        "text": "Sheep"
+      },
+      {
+        "id": "d",
+        "text": "Chicken"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Pig.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/fb28e63010e5.mp3",
+      "start": 0,
+      "duration": 0.23,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Pig_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Pig_idle1.ogg\", uploaded 2019-11-13.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Pig_idle1.ogg?88ae8",
+        "note": "Downloaded 2026-10-29, sha1 a99bf88163bc, 5645 bytes. Trimmed to 0.23 s; -18.29 LUFS, -1.9 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-villager",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which Minecraft mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Witch"
+      },
+      {
+        "id": "b",
+        "text": "Villager"
+      },
+      {
+        "id": "c",
+        "text": "Iron Golem"
+      },
+      {
+        "id": "d",
+        "text": "Pillager"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Villager.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/2de5346d041d.mp3",
+      "start": 0,
+      "duration": 0.49,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Villager_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Villager_idle1.ogg\", uploaded 2013-07-22.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Villager_idle1.ogg?bfbee",
+        "note": "Downloaded 2026-10-29, sha1 a772db3c8ac3, 8605 bytes. Trimmed to 0.49 s; -18.41 LUFS, -3.6 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-zombie",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which Minecraft mob groans like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Skeleton"
+      },
+      {
+        "id": "b",
+        "text": "Creeper"
+      },
+      {
+        "id": "c",
+        "text": "Zombie"
+      },
+      {
+        "id": "d",
+        "text": "Spider"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Zombie.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/666b71057358.mp3",
+      "start": 0,
+      "duration": 1.28,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Zombie_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Zombie_idle1.ogg\", uploaded 2019-11-20.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Zombie_idle1.ogg?5d58f",
+        "note": "Downloaded 2026-10-29, sha1 b5bc97752434, 16877 bytes. Trimmed to 1.28 s; -16.43 LUFS, -4.18 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-os-mac-chime",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which computer plays this startup chime?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Windows PC"
+      },
+      {
+        "id": "b",
+        "text": "Apple Mac"
+      },
+      {
+        "id": "c",
+        "text": "Amiga"
+      },
+      {
+        "id": "d",
+        "text": "Atari ST"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Apple Mac.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/bf8771a74599.mp3",
+      "start": 0,
+      "duration": 2.34,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/File:MacStartupChime.ogg",
+        "note": "Wikipedia file MacStartupChime.ogg. File \"MacStartupChime.ogg\", uploaded 2026-09-18.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/en/a/a4/MacStartupChime.ogg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
+        "note": "Downloaded 2026-10-29, sha1 d8e05cb83d98, 27724 bytes. Trimmed to 2.34 s; -16.44 LUFS, -7 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "apple"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-os-xp-startup",
+    "category": "sound",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Which Windows version plays this at startup?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Windows 95"
+      },
+      {
+        "id": "b",
+        "text": "Windows 98"
+      },
+      {
+        "id": "c",
+        "text": "Windows XP"
+      },
+      {
+        "id": "d",
+        "text": "Windows Vista / 7"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Windows XP, 2001.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/ba881e7a58a9.mp3",
+      "start": 0,
+      "duration": 4,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/MicrosoftWindowsXPStartupSound",
+        "note": "Internet Archive item MicrosoftWindowsXPStartupSound. File \"Microsoft Windows XP Startup Sound.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/MicrosoftWindowsXPStartupSound/Microsoft%20Windows%20XP%20Startup%20Sound.mp3",
+        "note": "Downloaded 2026-10-29, sha1 610b805b4781, 77640 bytes. Trimmed to 4.00 s; -16.44 LUFS, -5.69 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "windows"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "File length 4.8 s matches the known original (trimmed of its quiet tail)."
+  },
+  {
+    "id": "sound-app-discord-ring",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which app is ringing?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Skype"
+      },
+      {
+        "id": "b",
+        "text": "Discord"
+      },
+      {
+        "id": "c",
+        "text": "Messenger"
+      },
+      {
+        "id": "d",
+        "text": "Zoom"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Discord incoming call.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b1254fbfd308.mp3",
+      "start": 0,
+      "duration": 5.29,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/discord-incoming-ring",
+        "note": "Internet Archive item discord-incoming-ring. File \"Discord Incoming Ring.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/discord-incoming-ring/Discord%20Incoming%20Ring.mp3",
+        "note": "Downloaded 2026-10-29, sha1 f071b229b3a4, 119988 bytes. Trimmed to 5.29 s; -16.45 LUFS, -4.07 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-app-msn-nudge",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which app sends this nudge?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Skype"
+      },
+      {
+        "id": "b",
+        "text": "ICQ"
+      },
+      {
+        "id": "c",
+        "text": "AIM"
+      },
+      {
+        "id": "d",
+        "text": "MSN Messenger"
+      }
+    ],
+    "answer": "d",
+    "reveal": "MSN Messenger nudge.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/06786bbef105.mp3",
+      "start": 0,
+      "duration": 0.82,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/nudge_202411",
+        "note": "Internet Archive item nudge_202411 (MSN Messenger 7.0 sounds). File \"nudge.wav\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/nudge_202411/nudge.wav",
+        "note": "Downloaded 2026-10-29, sha1 98b236067371, 172252 bytes. Trimmed to 0.82 s; -17.06 LUFS, -7.11 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-con-wii",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which console starts up with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "GameCube"
+      },
+      {
+        "id": "b",
+        "text": "Wii"
+      },
+      {
+        "id": "c",
+        "text": "Nintendo DS"
+      },
+      {
+        "id": "d",
+        "text": "Nintendo Switch"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Wii.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/a6baebd5ad9f.mp3",
+      "start": 0,
+      "duration": 2.73,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/wii-startup-sound",
+        "note": "Internet Archive item wii-startup-sound. File \"wii-startup-sound.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/wii-startup-sound/wii-startup-sound.mp3",
+        "note": "Downloaded 2026-10-29, sha1 3eecdce00126, 54981 bytes. Trimmed to 2.73 s; -16.44 LUFS, -2.93 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "consoles"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Archive upload by an individual; listen to confirm it is the console's own sound."
+  },
+  {
+    "id": "sound-con-xbox360",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which console starts up with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Xbox One"
+      },
+      {
+        "id": "b",
+        "text": "Wii"
+      },
+      {
+        "id": "c",
+        "text": "Xbox 360"
+      },
+      {
+        "id": "d",
+        "text": "PlayStation 3"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Xbox 360.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f94ed155200f.mp3",
+      "start": 0,
+      "duration": 5.52,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/xbox-360-classic-startup",
+        "note": "Internet Archive item xbox-360-classic-startup. File \"Xbox 360 Classic Startup.mp4\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/xbox-360-classic-startup/Xbox%20360%20Classic%20Startup.mp4",
+        "note": "Downloaded 2026-10-29, sha1 3190def139e8, 10452708 bytes. Trimmed to 5.52 s; -16.78 LUFS, -1.94 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "consoles"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Archive upload of a video capture; listen to confirm it is the console's own startup."
+  },
+  {
+    "id": "sound-lol-flash",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which League of Legends summoner spell is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ghost"
+      },
+      {
+        "id": "b",
+        "text": "Teleport"
+      },
+      {
+        "id": "c",
+        "text": "Cleanse"
+      },
+      {
+        "id": "d",
+        "text": "Flash"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Flash.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/bec64f0d320d.mp3",
+      "start": 0,
+      "duration": 1.71,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Flash_SFX.ogg",
+        "note": "League of Legends Wiki. File \"Flash_SFX.ogg\", uploaded 2022-07-03.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Flash_SFX.ogg?b49b5",
+        "note": "Downloaded 2026-10-29, sha1 3f1194240aec, 26863 bytes. Trimmed to 1.71 s; -16.42 LUFS, -1.23 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-dragon-growl",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Minecraft boss growls like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Wither"
+      },
+      {
+        "id": "b",
+        "text": "Warden"
+      },
+      {
+        "id": "c",
+        "text": "Ender Dragon"
+      },
+      {
+        "id": "d",
+        "text": "Ravager"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Ender Dragon.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/11ca16958cb7.mp3",
+      "start": 0,
+      "duration": 2.61,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Ender_dragon_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Ender_dragon_idle1.ogg\", uploaded 2018-07-19.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Ender_dragon_idle1.ogg?adb06",
+        "note": "Downloaded 2026-10-29, sha1 049a3049a5ac, 26384 bytes. Trimmed to 2.61 s; -16.46 LUFS, -5.88 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-enderman-scream",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Minecraft mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ghast"
+      },
+      {
+        "id": "b",
+        "text": "Phantom"
+      },
+      {
+        "id": "c",
+        "text": "Enderman"
+      },
+      {
+        "id": "d",
+        "text": "Vex"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Enderman. It screams when angered.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/064a04e1bc6f.mp3",
+      "start": 0,
+      "duration": 0.78,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Enderman_scream1.ogg",
+        "note": "Minecraft Wiki. File \"Enderman_scream1.ogg\", uploaded 2019-11-18.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Enderman_scream1.ogg?636d2",
+        "note": "Downloaded 2026-10-29, sha1 c4b5265bbafb, 11231 bytes. Trimmed to 0.78 s; -16.4 LUFS, -5.81 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-ghast",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Nether mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ghast"
+      },
+      {
+        "id": "b",
+        "text": "Blaze"
+      },
+      {
+        "id": "c",
+        "text": "Piglin"
+      },
+      {
+        "id": "d",
+        "text": "Hoglin"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Ghast.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f92da026acac.mp3",
+      "start": 0,
+      "duration": 0.64,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Ghast_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Ghast_idle1.ogg\", uploaded 2019-10-04.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Ghast_idle1.ogg?6400a",
+        "note": "Downloaded 2026-10-29, sha1 882d092b05fa, 7986 bytes. Trimmed to 0.64 s; -18.26 LUFS, -8.58 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-level-up",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "What just happened in Minecraft?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Advancement made"
+      },
+      {
+        "id": "b",
+        "text": "Level up"
+      },
+      {
+        "id": "c",
+        "text": "Item broke"
+      },
+      {
+        "id": "d",
+        "text": "Potion splashed"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Level up.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/8bad2d8d3c3a.mp3",
+      "start": 0,
+      "duration": 1.19,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Random_levelup.ogg",
+        "note": "Minecraft Wiki. File \"Random_levelup.ogg\", uploaded 2019-09-21.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Random_levelup.ogg?3bb41",
+        "note": "Downloaded 2026-10-29, sha1 b9c60e807ba7, 15799 bytes. Trimmed to 1.19 s; -16.43 LUFS, -4.75 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-nether-portal",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Minecraft block makes this ambient hum?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Beacon"
+      },
+      {
+        "id": "b",
+        "text": "Conduit"
+      },
+      {
+        "id": "c",
+        "text": "Respawn Anchor"
+      },
+      {
+        "id": "d",
+        "text": "Nether portal"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Nether portal.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/22240cd186de.mp3",
+      "start": 0,
+      "duration": 4.29,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Portal_portal.wav",
+        "note": "Minecraft Wiki. File \"Portal_portal.wav\", uploaded 2024-01-18.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Portal_portal.wav?27f25",
+        "note": "Downloaded 2026-10-29, sha1 23777e81cc97, 827864 bytes. Trimmed to 4.29 s; -16.5 LUFS, -1.95 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-skeleton",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Minecraft mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Skeleton"
+      },
+      {
+        "id": "b",
+        "text": "Zombie"
+      },
+      {
+        "id": "c",
+        "text": "Stray"
+      },
+      {
+        "id": "d",
+        "text": "Wither Skeleton"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Skeleton.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/246d818c625b.mp3",
+      "start": 0,
+      "duration": 0.36,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Skeleton_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Skeleton_idle1.ogg\", uploaded 2018-06-12.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Skeleton_idle1.ogg?b0f88",
+        "note": "Downloaded 2026-10-29, sha1 199c9f150822, 8727 bytes. Trimmed to 0.36 s; -15.29 LUFS, -1.87 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-wither-spawn",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Minecraft boss spawns with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Wither"
+      },
+      {
+        "id": "b",
+        "text": "Ender Dragon"
+      },
+      {
+        "id": "c",
+        "text": "Warden"
+      },
+      {
+        "id": "d",
+        "text": "Elder Guardian"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Wither.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c3105fda4af8.mp3",
+      "start": 0,
+      "duration": 5.55,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Wither_spawn.ogg",
+        "note": "Minecraft Wiki. File \"Wither_spawn.ogg\", uploaded 2018-04-12.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Wither_spawn.ogg?d59c2",
+        "note": "Downloaded 2026-10-29, sha1 d8caaead680c, 151896 bytes. Trimmed to 5.55 s; -16.96 LUFS, -6.11 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-os-xp-error",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Windows version beeps with this error?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Windows XP"
+      },
+      {
+        "id": "b",
+        "text": "Windows 95"
+      },
+      {
+        "id": "c",
+        "text": "Windows Vista / 7"
+      },
+      {
+        "id": "d",
+        "text": "Windows 98"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Windows XP error sound.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/73d2b686f83b.mp3",
+      "start": 0,
+      "duration": 0.78,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/windowsxperror1",
+        "note": "Internet Archive item windowsxperror1. File \"windows_xp_error (1).mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/windowsxperror1/windows_xp_error%20(1).mp3",
+        "note": "Downloaded 2026-10-29, sha1 ff07aaa3dd57, 17553 bytes. Trimmed to 0.78 s; -17.37 LUFS, -4.98 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "windows"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-os-xp-shutdown",
+    "category": "sound",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Which Windows version plays this at shutdown?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Windows 98"
+      },
+      {
+        "id": "b",
+        "text": "Windows XP"
+      },
+      {
+        "id": "c",
+        "text": "Windows Vista / 7"
+      },
+      {
+        "id": "d",
+        "text": "Windows 95"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Windows XP shutdown sound.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/69187795f92a.mp3",
+      "start": 0,
+      "duration": 2.88,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/MicrosoftWindowsXPShutdownSound",
+        "note": "Internet Archive item MicrosoftWindowsXPShutdownSound. File \"Microsoft Windows XP Shutdown Sound.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/MicrosoftWindowsXPShutdownSound/Microsoft%20Windows%20XP%20Shutdown%20Sound.mp3",
+        "note": "Downloaded 2026-10-29, sha1 cd4df1cfbfad, 55620 bytes. Trimmed to 2.88 s; -16.45 LUFS, -4.48 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "windows"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-app-discord-message",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which app sent this notification?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Slack"
+      },
+      {
+        "id": "b",
+        "text": "Messenger"
+      },
+      {
+        "id": "c",
+        "text": "Discord"
+      },
+      {
+        "id": "d",
+        "text": "Telegram"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Discord message.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/a45fb8810367.mp3",
+      "start": 0,
+      "duration": 0.25,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/discord-incoming-ring",
+        "note": "Internet Archive item discord-incoming-ring. File \"Discord Message.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/discord-incoming-ring/Discord%20Message.mp3",
+        "note": "Downloaded 2026-10-29, sha1 f176cd849e7b, 7884 bytes. Trimmed to 0.25 s; -14.79 LUFS, -1.95 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sound-app-icq-message",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which app plays this message alert?",
+    "options": [
+      {
+        "id": "a",
+        "text": "AIM"
+      },
+      {
+        "id": "b",
+        "text": "MSN Messenger"
+      },
+      {
+        "id": "c",
+        "text": "ICQ"
+      },
+      {
+        "id": "d",
+        "text": "Skype"
+      }
+    ],
+    "answer": "c",
+    "reveal": "ICQ message alert.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/533b2ad45bf4.mp3",
+      "start": 0,
+      "duration": 0.43,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/single-sound-message-icq-ooh",
+        "note": "Internet Archive item single-sound-message-icq-ooh. File \"single-sound-message-icq-ooh.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/single-sound-message-icq-ooh/single-sound-message-icq-ooh.mp3",
+        "note": "Downloaded 2026-10-29, sha1 5080de4d5cd4, 19248 bytes. Trimmed to 0.43 s; -16.4 LUFS, -5.98 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-app-skype-message",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which app just received a message?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Skype"
+      },
+      {
+        "id": "b",
+        "text": "Discord"
+      },
+      {
+        "id": "c",
+        "text": "MSN Messenger"
+      },
+      {
+        "id": "d",
+        "text": "ICQ"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Skype message (the classic version).",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/80fb8fd95a56.mp3",
+      "start": 0,
+      "duration": 0.19,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/SkypeSounds",
+        "note": "Internet Archive item SkypeSounds (Pre-Metro Skype Sounds Dump). File \"IM.WAV\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/SkypeSounds/IM.WAV",
+        "note": "Downloaded 2026-10-29, sha1 79f36413ac72, 27564 bytes. Trimmed to 0.19 s; -16.3 LUFS, -1.94 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-game-pokemon-heal",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which game plays this when your team is healed?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Kirby"
+      },
+      {
+        "id": "b",
+        "text": "Animal Crossing"
+      },
+      {
+        "id": "c",
+        "text": "Fire Emblem"
+      },
+      {
+        "id": "d",
+        "text": "Pokémon"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Pokémon. The Pokémon Center healing jingle.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b14e7d1b2d3f.mp3",
+      "start": 0,
+      "duration": 2.02,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/pokemon-center-healing-sound-effect-sounds-me-mes",
+        "note": "Internet Archive item pokemon-center-healing-sound-effect-sounds-me-mes. File \"Pokemon Center Healing Sound Effect - Sounds MeMes.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/pokemon-center-healing-sound-effect-sounds-me-mes/Pokemon%20Center%20Healing%20Sound%20Effect%20-%20Sounds%20MeMes.mp3",
+        "note": "Downloaded 2026-10-29, sha1 b7ecc55ab53b, 82675 bytes. Trimmed to 2.02 s; -16.44 LUFS, -2.7 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "nintendo"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Archive upload; listen to confirm which game's version it is."
+  },
+  {
+    "id": "sound-game-zelda-chest",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which game plays this when you open a chest?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Metroid"
+      },
+      {
+        "id": "b",
+        "text": "Kid Icarus"
+      },
+      {
+        "id": "c",
+        "text": "Star Fox"
+      },
+      {
+        "id": "d",
+        "text": "The Legend of Zelda"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The Legend of Zelda: Ocarina of Time.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c50ff1ddfa54.mp3",
+      "start": 0,
+      "duration": 5.7,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/TheLegendOfZeldaOcarinaOfTime-TreasureChest",
+        "note": "Internet Archive item TheLegendOfZeldaOcarinaOfTime-TreasureChest. File \"ZeldaOcarinaOfTimeTreasureChest.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/TheLegendOfZeldaOcarinaOfTime-TreasureChest/ZeldaOcarinaOfTimeTreasureChest.mp3",
+        "note": "Downloaded 2026-10-29, sha1 00d8eb4fbc9e, 320098 bytes. Trimmed to 5.70 s; -16.44 LUFS, -3.95 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "nintendo"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Archive upload with a long tail; listen to confirm it is the chest jingle."
+  },
+  {
+    "id": "sound-lol-ghost",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which League of Legends summoner spell is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ghost"
+      },
+      {
+        "id": "b",
+        "text": "Flash"
+      },
+      {
+        "id": "c",
+        "text": "Teleport"
+      },
+      {
+        "id": "d",
+        "text": "Ignite"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Ghost.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/0c2f7d89e862.mp3",
+      "start": 0,
+      "duration": 2.31,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Ghost_SFX.ogg",
+        "note": "League of Legends Wiki. File \"Ghost_SFX.ogg\", uploaded 2022-07-03.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Ghost_SFX.ogg?bbb26",
+        "note": "Downloaded 2026-10-29, sha1 d3691def36c4, 28107 bytes. Trimmed to 2.31 s; -16.45 LUFS, -5.72 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-lol-teemo-laugh",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which League of Legends champion laughs like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Teemo"
+      },
+      {
+        "id": "b",
+        "text": "Veigar"
+      },
+      {
+        "id": "c",
+        "text": "Ziggs"
+      },
+      {
+        "id": "d",
+        "text": "Gnar"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Teemo, base skin.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/d705456d9d4c.mp3",
+      "start": 0,
+      "duration": 0.66,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Teemo_Classic_Laugh_0.ogg",
+        "note": "League of Legends Wiki. File \"Teemo_Classic_Laugh_0.ogg\", uploaded 2026-08-01.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Teemo_Classic_Laugh_0.ogg?764e0",
+        "note": "Downloaded 2026-10-29, sha1 4cbdb2f993c3, 12879 bytes. Trimmed to 0.66 s; -18.08 LUFS, -5.77 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Base (Classic) skin line; skins change voice lines."
+  },
+  {
+    "id": "sound-lol-teleport",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which League of Legends summoner spell is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Flash"
+      },
+      {
+        "id": "b",
+        "text": "Teleport"
+      },
+      {
+        "id": "c",
+        "text": "Ghost"
+      },
+      {
+        "id": "d",
+        "text": "Exhaust"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Teleport.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/8492a33bc5fa.mp3",
+      "start": 0,
+      "duration": 6.74,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Teleport_SFX.ogg",
+        "note": "League of Legends Wiki. File \"Teleport_SFX.ogg\", uploaded 2022-07-03.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Teleport_SFX.ogg?f552d",
+        "note": "Downloaded 2026-10-29, sha1 23ce7bc06035, 70119 bytes. Trimmed to 6.74 s; -16.46 LUFS, -4.37 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-anvil",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which Minecraft block makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Grindstone"
+      },
+      {
+        "id": "b",
+        "text": "Smithing Table"
+      },
+      {
+        "id": "c",
+        "text": "Anvil"
+      },
+      {
+        "id": "d",
+        "text": "Enchanting Table"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Anvil.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/a9810046c4a7.mp3",
+      "start": 0,
+      "duration": 1.11,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Anvil_use.ogg",
+        "note": "Minecraft Wiki. File \"Anvil_use.ogg\", uploaded 2018-11-30.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Anvil_use.ogg?e0955",
+        "note": "Downloaded 2026-10-29, sha1 c6c6b57d2aa7, 17788 bytes. Trimmed to 1.11 s; -16.45 LUFS, -6.18 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-chest-open",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which Minecraft block opens with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Barrel"
+      },
+      {
+        "id": "b",
+        "text": "Shulker Box"
+      },
+      {
+        "id": "c",
+        "text": "Chest"
+      },
+      {
+        "id": "d",
+        "text": "Ender Chest"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Chest. A trapped chest uses the same sound.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/db8b51989641.mp3",
+      "start": 0,
+      "duration": 0.46,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Chest_open.ogg",
+        "note": "Minecraft Wiki. File \"Chest_open.ogg\", uploaded 2019-05-01.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Chest_open.ogg?7adea",
+        "note": "Downloaded 2026-10-29, sha1 f993dbcc8cdd, 8916 bytes. Trimmed to 0.46 s; -16.43 LUFS, -3.82 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-tnt-fuse",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which Minecraft block makes this sound once lit?",
+    "options": [
+      {
+        "id": "a",
+        "text": "End Crystal"
+      },
+      {
+        "id": "b",
+        "text": "TNT"
+      },
+      {
+        "id": "c",
+        "text": "Respawn Anchor"
+      },
+      {
+        "id": "d",
+        "text": "Bed"
+      }
+    ],
+    "answer": "b",
+    "reveal": "TNT. Its fuse hisses before it blows.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c6cc663e519f.mp3",
+      "start": 0,
+      "duration": 2.42,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Fuse.ogg",
+        "note": "Minecraft Wiki. File \"Fuse.ogg\", uploaded 2021-08-25.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Fuse.ogg?64b6b",
+        "note": "Downloaded 2026-10-29, sha1 a92ba2b8f6ab, 29271 bytes. Trimmed to 2.42 s; -26.42 LUFS, -2.59 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "A creeper's hiss is a different file but sounds alike; the prompt says block. Short sound, peak-normalised (-26.42 LUFS)."
+  },
+  {
+    "id": "sound-mc-totem",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which Minecraft item makes this sound when it saves you?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Golden Apple"
+      },
+      {
+        "id": "b",
+        "text": "Ender Pearl"
+      },
+      {
+        "id": "c",
+        "text": "Totem of Undying"
+      },
+      {
+        "id": "d",
+        "text": "Elytra"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Totem of Undying.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/ae5b6e1a88d6.mp3",
+      "start": 0,
+      "duration": 3.33,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Totem_of_Undying.ogg",
+        "note": "Minecraft Wiki. File \"Totem_of_Undying.ogg\", uploaded 2018-07-21.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Totem_of_Undying.ogg?3d2c6",
+        "note": "Downloaded 2026-10-29, sha1 e7f0337931cd, 35952 bytes. Trimmed to 3.33 s; -16.42 LUFS, -6.25 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-os-vista7-startup",
+    "category": "sound",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Which Windows version plays this at startup?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Windows XP"
+      },
+      {
+        "id": "b",
+        "text": "Windows 8"
+      },
+      {
+        "id": "c",
+        "text": "Windows 10"
+      },
+      {
+        "id": "d",
+        "text": "Windows Vista / 7"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Windows Vista and Windows 7 share this startup sound.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f0e23ab87125.mp3",
+      "start": 0,
+      "duration": 3.91,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/windows-vista-7-startup-sound",
+        "note": "Internet Archive item windows-vista-7-startup-sound. File \"Windows Vista+7 Startup Sound.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/windows-vista-7-startup-sound/Windows%20Vista%2B7%20Startup%20Sound.mp3",
+        "note": "Downloaded 2026-10-29, sha1 f19d8e1d6daa, 81116 bytes. Trimmed to 3.91 s; -16.43 LUFS, -2.42 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "windows"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Vista and 7 share this startup, so the answer names both. File length 5.1 s matches the known original."
+  },
+  {
+    "id": "sound-app-discord-join",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "What just happened in the Discord voice channel?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Someone joined"
+      },
+      {
+        "id": "b",
+        "text": "Someone left"
+      },
+      {
+        "id": "c",
+        "text": "You muted"
+      },
+      {
+        "id": "d",
+        "text": "You were disconnected"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Someone joined the channel.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/554816ec1f00.mp3",
+      "start": 0,
+      "duration": 0.87,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/discord-incoming-ring",
+        "note": "Internet Archive item discord-incoming-ring. File \"Discord User Join.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/discord-incoming-ring/Discord%20User%20Join.mp3",
+        "note": "Downloaded 2026-10-29, sha1 c9fcc3922867, 23387 bytes. Trimmed to 0.87 s; -17.74 LUFS, -4.1 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-app-discord-leave",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "What just happened in the Discord voice channel?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Someone joined"
+      },
+      {
+        "id": "b",
+        "text": "Someone left"
+      },
+      {
+        "id": "c",
+        "text": "You deafened"
+      },
+      {
+        "id": "d",
+        "text": "You were moved"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Someone left the channel.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f0de3490bb19.mp3",
+      "start": 0,
+      "duration": 0.67,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/discord-incoming-ring",
+        "note": "Internet Archive item discord-incoming-ring. File \"Discord User Leave.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/discord-incoming-ring/Discord%20User%20Leave.mp3",
+        "note": "Downloaded 2026-10-29, sha1 76f91b9c9d7c, 19232 bytes. Trimmed to 0.67 s; -16.47 LUFS, -3.67 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-app-discord-mute",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "What did you just do in Discord?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Unmuted yourself"
+      },
+      {
+        "id": "b",
+        "text": "Deafened yourself"
+      },
+      {
+        "id": "c",
+        "text": "Started push to talk"
+      },
+      {
+        "id": "d",
+        "text": "Muted yourself"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Muted yourself.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/a0388503f321.mp3",
+      "start": 0,
+      "duration": 0.33,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/discord-incoming-ring",
+        "note": "Internet Archive item discord-incoming-ring. File \"Discord Mute.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/discord-incoming-ring/Discord%20Mute.mp3",
+        "note": "Downloaded 2026-10-29, sha1 b72b6144ece3, 10493 bytes. Trimmed to 0.33 s; -16.32 LUFS, -5.46 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-con-ds",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which handheld starts up with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Game Boy Advance"
+      },
+      {
+        "id": "b",
+        "text": "Nintendo DS"
+      },
+      {
+        "id": "c",
+        "text": "Nintendo 3DS"
+      },
+      {
+        "id": "d",
+        "text": "PlayStation Portable"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Nintendo DS.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/fae371b9b57c.mp3",
+      "start": 0,
+      "duration": 1.73,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/001-start-up",
+        "note": "Internet Archive item 001-start-up. File \"001 - Start up.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/001-start-up/001%20-%20Start%20up.mp3",
+        "note": "Downloaded 2026-10-29, sha1 db08db3aca1d, 51328 bytes. Trimmed to 1.73 s; -16.46 LUFS, -3.89 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "consoles"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Archive upload; listen to confirm it is the console's own startup."
+  },
+  {
+    "id": "sound-lol-cleanse",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which League of Legends summoner spell is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cleanse"
+      },
+      {
+        "id": "b",
+        "text": "Heal"
+      },
+      {
+        "id": "c",
+        "text": "Barrier"
+      },
+      {
+        "id": "d",
+        "text": "Exhaust"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Cleanse.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/cecdf3c8669b.mp3",
+      "start": 0,
+      "duration": 4.01,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Cleanse_SFX.ogg",
+        "note": "League of Legends Wiki. File \"Cleanse_SFX.ogg\", uploaded 2022-07-03.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Cleanse_SFX.ogg?bef02",
+        "note": "Downloaded 2026-10-29, sha1 7d3d0131e71c, 50717 bytes. Trimmed to 4.01 s; -18.47 LUFS, -2.64 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-lol-ignite",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which League of Legends summoner spell is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Heal"
+      },
+      {
+        "id": "b",
+        "text": "Ignite"
+      },
+      {
+        "id": "c",
+        "text": "Exhaust"
+      },
+      {
+        "id": "d",
+        "text": "Smite"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Ignite.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/4991a86ce3d6.mp3",
+      "start": 0,
+      "duration": 2.82,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Ignite_SFX.ogg",
+        "note": "League of Legends Wiki. File \"Ignite_SFX.ogg\", uploaded 2022-07-03.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Ignite_SFX.ogg?22681",
+        "note": "Downloaded 2026-10-29, sha1 4f6f202fe490, 29305 bytes. Trimmed to 2.82 s; -16.48 LUFS, -3.49 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-beacon",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Minecraft block makes this sound when it turns on?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Beacon"
+      },
+      {
+        "id": "b",
+        "text": "Conduit"
+      },
+      {
+        "id": "c",
+        "text": "Respawn Anchor"
+      },
+      {
+        "id": "d",
+        "text": "Enchanting Table"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Beacon.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/d1ea80653ca0.mp3",
+      "start": 0,
+      "duration": 2.47,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Beacon_activate.ogg",
+        "note": "Minecraft Wiki. File \"Beacon_activate.ogg\", uploaded 2018-07-31.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Beacon_activate.ogg?df06a",
+        "note": "Downloaded 2026-10-29, sha1 191510085f61, 39927 bytes. Trimmed to 2.47 s; -16.43 LUFS, -7.71 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-bell",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Minecraft block rings like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Note Block"
+      },
+      {
+        "id": "b",
+        "text": "Bell"
+      },
+      {
+        "id": "c",
+        "text": "Jukebox"
+      },
+      {
+        "id": "d",
+        "text": "Lectern"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Bell. Villagers ring it to hide during a raid.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/12315bdaafc8.mp3",
+      "start": 0,
+      "duration": 1.5,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Bell_use1.ogg",
+        "note": "Minecraft Wiki. File \"Bell_use1.ogg\", uploaded 2019-05-01.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Bell_use1.ogg?f7786",
+        "note": "Downloaded 2026-10-29, sha1 503833660c91, 10846 bytes. Trimmed to 1.50 s; -16.68 LUFS, -1.84 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-elder-guardian",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Minecraft mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Elder Guardian"
+      },
+      {
+        "id": "b",
+        "text": "Guardian"
+      },
+      {
+        "id": "c",
+        "text": "Drowned"
+      },
+      {
+        "id": "d",
+        "text": "Warden"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Elder Guardian.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/18738535f443.mp3",
+      "start": 0,
+      "duration": 2.15,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Elder_guardian_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Elder_guardian_idle1.ogg\", uploaded 2014-06-21.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Elder_guardian_idle1.ogg?1085a",
+        "note": "Downloaded 2026-10-29, sha1 f18e291d84d1, 17095 bytes. Trimmed to 2.15 s; -16.46 LUFS, -3.39 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-piglin-admire",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Nether mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Hoglin"
+      },
+      {
+        "id": "b",
+        "text": "Piglin"
+      },
+      {
+        "id": "c",
+        "text": "Zombified Piglin"
+      },
+      {
+        "id": "d",
+        "text": "Strider"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Piglin. It admires gold.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c94c2ee20507.mp3",
+      "start": 0,
+      "duration": 0.65,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Piglin_admire1.ogg",
+        "note": "Minecraft Wiki. File \"Piglin_admire1.ogg\", uploaded 2020-02-29.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Piglin_admire1.ogg?6e43c",
+        "note": "Downloaded 2026-10-29, sha1 2b74d5b8a848, 26576 bytes. Trimmed to 0.65 s; -18.04 LUFS, -4.43 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-shulker-box",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Minecraft block opens with this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Chest"
+      },
+      {
+        "id": "b",
+        "text": "Barrel"
+      },
+      {
+        "id": "c",
+        "text": "Shulker Box"
+      },
+      {
+        "id": "d",
+        "text": "Ender Chest"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Shulker Box.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b6b568fb98fc.mp3",
+      "start": 0,
+      "duration": 0.65,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Shulker_box_open.ogg",
+        "note": "Minecraft Wiki. File \"Shulker_box_open.ogg\", uploaded 2018-07-21.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Shulker_box_open.ogg?69091",
+        "note": "Downloaded 2026-10-29, sha1 0fadce9827b2, 9352 bytes. Trimmed to 0.65 s; -16.38 LUFS, -3.05 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-warden",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Minecraft mob makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Elder Guardian"
+      },
+      {
+        "id": "b",
+        "text": "Ravager"
+      },
+      {
+        "id": "c",
+        "text": "Warden"
+      },
+      {
+        "id": "d",
+        "text": "Sniffer"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Warden.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c233d7117c4f.mp3",
+      "start": 0,
+      "duration": 2.05,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Warden_ambient1.ogg",
+        "note": "Minecraft Wiki. File \"Warden_ambient1.ogg\", uploaded 2022-02-18.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Warden_ambient1.ogg?c4b75",
+        "note": "Downloaded 2026-10-29, sha1 08f4163bcc82, 61776 bytes. Trimmed to 2.05 s; -16.44 LUFS, -5.46 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-mc-witch",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Minecraft mob cackles like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Evoker"
+      },
+      {
+        "id": "b",
+        "text": "Illusioner"
+      },
+      {
+        "id": "c",
+        "text": "Pillager"
+      },
+      {
+        "id": "d",
+        "text": "Witch"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Witch.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c7c2a36101f4.mp3",
+      "start": 0,
+      "duration": 0.85,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Witch_idle1.ogg",
+        "note": "Minecraft Wiki. File \"Witch_idle1.ogg\", uploaded 2019-11-19.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Witch_idle1.ogg?0fb18",
+        "note": "Downloaded 2026-10-29, sha1 166af5d48f1f, 11349 bytes. Trimmed to 0.85 s; -16.92 LUFS, -1.9 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-os-95-startup",
+    "category": "sound",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Which Windows version plays this at startup?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Windows 98"
+      },
+      {
+        "id": "b",
+        "text": "Windows XP"
+      },
+      {
+        "id": "c",
+        "text": "Windows Me"
+      },
+      {
+        "id": "d",
+        "text": "Windows 95"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Windows 95. Brian Eno composed it.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/647f352f047f.mp3",
+      "start": 0,
+      "duration": 6.02,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/the-microsoft-sound_202601",
+        "note": "Internet Archive item the-microsoft-sound_202601. File \"The Microsoft Sound.wav\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/the-microsoft-sound_202601/The%20Microsoft%20Sound.wav",
+        "note": "Downloaded 2026-10-29, sha1 2eefab9ff78a, 135876 bytes. Trimmed to 6.02 s; -16.45 LUFS, -2.61 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "windows"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "File length 6.1 s matches the known original."
+  },
+  {
+    "id": "sound-app-msn-online",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "A friend just signed in on which app?",
+    "options": [
+      {
+        "id": "a",
+        "text": "MSN Messenger"
+      },
+      {
+        "id": "b",
+        "text": "AIM"
+      },
+      {
+        "id": "c",
+        "text": "Skype"
+      },
+      {
+        "id": "d",
+        "text": "ICQ"
+      }
+    ],
+    "answer": "a",
+    "reveal": "MSN Messenger contact sign-in.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f81264340a8b.mp3",
+      "start": 0,
+      "duration": 0.62,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/nudge_202411",
+        "note": "Internet Archive item nudge_202411 (MSN Messenger 7.0 sounds). File \"online.wav\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/nudge_202411/online.wav",
+        "note": "Downloaded 2026-10-29, sha1 7fea2f5749fe, 30820 bytes. Trimmed to 0.62 s; -16.41 LUFS, -6.08 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-app-skype-login",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which app is signing you in?",
+    "options": [
+      {
+        "id": "a",
+        "text": "MSN Messenger"
+      },
+      {
+        "id": "b",
+        "text": "Discord"
+      },
+      {
+        "id": "c",
+        "text": "ICQ"
+      },
+      {
+        "id": "d",
+        "text": "Skype"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Skype sign-in (the classic version).",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/8bc2ebd9881f.mp3",
+      "start": 0,
+      "duration": 1.66,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/SkypeSounds",
+        "note": "Internet Archive item SkypeSounds (Pre-Metro Skype Sounds Dump). File \"LOGIN.WAV\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/SkypeSounds/LOGIN.WAV",
+        "note": "Downloaded 2026-10-29, sha1 08d7db06a53f, 73244 bytes. Trimmed to 1.66 s; -16.45 LUFS, -8.23 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "apps"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sound-game-maplestory-login",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which game's login theme is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "MapleStory"
+      },
+      {
+        "id": "b",
+        "text": "Grand Chase"
+      },
+      {
+        "id": "c",
+        "text": "Rumble Fighter"
+      },
+      {
+        "id": "d",
+        "text": "Audition Online"
+      }
+    ],
+    "answer": "a",
+    "reveal": "MapleStory's login theme from 2010 to 2023.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/71e778219f1b.mp3",
+      "start": 0,
+      "duration": 9.98,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://maplestory.fandom.com/wiki/File:Title_old.ogg",
+        "note": "MapleStory Wiki, Music page: Title (2010 - 2023). File \"Title_old.ogg\", uploaded 2011-04-14.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://static.wikia.nocookie.net/maplestory/images/3/3e/Title_old.ogg/revision/latest?cb=20110414130621",
+        "note": "Downloaded 2026-10-29, sha1 e759b1f11461, 5004120 bytes. Trimmed to 9.98 s; -16.44 LUFS, -4 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "maplestory",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sound-game-maplestory-login-b",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which game's login theme is this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "MapleStory"
+      },
+      {
+        "id": "b",
+        "text": "Grand Chase"
+      },
+      {
+        "id": "c",
+        "text": "Rumble Fighter"
+      },
+      {
+        "id": "d",
+        "text": "Audition Online"
+      }
+    ],
+    "answer": "a",
+    "variantOf": "sound-game-maplestory-login",
+    "reveal": "MapleStory's login theme from before the Chaos update.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/a30840978224.mp3",
+      "start": 0,
+      "duration": 10,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://maplestory.fandom.com/wiki/File:Title_(Old).ogg",
+        "note": "MapleStory Wiki, Music page: Title (Pre Chaos). File \"Title_(Old).ogg\", uploaded 2011-11-23.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://static.wikia.nocookie.net/maplestory/images/b/bc/Title_%28Old%29.ogg/revision/latest?cb=20111123021118",
+        "note": "Downloaded 2026-10-29, sha1 ebcf20ce1eb5, 6982267 bytes. Trimmed to 10.00 s; -16.45 LUFS, -3.34 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "maplestory",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "The older login theme; the other clip is the 2010 to 2023 one."
+  },
+  {
+    "id": "sound-lol-fiddlesticks-laugh",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which League of Legends champion laughs like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Karthus"
+      },
+      {
+        "id": "b",
+        "text": "Shaco"
+      },
+      {
+        "id": "c",
+        "text": "Fiddlesticks"
+      },
+      {
+        "id": "d",
+        "text": "Evelynn"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Fiddlesticks, base skin.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/dde9e984f67e.mp3",
+      "start": 0,
+      "duration": 2.07,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Fiddlesticks_Classic_Laugh_0.ogg",
+        "note": "League of Legends Wiki. File \"Fiddlesticks_Classic_Laugh_0.ogg\", uploaded 2026-08-01.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Fiddlesticks_Classic_Laugh_0.ogg?6626a",
+        "note": "Downloaded 2026-10-29, sha1 0da7256639c2, 27640 bytes. Trimmed to 2.07 s; -16.46 LUFS, -4.52 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Base (Classic) skin line; skins change voice lines."
+  },
+  {
+    "id": "sound-lol-karthus-laugh",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which League of Legends champion laughs like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fiddlesticks"
+      },
+      {
+        "id": "b",
+        "text": "Mordekaiser"
+      },
+      {
+        "id": "c",
+        "text": "Evelynn"
+      },
+      {
+        "id": "d",
+        "text": "Karthus"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Karthus, base skin.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/22b809027351.mp3",
+      "start": 0,
+      "duration": 2.82,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/File:Karthus_Classic_Laugh_0.ogg",
+        "note": "League of Legends Wiki. File \"Karthus_Classic_Laugh_0.ogg\", uploaded 2026-08-01.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://wiki.leagueoflegends.com/en-us/images/Karthus_Classic_Laugh_0.ogg?422e1",
+        "note": "Downloaded 2026-10-29, sha1 c97fd329e697, 49806 bytes. Trimmed to 2.82 s; -17.36 LUFS, -1.88 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Base (Classic) skin line; skins change voice lines."
+  },
+  {
+    "id": "sound-mc-conduit",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which Minecraft block hums like this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Beacon"
+      },
+      {
+        "id": "b",
+        "text": "Nether portal"
+      },
+      {
+        "id": "c",
+        "text": "Respawn Anchor"
+      },
+      {
+        "id": "d",
+        "text": "Conduit"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Conduit.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f6278a379d08.mp3",
+      "start": 0,
+      "duration": 4.48,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Conduit_ambient.ogg",
+        "note": "Minecraft Wiki. File \"Conduit_ambient.ogg\", uploaded 2018-09-13.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Conduit_ambient.ogg?b16bd",
+        "note": "Downloaded 2026-10-29, sha1 671d9e39c2cb, 69364 bytes. Trimmed to 4.48 s; -17.18 LUFS, -1.94 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sound-mc-evoker",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which Minecraft mob chants this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Witch"
+      },
+      {
+        "id": "b",
+        "text": "Illusioner"
+      },
+      {
+        "id": "c",
+        "text": "Vindicator"
+      },
+      {
+        "id": "d",
+        "text": "Evoker"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Evoker. It chants as it turns sheep a new color.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/bb34bf8db172.mp3",
+      "start": 0,
+      "duration": 1.86,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Evoker_prepare_wololo.ogg",
+        "note": "Minecraft Wiki. File \"Evoker_prepare_wololo.ogg\", uploaded 2018-09-30.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Evoker_prepare_wololo.ogg?b49e1",
+        "note": "Downloaded 2026-10-29, sha1 bad476e071c0, 21496 bytes. Trimmed to 1.86 s; -16.45 LUFS, -5.83 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sound-mc-trident-thunder",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which Trident enchantment makes this sound?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Riptide"
+      },
+      {
+        "id": "b",
+        "text": "Loyalty"
+      },
+      {
+        "id": "c",
+        "text": "Impaling"
+      },
+      {
+        "id": "d",
+        "text": "Channeling"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Channeling. It calls lightning in a thunderstorm.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/861192cadd89.mp3",
+      "start": 0,
+      "duration": 5.56,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://minecraft.wiki/w/File:Trident_thunder1.ogg",
+        "note": "Minecraft Wiki. File \"Trident_thunder1.ogg\", uploaded 2019-11-21.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.wiki/images/Trident_thunder1.ogg?7583d",
+        "note": "Downloaded 2026-10-29, sha1 312a6d306ea9, 105598 bytes. Trimmed to 5.56 s; -17.52 LUFS, -3.27 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sound-os-98-startup",
+    "category": "sound",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Which Windows version plays this at startup?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Windows 98"
+      },
+      {
+        "id": "b",
+        "text": "Windows 95"
+      },
+      {
+        "id": "c",
+        "text": "Windows Me"
+      },
+      {
+        "id": "d",
+        "text": "Windows XP"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Windows 98.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/0df7bd035e3a.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://archive.org/details/windows-98-startup",
+        "note": "Internet Archive item windows-98-startup. File \"Windows 98 Startup.mp3\".",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://archive.org/download/windows-98-startup/Windows%2098%20Startup.mp3",
+        "note": "Downloaded 2026-10-29, sha1 f214a7c7d165, 398230 bytes. Trimmed to 8.00 s; -16.45 LUFS, -6.45 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nostalgia",
+        "windows"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  }
+]

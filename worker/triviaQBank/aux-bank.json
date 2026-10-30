@@ -1,1 +1,3507 @@
-[]
+[
+  {
+    "id": "aux-all-star",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "All Star"
+      },
+      {
+        "id": "b",
+        "text": "Walkin' on the Sun"
+      },
+      {
+        "id": "c",
+        "text": "Pacific Coast Party"
+      },
+      {
+        "id": "d",
+        "text": "Holiday in My Head"
+      }
+    ],
+    "answer": "a",
+    "reveal": "All Star by Smash Mouth.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f28f02ab1df0.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/917717",
+        "note": "ISRC USIR19902220. \"All Star\" by Smash Mouth, album \"All Star Smash Hits\", 201s, 2005-08-02. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/917717",
+        "note": "30 s preview, excerpt 12.5s to 20.5s. -16.43 LUFS, -4.59 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "internet",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-gangnam-style",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Gentleman"
+      },
+      {
+        "id": "b",
+        "text": "Gangnam Style"
+      },
+      {
+        "id": "c",
+        "text": "New Face"
+      },
+      {
+        "id": "d",
+        "text": "Champion"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Gangnam Style by PSY.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/95d8dea71c72.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/60726278",
+        "note": "ISRC USUM71210283. \"Gangnam Style (강남스타일)\" by Psy, album \"Gangnam Style (강남스타일)\", 219s, 2012-09-04. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/60726278",
+        "note": "30 s preview, excerpt 7.5s to 15.5s. -16.42 LUFS, -9.68 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "internet",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-gods-plan",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "God's Plan"
+      },
+      {
+        "id": "b",
+        "text": "Hotline Bling"
+      },
+      {
+        "id": "c",
+        "text": "One Dance"
+      },
+      {
+        "id": "d",
+        "text": "In My Feelings"
+      }
+    ],
+    "answer": "a",
+    "reveal": "God's Plan by Drake.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/6b8ae9550287.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/533609232",
+        "note": "ISRC USCM51800004. \"God's Plan\" by Drake, album \"Scorpion\", 198s, 2018-06-29. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/533609232",
+        "note": "30 s preview, excerpt 6s to 14s. -16.45 LUFS, -2.89 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-lose-yourself",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Without Me"
+      },
+      {
+        "id": "b",
+        "text": "Lose Yourself"
+      },
+      {
+        "id": "c",
+        "text": "The Real Slim Shady"
+      },
+      {
+        "id": "d",
+        "text": "Not Afraid"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Lose Yourself by Eminem.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/3492fbbae586.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/1109731",
+        "note": "ISRC USIR10211559. \"Lose Yourself\" by Eminem, album \"Curtain Call: The Hits\", 326s, 2005-11-21. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/1109731",
+        "note": "30 s preview, excerpt 20s to 28s. -16.44 LUFS, -7.4 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-mr-brightside",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Somebody Told Me"
+      },
+      {
+        "id": "b",
+        "text": "Human"
+      },
+      {
+        "id": "c",
+        "text": "Mr. Brightside"
+      },
+      {
+        "id": "d",
+        "text": "Smile Like You Mean It"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Mr. Brightside by The Killers. From Hot Fuss.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/aff86bc723bb.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/71955234",
+        "note": "ISRC USIR20400274. \"Mr. Brightside\" by The Killers, album \"Direct Hits\", 223s, 2013-11-11. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/71955234",
+        "note": "30 s preview, excerpt 13.25s to 21.25s. -16.43 LUFS, -10.45 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "party",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-mr-brightside-b",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Somebody Told Me"
+      },
+      {
+        "id": "b",
+        "text": "Human"
+      },
+      {
+        "id": "c",
+        "text": "Mr. Brightside"
+      },
+      {
+        "id": "d",
+        "text": "Smile Like You Mean It"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Mr. Brightside by The Killers. From Hot Fuss.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/70cb5c0d4297.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "variantOf": "aux-mr-brightside",
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/71955234",
+        "note": "ISRC USIR20400274. \"Mr. Brightside\" by The Killers, album \"Direct Hits\", 223s, 2013-11-11. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/71955234",
+        "note": "30 s preview, excerpt 1s to 9s. -16.43 LUFS, -9.53 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "party",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Another excerpt of the same song."
+  },
+  {
+    "id": "aux-party-in-the-usa",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "See You Again"
+      },
+      {
+        "id": "b",
+        "text": "Party in the U.S.A."
+      },
+      {
+        "id": "c",
+        "text": "Can't Be Tamed"
+      },
+      {
+        "id": "d",
+        "text": "Wrecking Ball"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Party in the U.S.A. by Miley Cyrus.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/5088e120364c.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/24957851",
+        "note": "ISRC USHR10924519. \"Party In The U.S.A.\" by Miley Cyrus, album \"The Time Of Our Lives\", 202s, 2009-08-31. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/24957851",
+        "note": "30 s preview, excerpt 19.75s to 27.75s. -16.44 LUFS, -6.3 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "party",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-poker-face",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bad Romance"
+      },
+      {
+        "id": "b",
+        "text": "Just Dance"
+      },
+      {
+        "id": "c",
+        "text": "Paparazzi"
+      },
+      {
+        "id": "d",
+        "text": "Poker Face"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Poker Face by Lady Gaga.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/0b5f85631889.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/734508762",
+        "note": "ISRC USUM70824409. \"Poker Face\" by Lady Gaga, album \"The Fame Monster (Deluxe Edition)\", 237s, 2019-08-23. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/734508762",
+        "note": "30 s preview, excerpt 14s to 22s. -16.43 LUFS, -8.38 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-rolling-in-the-deep",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Someone Like You"
+      },
+      {
+        "id": "b",
+        "text": "Rolling in the Deep"
+      },
+      {
+        "id": "c",
+        "text": "Set Fire to the Rain"
+      },
+      {
+        "id": "d",
+        "text": "Skyfall"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Rolling in the Deep by Adele. From 21.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/118ec14ba474.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/1174602992",
+        "note": "ISRC GBBKS1000335. \"Rolling in the Deep\" by Adele, album \"21\", 228s, 2011-01-24. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/1174602992",
+        "note": "30 s preview, excerpt 1s to 9s. -16.44 LUFS, -2.6 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-single-ladies",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Crazy in Love"
+      },
+      {
+        "id": "b",
+        "text": "Irreplaceable"
+      },
+      {
+        "id": "c",
+        "text": "If I Were a Boy"
+      },
+      {
+        "id": "d",
+        "text": "Single Ladies (Put a Ring on It)"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Single Ladies (Put a Ring on It) by Beyoncé.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/a670cadbc238.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/2485118",
+        "note": "ISRC USSM10803760. \"Single Ladies (Put a Ring on It)\" by Beyoncé, album \"I AM...SASHA FIERCE\", 193s, 2008-11-14. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/2485118",
+        "note": "30 s preview, excerpt 19.75s to 27.75s. -16.43 LUFS, -5.18 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-stronger",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Stronger"
+      },
+      {
+        "id": "b",
+        "text": "Heartless"
+      },
+      {
+        "id": "c",
+        "text": "Power"
+      },
+      {
+        "id": "d",
+        "text": "Gold Digger"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Stronger by Kanye West.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/1a102528c1aa.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/630827242",
+        "note": "ISRC USUM70741299. \"Stronger\" by Kanye West, album \"Graduation\", 312s, 2019-02-15. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/630827242",
+        "note": "30 s preview, excerpt 1.5s to 9.5s. -16.43 LUFS, -6.4 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-tik-tok",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "TiK ToK"
+      },
+      {
+        "id": "b",
+        "text": "Take It Off"
+      },
+      {
+        "id": "c",
+        "text": "Die Young"
+      },
+      {
+        "id": "d",
+        "text": "We R Who We R"
+      }
+    ],
+    "answer": "a",
+    "reveal": "TiK ToK by Ke$ha.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c953330d36bd.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/15595929",
+        "note": "ISRC USRC10900433. \"TiK ToK\" by Ke$ha, album \"Animal (Expanded Edition)\", 200s, 2010-01-01. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/15595929",
+        "note": "30 s preview, excerpt 6.25s to 14.25s. -16.42 LUFS, -7.45 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-wake-me-up",
+    "category": "aux",
+    "tier": 1,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Levels"
+      },
+      {
+        "id": "b",
+        "text": "Hey Brother"
+      },
+      {
+        "id": "c",
+        "text": "The Nights"
+      },
+      {
+        "id": "d",
+        "text": "Wake Me Up"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Wake Me Up by Avicii.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/55ec52d77e89.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/70266756",
+        "note": "ISRC SEUM71301326. \"Wake Me Up\" by Avicii, album \"True\", 249s, 2013-09-16. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/70266756",
+        "note": "30 s preview, excerpt 10.75s to 18.75s. -16.41 LUFS, -7.75 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "edm",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-call-me-maybe",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Good Time"
+      },
+      {
+        "id": "b",
+        "text": "I Really Like You"
+      },
+      {
+        "id": "c",
+        "text": "Call Me Maybe"
+      },
+      {
+        "id": "d",
+        "text": "Run Away with Me"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Call Me Maybe by Carly Rae Jepsen.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/6cd27b9b57d4.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/16670786",
+        "note": "ISRC CAB391100615. \"Call Me Maybe\" by Carly Rae Jepsen, album \"Call Me Maybe\", 193s, 2012-02-22. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/16670786",
+        "note": "30 s preview, excerpt 18.25s to 26.25s. -16.4 LUFS, -1.58 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-get-lucky",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Instant Crush"
+      },
+      {
+        "id": "b",
+        "text": "Around the World"
+      },
+      {
+        "id": "c",
+        "text": "One More Time"
+      },
+      {
+        "id": "d",
+        "text": "Get Lucky"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Get Lucky by Daft Punk, featuring Pharrell Williams and Nile Rodgers.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b167fe051317.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/67238735",
+        "note": "ISRC USQX91300108. \"Get Lucky (feat. Pharrell Williams and Nile Rodgers)\" by Daft Punk, album \"Random Access Memories\", 367s, 2013-05-20. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/67238735",
+        "note": "30 s preview, excerpt 17.75s to 25.75s. -16.45 LUFS, -4.68 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "edm",
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Brandon attempted it on guitar and vocals (provided). Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-get-lucky-b",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Instant Crush"
+      },
+      {
+        "id": "b",
+        "text": "Around the World"
+      },
+      {
+        "id": "c",
+        "text": "One More Time"
+      },
+      {
+        "id": "d",
+        "text": "Get Lucky"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Get Lucky by Daft Punk, featuring Pharrell Williams and Nile Rodgers.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/48af359dac01.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "variantOf": "aux-get-lucky",
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/67238735",
+        "note": "ISRC USQX91300108. \"Get Lucky (feat. Pharrell Williams and Nile Rodgers)\" by Daft Punk, album \"Random Access Memories\", 367s, 2013-05-20. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/67238735",
+        "note": "30 s preview, excerpt 1s to 9s. -16.45 LUFS, -5.71 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "edm",
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Brandon attempted it on guitar and vocals (provided). Window chosen from a lyric transcript, not by ear; preview before use. Another excerpt of the same song."
+  },
+  {
+    "id": "aux-humble",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "DNA."
+      },
+      {
+        "id": "b",
+        "text": "HUMBLE."
+      },
+      {
+        "id": "c",
+        "text": "Alright"
+      },
+      {
+        "id": "d",
+        "text": "LOVE."
+      }
+    ],
+    "answer": "b",
+    "reveal": "HUMBLE. by Kendrick Lamar. From DAMN..",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/d385df62bf38.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/350171311",
+        "note": "ISRC USUM71703085. \"HUMBLE.\" by Kendrick Lamar, album \"DAMN.\", 177s, 2017-04-14. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/350171311",
+        "note": "30 s preview, excerpt 1.75s to 9.75s. -16.43 LUFS, -5.42 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-pumped-up-kicks",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pumped Up Kicks"
+      },
+      {
+        "id": "b",
+        "text": "Helena Beat"
+      },
+      {
+        "id": "c",
+        "text": "Don't Stop (Color on the Walls)"
+      },
+      {
+        "id": "d",
+        "text": "Houdini"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Pumped Up Kicks by Foster the People.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/358e2c0c9807.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/15546830",
+        "note": "ISRC USSM11002931. \"Pumped Up Kicks\" by Foster The People, album \"Torches\", 239s, 2011-05-23. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/15546830",
+        "note": "30 s preview, excerpt 14s to 22s. -16.44 LUFS, -7.55 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "indie",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-pursuit-of-happiness",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Day 'n' Nite"
+      },
+      {
+        "id": "b",
+        "text": "Pursuit of Happiness"
+      },
+      {
+        "id": "c",
+        "text": "Soundtrack 2 My Life"
+      },
+      {
+        "id": "d",
+        "text": "Mr. Rager"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Pursuit of Happiness by Kid Cudi.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/e431f4286783.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/7371878",
+        "note": "ISRC USUM70981907. \"Pursuit Of Happiness (Nightmare)\" by Kid Cudi, album \"Man On The Moon: The End Of Day\", 295s, 2009-09-15. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/7371878",
+        "note": "30 s preview, excerpt 3s to 11s. -16.43 LUFS, -4.23 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "party",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Party candidate, not a confirmed favorite. Original album version (Man on the Moon), not the Steve Aoki remix. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-radioactive",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Demons"
+      },
+      {
+        "id": "b",
+        "text": "It's Time"
+      },
+      {
+        "id": "c",
+        "text": "Radioactive"
+      },
+      {
+        "id": "d",
+        "text": "On Top of the World"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Radioactive by Imagine Dragons.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/77cec9036e85.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/1896624687",
+        "note": "ISRC USUM71201074. \"Radioactive\" by Imagine Dragons, album \"Night Visions (Expanded Edition / Super Deluxe)\", 187s, 2022-09-09. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/1896624687",
+        "note": "30 s preview, excerpt 11.5s to 19.5s. -16.43 LUFS, -9.38 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-seven-nation-army",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this riff.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fell in Love with a Girl"
+      },
+      {
+        "id": "b",
+        "text": "Seven Nation Army"
+      },
+      {
+        "id": "c",
+        "text": "Icky Thump"
+      },
+      {
+        "id": "d",
+        "text": "Blue Orchid"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Seven Nation Army by The White Stripes. From Elephant.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/d279d8df5a66.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/1153182282",
+        "note": "ISRC USVT10300001. \"Seven Nation Army\" by The White Stripes, album \"The White Stripes Greatest Hits\", 231s, 2020-12-04. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/1153182282",
+        "note": "30 s preview, excerpt 19.25s to 27.25s. -16.45 LUFS, -4.12 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Instrumental riff excerpt. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-sicko-mode",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Goosebumps"
+      },
+      {
+        "id": "b",
+        "text": "Highest in the Room"
+      },
+      {
+        "id": "c",
+        "text": "SICKO MODE"
+      },
+      {
+        "id": "d",
+        "text": "Antidote"
+      }
+    ],
+    "answer": "c",
+    "reveal": "SICKO MODE by Travis Scott.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/82160d2e38cf.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/536421002",
+        "note": "ISRC USSM11806660. \"SICKO MODE\" by Travis Scott, album \"ASTROWORLD\", 312s, 2018-08-03. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/536421002",
+        "note": "30 s preview, excerpt 14.25s to 22.25s. -16.43 LUFS, -4.74 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-sweet-child-o-mine",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Welcome to the Jungle"
+      },
+      {
+        "id": "b",
+        "text": "Sweet Child o' Mine"
+      },
+      {
+        "id": "c",
+        "text": "Paradise City"
+      },
+      {
+        "id": "d",
+        "text": "November Rain"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Sweet Child o' Mine by Guns N' Roses.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/e880d0b14542.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/518458172",
+        "note": "ISRC USGF18714809. \"Sweet Child O' Mine\" by Guns N' Roses, album \"Appetite For Destruction (Super Deluxe Edition)\", 355s, 2018-06-29. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/518458172",
+        "note": "30 s preview, excerpt 17.75s to 25.75s. -16.44 LUFS, -5.65 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-thrift-shop",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Can't Hold Us"
+      },
+      {
+        "id": "b",
+        "text": "Thrift Shop"
+      },
+      {
+        "id": "c",
+        "text": "Same Love"
+      },
+      {
+        "id": "d",
+        "text": "Downtown"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Thrift Shop by Macklemore & Ryan Lewis, featuring Wanz.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/ed9933014220.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/61424045",
+        "note": "ISRC GMM881200003. \"Thrift Shop (feat. Wanz)\" by Macklemore & Ryan Lewis, album \"The Heist\", 235s, 2012-10-09. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/61424045",
+        "note": "30 s preview, excerpt 7s to 15s. -16.44 LUFS, -5.91 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track. Excerpt has strong language; preview before use."
+  },
+  {
+    "id": "aux-titanium",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Without You"
+      },
+      {
+        "id": "b",
+        "text": "Titanium"
+      },
+      {
+        "id": "c",
+        "text": "Memories"
+      },
+      {
+        "id": "d",
+        "text": "Play Hard"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Titanium by David Guetta, featuring Sia.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/0e33a696d76e.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/62847142",
+        "note": "ISRC GB28K1100036. \"Titanium (feat. Sia)\" by David Guetta, album \"Nothing but the Beat (Ultimate Edition)\", 245s, 2012-12-07. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/62847142",
+        "note": "30 s preview, excerpt 18.5s to 26.5s. -16.39 LUFS, -8.44 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "edm",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-yeah",
+    "category": "aux",
+    "tier": 2,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Burn"
+      },
+      {
+        "id": "b",
+        "text": "Caught Up"
+      },
+      {
+        "id": "c",
+        "text": "Yeah!"
+      },
+      {
+        "id": "d",
+        "text": "OMG"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Yeah! by Usher, featuring Lil Jon and Ludacris.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b3d4ef0d6ae1.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/13783449",
+        "note": "ISRC USAR10301423. \"Yeah! (feat. Lil Jon & Ludacris)\" by USHER, album \"Confessions (Expanded Edition)\", 250s, 2004-03-23. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/13783449",
+        "note": "30 s preview, excerpt 19.75s to 27.75s. -16.42 LUFS, -6.43 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "party",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. The title is sung in the excerpt."
+  },
+  {
+    "id": "aux-bubblin",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tints"
+      },
+      {
+        "id": "b",
+        "text": "Bubblin"
+      },
+      {
+        "id": "c",
+        "text": "Come Down"
+      },
+      {
+        "id": "d",
+        "text": "Am I Wrong"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Bubblin by Anderson .Paak. One of Brandon's favorite songs.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/45648f0da746.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/499048992",
+        "note": "ISRC ZZOPM1800182. \"Bubblin\" by Anderson .Paak, album \"Bubblin\", 207s, 2018-05-17. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/499048992",
+        "note": "30 s preview, excerpt 7.5s to 15.5s. -16.41 LUFS, -7.4 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "One of Brandon's favorite songs (provided). Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-bubblin-b",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tints"
+      },
+      {
+        "id": "b",
+        "text": "Bubblin"
+      },
+      {
+        "id": "c",
+        "text": "Come Down"
+      },
+      {
+        "id": "d",
+        "text": "Am I Wrong"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Bubblin by Anderson .Paak. One of Brandon's favorite songs.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/790e37262e91.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "variantOf": "aux-bubblin",
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/499048992",
+        "note": "ISRC ZZOPM1800182. \"Bubblin\" by Anderson .Paak, album \"Bubblin\", 207s, 2018-05-17. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/499048992",
+        "note": "30 s preview, excerpt 20.5s to 28.5s. -16.42 LUFS, -6.47 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "One of Brandon's favorite songs (provided). Window chosen from a lyric transcript, not by ear; preview before use. Another excerpt of the same song."
+  },
+  {
+    "id": "aux-chop-suey",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "B.Y.O.B."
+      },
+      {
+        "id": "b",
+        "text": "Toxicity"
+      },
+      {
+        "id": "c",
+        "text": "Aerials"
+      },
+      {
+        "id": "d",
+        "text": "Chop Suey!"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Chop Suey! by System of a Down. From Toxicity.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/7f312b0d2529.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/15523781",
+        "note": "ISRC USSM10107256. \"Chop Suey!\" by System of A Down, album \"Toxicity\", 210s, 2001-09-04. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/15523781",
+        "note": "30 s preview, excerpt 8.75s to 16.75s. -16.43 LUFS, -6.58 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-day-n-nite",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Day 'n' Nite"
+      },
+      {
+        "id": "b",
+        "text": "Pursuit of Happiness"
+      },
+      {
+        "id": "c",
+        "text": "Up Up & Away"
+      },
+      {
+        "id": "d",
+        "text": "Erase Me"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Day 'n' Nite by Kid Cudi.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/4280a6c20958.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/7371872",
+        "note": "ISRC USUM70957500. \"Day 'N' Nite (nightmare)\" by Kid Cudi, album \"Man On The Moon: The End Of Day\", 223s, 2009-09-15. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/7371872",
+        "note": "30 s preview, excerpt 7.5s to 15.5s. -16.42 LUFS, -5.95 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-even-flow",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Better Man"
+      },
+      {
+        "id": "b",
+        "text": "Daughter"
+      },
+      {
+        "id": "c",
+        "text": "Even Flow"
+      },
+      {
+        "id": "d",
+        "text": "Given to Fly"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Even Flow by Pearl Jam. From Ten.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/caee3186cda1.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/7675129",
+        "note": "ISRC USSM19100673. \"Even Flow\" by Pearl Jam, album \"Ten\", 294s, 1992-01-14. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/7675129",
+        "note": "30 s preview, excerpt 20s to 28s. -16.43 LUFS, -7.97 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-everlong",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "My Hero"
+      },
+      {
+        "id": "b",
+        "text": "The Pretender"
+      },
+      {
+        "id": "c",
+        "text": "Best of You"
+      },
+      {
+        "id": "d",
+        "text": "Everlong"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Everlong by Foo Fighters.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f1f06bac9ce1.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/4762041",
+        "note": "ISRC USRW29600011. \"Everlong\" by Foo Fighters, album \"Greatest Hits\", 250s, 2009-11-02. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/4762041",
+        "note": "30 s preview, excerpt 1.75s to 9.75s. -16.42 LUFS, -7.6 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-fireflies",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fireflies"
+      },
+      {
+        "id": "b",
+        "text": "Good Time"
+      },
+      {
+        "id": "c",
+        "text": "Vanilla Twilight"
+      },
+      {
+        "id": "d",
+        "text": "Umbrella Beach"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Fireflies by Owl City.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/2cbad8654e86.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/4188437",
+        "note": "ISRC USUM70972068. \"Fireflies\" by Owl City, album \"Ocean Eyes\", 228s, 2009-07-28. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/4188437",
+        "note": "30 s preview, excerpt 17.75s to 25.75s. -16.41 LUFS, -3.97 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-knights-of-cydonia",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Uprising"
+      },
+      {
+        "id": "b",
+        "text": "Supermassive Black Hole"
+      },
+      {
+        "id": "c",
+        "text": "Knights of Cydonia"
+      },
+      {
+        "id": "d",
+        "text": "Starlight"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Knights of Cydonia by Muse. From Black Holes and Revelations.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/ba8143aa0013.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/3590194",
+        "note": "ISRC GBAHT0500600. \"Knights of Cydonia\" by Muse, album \"Black Holes and Revelations\", 367s, 2006-06-28. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/3590194",
+        "note": "30 s preview, excerpt 1.75s to 9.75s. -16.44 LUFS, -6.71 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-love-sosa",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "I Don't Like"
+      },
+      {
+        "id": "b",
+        "text": "Faneto"
+      },
+      {
+        "id": "c",
+        "text": "Hate Bein' Sober"
+      },
+      {
+        "id": "d",
+        "text": "Love Sosa"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Love Sosa by Chief Keef.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/2a6cfcefef08.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/62892170",
+        "note": "ISRC USUM71214600. \"Love Sosa\" by Chief Keef, album \"Finally Rich\", 246s, 2012-12-18. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/62892170",
+        "note": "30 s preview, excerpt 1.5s to 9.5s. -16.44 LUFS, -5.49 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "party",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-sandstorm",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this instrumental.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Feel the Beat"
+      },
+      {
+        "id": "b",
+        "text": "Out of Control"
+      },
+      {
+        "id": "c",
+        "text": "Sandstorm"
+      },
+      {
+        "id": "d",
+        "text": "Rush"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Sandstorm by Darude.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/403ac1bb1d22.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/11390027",
+        "note": "ISRC FISGC9900001. \"Sandstorm\" by Darude, album \"Before the Storm\", 225s, 2000-01-01. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/11390027",
+        "note": "30 s preview, excerpt 1.75s to 9.75s. -16.41 LUFS, -6.95 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "edm",
+        "internet",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Instrumental. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-somebody-that-i-used-to-know",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Somebody That I Used to Know"
+      },
+      {
+        "id": "b",
+        "text": "We Are Never Ever Getting Back Together"
+      },
+      {
+        "id": "c",
+        "text": "Payphone"
+      },
+      {
+        "id": "d",
+        "text": "Hearts a Mess"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Somebody That I Used to Know by Gotye, featuring Kimbra.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/3481ca31bc90.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/119615552",
+        "note": "ISRC AUZS21100040. \"Somebody That I Used To Know\" by Gotye, album \"Making Mirrors\", 241s, 2012-01-20. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/119615552",
+        "note": "30 s preview, excerpt 20s to 28s. -16.45 LUFS, -2.76 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-swimming-pools",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Backseat Freestyle"
+      },
+      {
+        "id": "b",
+        "text": "Poetic Justice"
+      },
+      {
+        "id": "c",
+        "text": "The Recipe"
+      },
+      {
+        "id": "d",
+        "text": "Swimming Pools (Drank)"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Swimming Pools (Drank) by Kendrick Lamar. From good kid, m.A.A.d city.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/dac0ad97e449.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/52735971",
+        "note": "ISRC USUM71207642. \"Swimming Pools (Drank)\" by Kendrick Lamar, album \"Swimming Pools (Drank)\", 248s, 2012-07-31. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/52735971",
+        "note": "30 s preview, excerpt 12.5s to 20.5s. -16.42 LUFS, -4.55 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track. Excerpt has strong language; preview before use."
+  },
+  {
+    "id": "aux-when-you-were-young",
+    "category": "aux",
+    "tier": 3,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Somebody Told Me"
+      },
+      {
+        "id": "b",
+        "text": "When You Were Young"
+      },
+      {
+        "id": "c",
+        "text": "Human"
+      },
+      {
+        "id": "d",
+        "text": "All These Things That I've Done"
+      }
+    ],
+    "answer": "b",
+    "reveal": "When You Were Young by The Killers. From Sam's Town.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/6a7bbbdbb899.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/1109953",
+        "note": "ISRC USUM70605164. \"When You Were Young\" by The Killers, album \"Sam's Town\", 218s, 2006-10-12. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/1109953",
+        "note": "30 s preview, excerpt 2s to 10s. -16.43 LUFS, -6.58 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-dancing-in-the-kitchen",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Malibu Nights"
+      },
+      {
+        "id": "b",
+        "text": "Thick and Thin"
+      },
+      {
+        "id": "c",
+        "text": "Cowboy in LA"
+      },
+      {
+        "id": "d",
+        "text": "Dancing in the Kitchen"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Dancing in the Kitchen by LANY.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/7c7335bf7d5e.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/1476757862",
+        "note": "ISRC GBUM72103516. \"dancing in the kitchen\" by LANY, album \"gg bb xx\", 209s, 2021-09-03. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/1476757862",
+        "note": "30 s preview, excerpt 18s to 26s. -16.41 LUFS, -3.91 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "surprise": true,
+    "tags": {
+      "topics": [
+        "pop",
+        "brandon",
+        "wedding"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "POSSIBLE WEDDING SURPRISE: the first-dance song Brandon selected. Brandon reviews before use. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-mask-off",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Low Life"
+      },
+      {
+        "id": "b",
+        "text": "Mask Off"
+      },
+      {
+        "id": "c",
+        "text": "March Madness"
+      },
+      {
+        "id": "d",
+        "text": "Where Ya At"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Mask Off by Future.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/74bb0db7e07c.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/142337683",
+        "note": "ISRC USSM11701444. \"Mask Off\" by Future, album \"FUTURE\", 204s, 2017-02-17. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/142337683",
+        "note": "30 s preview, excerpt 8s to 16s. -16.43 LUFS, -5.64 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-mr-rager",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Soundtrack 2 My Life"
+      },
+      {
+        "id": "b",
+        "text": "Heart of a Lion"
+      },
+      {
+        "id": "c",
+        "text": "Cudi Zone"
+      },
+      {
+        "id": "d",
+        "text": "Mr. Rager"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Mr. Rager by Kid Cudi.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/3276501677e6.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/7521065",
+        "note": "ISRC USUM71025042. \"Mr. Rager\" by Kid Cudi, album \"Man On The Moon II: The Legend Of Mr. Rager\", 298s, 2010-11-09. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/7521065",
+        "note": "30 s preview, excerpt 1s to 9s. -16.45 LUFS, -7.37 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-my-name-is-jonas",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "My Name Is Jonas"
+      },
+      {
+        "id": "b",
+        "text": "Buddy Holly"
+      },
+      {
+        "id": "c",
+        "text": "Say It Ain't So"
+      },
+      {
+        "id": "d",
+        "text": "Undone"
+      }
+    ],
+    "answer": "a",
+    "reveal": "My Name Is Jonas by Weezer. From Weezer (Blue Album).",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f0aef0d0555e.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/2542114",
+        "note": "ISRC USGF19962901. \"My Name Is Jonas\" by Weezer, album \"Weezer (Blue Album)\", 204s, 1994-05-10. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/2542114",
+        "note": "30 s preview, excerpt 1s to 9s. -16.42 LUFS, -6.71 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-no-problem",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Same Drugs"
+      },
+      {
+        "id": "b",
+        "text": "Juke Jam"
+      },
+      {
+        "id": "c",
+        "text": "All Night"
+      },
+      {
+        "id": "d",
+        "text": "No Problem"
+      }
+    ],
+    "answer": "d",
+    "reveal": "No Problem by Chance the Rapper, featuring Lil Wayne and 2 Chainz.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/d84d4ea16e5b.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/125544828",
+        "note": "ISRC TCACO1667423. \"No Problem (feat. Lil Wayne & 2 Chainz)\" by Chance The Rapper, album \"Coloring Book\", 305s, 2016-05-27. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/125544828",
+        "note": "30 s preview, excerpt 20.25s to 28.25s. -16.51 LUFS, -5.91 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Editorial suggestion. Brandon's first concert was Chance the Rapper (provided); the song itself is not a stated favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-no-role-modelz",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "No Role Modelz"
+      },
+      {
+        "id": "b",
+        "text": "Power Trip"
+      },
+      {
+        "id": "c",
+        "text": "Wet Dreamz"
+      },
+      {
+        "id": "d",
+        "text": "Work Out"
+      }
+    ],
+    "answer": "a",
+    "reveal": "No Role Modelz by J. Cole. From 2014 Forest Hills Drive.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/0da143cc7bf8.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/1591188152",
+        "note": "ISRC USQX91402598. \"No Role Modelz\" by J. Cole, album \"2014 Forest Hills Drive\", 292s, 2014-12-09. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/1591188152",
+        "note": "30 s preview, excerpt 1.75s to 9.75s. -16.44 LUFS, -5.74 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "party",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-rnp",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "RNP"
+      },
+      {
+        "id": "b",
+        "text": "Gifted"
+      },
+      {
+        "id": "c",
+        "text": "Sinister"
+      },
+      {
+        "id": "d",
+        "text": "Bad Idea"
+      }
+    ],
+    "answer": "a",
+    "reveal": "RNP by Cordae, featuring Anderson .Paak.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/702583d7ed6b.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/717960082",
+        "note": "ISRC USAT21903972. \"RNP (feat. Anderson .Paak)\" by Cordae, album \"The Lost Boy\", 175s, 2019-07-26. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/717960082",
+        "note": "30 s preview, excerpt 8.5s to 16.5s. -16.45 LUFS, -6.8 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Brandon knows the words and rapped along live (provided). Cordae feat. Anderson .Paak. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-scary-monsters",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "First of the Year (Equinox)"
+      },
+      {
+        "id": "b",
+        "text": "Kill Everybody"
+      },
+      {
+        "id": "c",
+        "text": "With You, Friends (Long Drive)"
+      },
+      {
+        "id": "d",
+        "text": "Scary Monsters and Nice Sprites"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Scary Monsters and Nice Sprites by Skrillex.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/ee06865a5eea.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/7927244",
+        "note": "ISRC GBTDG1000196. \"Scary Monsters and Nice Sprites\" by Skrillex, album \"Scary Monsters and Nice Sprites EP\", 243s, 2010-12-21. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/7927244",
+        "note": "30 s preview, excerpt 6s to 14s. -16.43 LUFS, -9.66 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "edm",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-the-heart-of-life",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The Heart of Life"
+      },
+      {
+        "id": "b",
+        "text": "Stop This Train"
+      },
+      {
+        "id": "c",
+        "text": "Who Says"
+      },
+      {
+        "id": "d",
+        "text": "Why Georgia"
+      }
+    ],
+    "answer": "a",
+    "reveal": "The Heart of Life by John Mayer. From Continuum.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/b6dab704dac9.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/14875479",
+        "note": "ISRC USSM10603629. \"The Heart of Life\" by John Mayer, album \"Continuum\", 198s, 2006-09-11. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/14875479",
+        "note": "30 s preview, excerpt 7.5s to 15.5s. -16.44 LUFS, -5.82 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "brandon",
+        "john-mayer"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "John Mayer song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-through-the-fire-and-flames",
+    "category": "aux",
+    "tier": 4,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Valley of the Damned"
+      },
+      {
+        "id": "b",
+        "text": "Heroes of Our Time"
+      },
+      {
+        "id": "c",
+        "text": "Through the Fire and Flames"
+      },
+      {
+        "id": "d",
+        "text": "Fury of the Storm"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Through the Fire and Flames by DragonForce.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c1ec11ffe746.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/2213095667",
+        "note": "ISRC GBAJE0508258. \"Through The Fire And Flames\" by DragonForce, album \"Killer Elite\", 439s, 2016-04-29. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/2213095667",
+        "note": "30 s preview, excerpt 19.25s to 27.25s. -16.41 LUFS, -8.5 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-cliffs-of-dover",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this instrumental.",
+    "options": [
+      {
+        "id": "a",
+        "text": "High Landrons"
+      },
+      {
+        "id": "b",
+        "text": "Cliffs of Dover"
+      },
+      {
+        "id": "c",
+        "text": "Forty Mile Town"
+      },
+      {
+        "id": "d",
+        "text": "Trademark"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Cliffs of Dover by Eric Johnson. From Ah Via Musicom.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/c36c19d68564.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/14600400",
+        "note": "ISRC USCA28900086. \"Cliffs Of Dover (Instrumental)\" by Eric Johnson, album \"Ah Via Musicom\", 249s, 2007-03-27. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/14600400",
+        "note": "30 s preview, excerpt 20.25s to 28.25s. -16.42 LUFS, -2.47 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "guitar-hero",
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Guitar Hero connection (provided). Instrumental. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-come-down",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bubblin"
+      },
+      {
+        "id": "b",
+        "text": "Am I Wrong"
+      },
+      {
+        "id": "c",
+        "text": "Come Down"
+      },
+      {
+        "id": "d",
+        "text": "Put Me Thru"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Come Down by Anderson .Paak.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/6a0f5bc05d39.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/114788694",
+        "note": "ISRC USUYG1088425. \"Come Down\" by Anderson .Paak, album \"Malibu\", 169s, 2016-01-15. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/114788694",
+        "note": "30 s preview, excerpt 4s to 12s. -16.45 LUFS, -6.57 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track. Excerpt has strong language; preview before use."
+  },
+  {
+    "id": "aux-lets-fall-in-love-for-the-night",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Let's Fall in Love for the Night"
+      },
+      {
+        "id": "b",
+        "text": "Partners in Crime"
+      },
+      {
+        "id": "c",
+        "text": "Break My Heart Again"
+      },
+      {
+        "id": "d",
+        "text": "I Lost a Friend"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Let's Fall in Love for the Night by FINNEAS.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/550244316f50.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/2581938312",
+        "note": "ISRC GBKPL1825156. \"Let's Fall in Love for the Night\" by FINNEAS, album \"Blood Harmony\", 190s, 2019-10-04. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/2581938312",
+        "note": "30 s preview, excerpt 7.25s to 15.25s. -16.43 LUFS, -7.7 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pop",
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "FINNEAS song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-lose-yourself-to-dance",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Get Lucky"
+      },
+      {
+        "id": "b",
+        "text": "Instant Crush"
+      },
+      {
+        "id": "c",
+        "text": "Lose Yourself to Dance"
+      },
+      {
+        "id": "d",
+        "text": "Give Life Back to Music"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Lose Yourself to Dance by Daft Punk, featuring Pharrell Williams.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/9deba8c23a79.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/67238733",
+        "note": "ISRC USQX91300106. \"Lose Yourself to Dance (feat. Pharrell Williams)\" by Daft Punk, album \"Random Access Memories\", 353s, 2013-05-20. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/67238733",
+        "note": "30 s preview, excerpt 1s to 9s. -16.43 LUFS, -5.85 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "edm",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-neon",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Clarity"
+      },
+      {
+        "id": "b",
+        "text": "Gravity"
+      },
+      {
+        "id": "c",
+        "text": "Neon"
+      },
+      {
+        "id": "d",
+        "text": "Daughters"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Neon by John Mayer. From Room For Squares.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/da32086c4781.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/13146260",
+        "note": "ISRC USSM10102941. \"Neon\" by John Mayer, album \"Room For Squares\", 262s, 2001-08-16. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/13146260",
+        "note": "30 s preview, excerpt 17s to 25s. -16.42 LUFS, -5.65 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "brandon",
+        "john-mayer"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "John Mayer song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-soundtrack-2-my-life",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Sky Might Fall"
+      },
+      {
+        "id": "b",
+        "text": "Heart of a Lion"
+      },
+      {
+        "id": "c",
+        "text": "Soundtrack 2 My Life"
+      },
+      {
+        "id": "d",
+        "text": "Cudi Zone"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Soundtrack 2 My Life by Kid Cudi.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/f0d56ff69ccd.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/7371867",
+        "note": "ISRC USUM70981690. \"Soundtrack 2 My Life\" by Kid Cudi, album \"Man On The Moon: The End Of Day\", 235s, 2009-09-15. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/7371867",
+        "note": "30 s preview, excerpt 16.25s to 24.25s. -16.44 LUFS, -8.85 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  },
+  {
+    "id": "aux-stop-this-train",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The Heart of Life"
+      },
+      {
+        "id": "b",
+        "text": "Gravity"
+      },
+      {
+        "id": "c",
+        "text": "Waiting on the World to Change"
+      },
+      {
+        "id": "d",
+        "text": "Stop This Train"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Stop This Train by John Mayer. From Continuum.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/0c67697fe44a.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/14875481",
+        "note": "ISRC USSM10603631. \"Stop This Train\" by John Mayer, album \"Continuum\", 285s, 2006-09-11. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/14875481",
+        "note": "30 s preview, excerpt 20.25s to 28.25s. -16.45 LUFS, -2.69 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rock",
+        "brandon",
+        "john-mayer"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "John Mayer song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use."
+  },
+  {
+    "id": "aux-two-tens",
+    "category": "aux",
+    "tier": 5,
+    "format": "audio",
+    "prompt": "Name this song.",
+    "options": [
+      {
+        "id": "a",
+        "text": "RNP"
+      },
+      {
+        "id": "b",
+        "text": "Bad Idea"
+      },
+      {
+        "id": "c",
+        "text": "Two Tens"
+      },
+      {
+        "id": "d",
+        "text": "Gifted"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Two Tens by Cordae, featuring Anderson .Paak.",
+    "media": {
+      "kind": "audio",
+      "src": "/tq/05ccc77f8caa.mp3",
+      "start": 0,
+      "duration": 8,
+      "mime": "audio/mpeg"
+    },
+    "sources": [
+      {
+        "url": "https://www.deezer.com/track/2115567007",
+        "note": "ISRC USAT22221476. \"Two Tens (feat. Anderson .Paak)\" by Cordae, album \"Two Tens (feat. Anderson .Paak)\", 152s, 2023-01-25. Original studio recording.",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://api.deezer.com/track/2115567007",
+        "note": "30 s preview, excerpt 18.75s to 26.75s. -16.44 LUFS, -4.53 dBTP.",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "hip-hop",
+        "editorial"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
+  }
+]

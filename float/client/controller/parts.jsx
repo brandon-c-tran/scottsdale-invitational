@@ -13,10 +13,10 @@ export const HORIZON = 0.58;
 /* The art's own scene (the TV's: a drawn sky, the land strip, the checkered
    water), the sky over the whole screen and the land and water placed so
    the scene's waterline is the phone's horizon. */
-function ArtScenery({ art, id }) {
+function ArtScenery({ art, id, horizon = HORIZON }) {
   const [sky, ...strip] = art.layers;
   return <div className={`flc-scenery is-art is-${id}`} aria-hidden="true"
-    style={{ "--water":Number(art.water) || 0.45, "--ratio":(Number(art.w) || 1920) / (Number(art.h) || 1080), "--horizon":HORIZON }}>
+    style={{ "--water":Number(art.water) || 0.45, "--ratio":(Number(art.w) || 1920) / (Number(art.h) || 1080), "--horizon":horizon }}>
     <img className="flc-sky" src={sky.src} alt="" draggable="false" decoding="async" />
     <div className="flc-strip">
       {strip.map(layer => <img key={layer.src} src={layer.src} alt="" draggable="false" decoding="async" />)}
@@ -26,10 +26,13 @@ function ArtScenery({ art, id }) {
   </div>;
 }
 
-export function Scenery({ scene = "open", ground = "water" }) {
+/* `horizon`: where the waterline sits, a share of the height (the lobby
+   lifts it so the critter, stacked over its name and buttons, floats in
+   the water and not on the shore) */
+export function Scenery({ scene = "open", ground = "water", horizon = HORIZON }) {
   const manifest = useGrooveArt();
   const art = manifest && ground === "water" ? sceneOf(scene) : null;
-  if (art?.layers?.length >= 2) return <ArtScenery art={art} id={scene} />;
+  if (art?.layers?.length >= 2) return <ArtScenery art={art} id={scene} horizon={horizon} />;
   return <div className={`flc-scenery is-${scene} is-${ground}`} aria-hidden="true">
     <i className="flc-sun" />
     <svg className="flc-mesas" viewBox="0 0 400 100" preserveAspectRatio="xMidYMax slice" focusable="false">

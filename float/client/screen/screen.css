@@ -121,7 +121,7 @@
 .fl-ripple::after { content:""; position:absolute; inset:18px 0 28px; border-radius:50%; border:6px solid rgba(255, 255, 255, 0.85);
   border-top-color:transparent; }
 .fl-rider[data-where="bank"] .fl-ripple, .fl-rider[data-where="hop"] .fl-ripple, .fl-rider[data-where="podium"] .fl-ripple { opacity:0; }
-.fl-ripple-art { position:absolute; display:block; pointer-events:none; opacity:0.95; }
+.fl-ripple-art { position:absolute; display:block; pointer-events:none; opacity:0.82; transform-origin:50% 50%; }
 .fl-rider[data-where="bank"] .fl-ripple-art, .fl-rider[data-where="hop"] .fl-ripple-art, .fl-rider[data-where="podium"] .fl-ripple-art { opacity:0; }
 .fl-splash { position:absolute; left:340px; top:300px; width:220px; height:132px; opacity:0; pointer-events:none; }
 .fl-splash svg { width:100%; height:100%; display:block; }

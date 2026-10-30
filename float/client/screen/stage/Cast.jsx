@@ -157,8 +157,8 @@ const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
   const hand = anchor.hand || anchor.water;
   return <div className="fl-rider" ref={set("rider")} data-pose="idle" style={{ "--c":entrant.color || "#7fb8ff" }}>
     {ripple?.src
-      ? <img className="fl-ripple-art" src={ripple.src} alt="" draggable={false} style={rippleBox(ripple, wx, wy)} />
-      : <div className="fl-ripple" style={{ left:wx - 228, top:wy - 8 }} />}
+      ? <img className="fl-ripple-art" ref={set("ripple")} src={ripple.src} alt="" draggable={false} style={rippleBox(ripple, wx, wy)} />
+      : <div className="fl-ripple" ref={set("ripple")} style={{ left:wx - 228, top:wy - 8 }} />}
     <div className="fl-body" ref={set("body")} style={{ transformOrigin:`${wx}px ${wy}px` }}>
       <Critter entrant={entrant} art={art} />
       {/* the paddle is in the sprites (the kayak's poses); a splash at each side for its strokes */}
@@ -177,7 +177,7 @@ const PSPLASH = Object.freeze({ w:170, h:120, reach:150 });
 /* the art's ripple centred at the waterline, about 1.35 x the hull */
 /* (kayaks: the waterline is the hull's bottom edge and the idle hull 270 box
    px wide, so the ripple is a touch wider and sits a little up the hull) */
-export const RIPPLE = Object.freeze({ HULL:270, K:1.35, LIFT:14 });
+export const RIPPLE = Object.freeze({ HULL:270, K:1.25, LIFT:14, AIR:70 });
 function rippleBox(prop, wx, wy) {
   const w = RIPPLE.HULL * RIPPLE.K, h = w * ((prop.h || 104) / (prop.w || 320));
   const ax = ((prop.anchor?.[0] ?? prop.w / 2) / (prop.w || 1)) * w, ay = ((prop.anchor?.[1] ?? prop.h / 2) / (prop.h || 1)) * h;
@@ -550,6 +550,20 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
           node.style.transform = `translate3d(${(tx - PSPLASH.w / 2).toFixed(1)}px, ${(ty - PSPLASH.h * 0.85).toFixed(1)}px, 0) scale(${(side * (0.55 + 0.55 * k)).toFixed(3)}, ${(0.55 + 0.55 * k).toFixed(3)})`;
         }
         if (r.body) r.body.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) rotate(${rot.toFixed(2)}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+        /* the ripple is the kayak's shadow on the water: a hop, a cheer or a
+           launch lifts the hull and the ripple shrinks and fades under it,
+           back to full as it lands (a flat ripple under a boat in the air
+           read as floating) */
+        if (r.ripple) {
+          /* only on the water: the bank and the podium hide the ripple in CSS, and an inline opacity would show it */
+          const air = where === "water" ? Math.max(0, Math.min(1, -(act?.dy || 0) / RIPPLE.AIR)) : 0;
+          const shade = air <= 0.005 ? "" : `scale(${(1 - 0.45 * air).toFixed(3)})`;
+          if (m.shade !== shade) {
+            r.ripple.style.transform = shade;
+            r.ripple.style.opacity = air <= 0.005 ? "" : (0.82 * (1 - 0.7 * air)).toFixed(3);
+            m.shade = shade;
+          }
+        }
         if (r.splash) r.splash.style.opacity = String(Math.max(0, Math.min(1, act?.kind === "paddle" ? 0 : act?.splash || 0)).toFixed(2));
         if (m.pose !== pose) { r.rider.dataset.pose = pose; m.pose = pose; }
         const z = Math.round(where === "bank" ? y - 600 : where === "exit" ? 1900 : y);

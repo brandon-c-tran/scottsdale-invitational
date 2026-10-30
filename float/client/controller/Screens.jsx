@@ -47,7 +47,7 @@ function Lobby({ game, entrant, me, groom, onReady, onLook, onExit }) {
     </section>;
   }
   return <section className="flc-screen flc-lobby">
-    <Scenery scene="lobby" />
+    <Scenery scene="lobby" horizon={0.5} />
     <Top left={<ExitButton onExit={onExit} />} right={room?.code ? <span className="flc-code" aria-label="Room code">
       {String(room.code).toUpperCase()}</span> : null} />
     <div className="flc-lobby-main">

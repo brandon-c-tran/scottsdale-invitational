@@ -8,7 +8,7 @@ import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
-import { serverNow } from "../../lib/serverClock.js";
+import { serverNow, useServerWake } from "../../lib/serverClock.js";
 import { teamRows } from "../moments/walkoutTeam.js";
 import { useKaraokePlayer } from "./karaokePlayer.js";
 import { useKaraokeRoomClock } from "./karaokeSound.js";
@@ -38,14 +38,10 @@ function useAnchor(anchor, now) {
 const at = ms => `calc(var(--tl) + ${ms}ms)`;
 
 function useKaraokeNow(game, tick, fixed) {
-  const [, wake] = useState(0);
   const now = fixed ? tick : Math.max(tick || 0, serverNow());
   const next = fixed ? null : karaokeNextInstant(game, now);
-  useEffect(() => {
-    if (!next) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, next - serverNow()) + 10);
-    return () => clearTimeout(timer);
-  }, [next]);
+  /* a wake that lands short of its instant arms again (src/lib/serverClock.js) */
+  useServerWake(next || 0, { drawnAt:now, slack:10 });
   return now;
 }
 

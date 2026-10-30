@@ -189,6 +189,11 @@ test("every board clock wakes through useServerWake: the phone's sheet and Home 
   assert.match(phone, /function useBoardNow[\s\S]{0,400}useServerWake\(next, \{ drawnAt:now \}\)/);
   assert.match(phone, /useServerWake\(lockUntil, \{ drawnAt:now \}\)/, "the buzzer's lockout ends on time too");
   assert.equal((tv.match(/useServerWake\(fixed \? 0 : next, \{ drawnAt:now, slack:10 \}\)/g) || []).length, 2, "the TV's board and its chase");
+  /* karaoke's clocks wake the same way (the same freeze would hold a vote shut) */
+  const karaokePhone = readFileSync(new URL("../src/features/karaoke/KaraokeClock.jsx", import.meta.url), "utf8");
+  const karaokeTv = readFileSync(new URL("../src/features/tv/TVKaraoke.jsx", import.meta.url), "utf8");
+  assert.match(karaokePhone, /function useKaraokeNow[\s\S]{0,300}useServerWake\(next, \{ drawnAt:now \}\)/);
+  assert.match(karaokeTv, /function useKaraokeNow[\s\S]{0,300}useServerWake\(next \|\| 0, \{ drawnAt:now, slack:10 \}\)/);
 });
 
 /* ── the waiting states, drawn by the real phone over the board fixtures ── */

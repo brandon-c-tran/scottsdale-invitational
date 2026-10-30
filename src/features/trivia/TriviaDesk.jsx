@@ -13,6 +13,8 @@ import { writeError } from "../../lib/writeErrors.js";
 import { BOARD_FORMAT, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
 import { triviaFinalEntry, triviaLive } from "../../../shared/trivia.js";
 import { BoardPreview, FormatSwitch } from "./BoardDesk.jsx";
+import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
+import { qbankRowValue } from "./qbankModel.js";
 
 const newId = prefix => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -348,7 +350,8 @@ function FinalCard({ rounds, onAct, running }) {
    draws them as the board they will deal, with its Final. Locked while a
    game runs; Restart clears the answers, never the set list. */
 /* `initial` opens an editor straight away (the rehearsal page) */
-export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initial = null }) {
+/* `onOpenBank` opens the question bank's desk (QBankDesk.jsx) over this one */
+export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initial = null, onOpenBank = null }) {
   const rounds = state.triviaRounds || [];
   /* the board's own Final rides in the set list; it is not a round */
   const listed = rounds.filter(round => round?.source !== "final");
@@ -382,6 +385,7 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
   };
   const runningGame = game || board;
   return <div className="fd-trivia-desk">
+    {onOpenBank && <MenuGroup><MenuRow name="Question bank" icon="games" value={qbankRowValue(state)} onClick={onOpenBank} /></MenuGroup>}
     <FormatSwitch format={format} onChange={setFormat} disabled={running} />
     {running && <div className="fd-trivia-running">
       <span>{board ? `${(board.played || []).length} of ${board.total || 0} played` : `Question ${game.index + 1} of ${game.questions.length} live`}</span>

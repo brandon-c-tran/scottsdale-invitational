@@ -14,7 +14,7 @@ import {
   presentPlayers, stageFinalists, teamFit,
 } from "../../../shared/core.js";
 import { SHOW_SCENE_DEFINITIONS, autopilotHeld, contestName, draftsByDefault, resolveDirector, resolveShowScene } from "../../../shared/show.js";
-import { triviaFinalEntry, triviaQuestionTotal, triviaRoundCount } from "../../../shared/trivia.js";
+import { triviaFinalEntry, triviaPlanned, triviaQuestionTotal, triviaRoundCount } from "../../../shared/trivia.js";
 import { BOARD_FORMAT, FINAL_PHASES, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
 import { hasKaraokeSong, karaokeResultSlots } from "../../../shared/karaoke.js";
 import { namesOf } from "./directorPill.js";
@@ -99,7 +99,7 @@ function geoPlan(state, ev) {
    (shared/triviaBoard.js boardBeat runs each step). Null without a set list. */
 function boardPlan(state, ev) {
   const game = isBoardGame(state.trivia) && state.trivia.eventId === ev.id ? state.trivia : null;
-  if (!game && !triviaQuestionTotal(state.triviaRounds)) return null;
+  if (!game && !triviaQuestionTotal(state.triviaRounds) && !triviaPlanned(state)) return null;
   const out = game || !state.eventOps?.[ev.id]?.startedAt ? [] : [beat("trivia-start", "Start trivia", ev.name)];
   if (!game || !FINAL_PHASES.includes(game.phase)) out.push(beat("board-step", "The board", ev.name));
   if (!game || (game.final && game.phase !== "final-board"))

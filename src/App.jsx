@@ -90,7 +90,7 @@ import { KaraokeHome } from "./features/karaoke/KaraokeHome.jsx";
 import { FloatHome, FloatPlaySheet } from "./features/float/FloatPlay.jsx";
 import { FloatLocker } from "./features/float/FloatLocker.jsx";
 import { floatLooksPicked } from "./features/float/floatModel.js";
-import { triviaQuestionTotal } from "../shared/trivia.js";
+import { triviaPlanCount, triviaPlanned, triviaQuestionTotal } from "../shared/trivia.js";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
@@ -1605,7 +1605,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     lockerRoom:state.live && !state.frozen && lockerRoomAvailability(state).enabled,
     away:Object.keys(state.away || {}), out:Object.keys(state.out || {}), coming:rosterOf(state).length, geoPhotos:(state.geoRounds || []).length,
     arrivals:state.arrivals?.open ? { here:rosterOf(state).filter(p => state.arrivals.at?.[p]).length, total:rosterOf(state).length } : null,
-    triviaQuestions:triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
+    triviaQuestions:triviaPlanned(state) ? triviaPlanCount(state) : triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
     karaoke:capabilities.karaoke === true, karaokeSongs:karaokeSongCount(state),
     float:capabilities.float === true, floaties:floatLooksPicked(state),
     onDeck:state.onDeck ? onDeckEv?.name || "Open" : null,

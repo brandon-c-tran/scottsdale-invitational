@@ -48,8 +48,9 @@ import { TRIVIA_BANK } from "../../worker/triviaBank.js";
 export const BOARD_FIT_VIEWER = "Richard";
 const PICKER = "Evan";
 
-/* the set list: five bank rounds and the commissioner's own, a seventh
-   that will not fit the board, and his Final */
+/* the set list: five bank rounds, the commissioner's own and a sixth bank
+   round (seven columns, the question bank's board), an eighth that will
+   not fit the board, and his Final */
 export const BOARD_FIT_ROUNDS = Object.freeze([
   { id:"tbfitsport", source:"bank", category:"sports", picks:["sports-01", "sports-02", "sports-06", "sports-09", "sports-04", "sports-10"] },
   { id:"tbfitscrn1", source:"bank", category:"screen", picks:["screen-03", "screen-05", "screen-01", "screen-07", "screen-11"] },
@@ -71,6 +72,7 @@ export const BOARD_FIT_ROUNDS = Object.freeze([
     { id:"qbfitgrm05", format:"choice", text:"How many fantasy titles has Brandon won?", options:["Two", "None", "One", "Three"], answer:1 },
     { id:"qbfitgrm06", format:"number", text:"How many miles is it from the house to Sky Harbor?", answer:18, unit:"miles", digits:4 },
   ] },
+  { id:"tbfitfood1", source:"bank", category:"food", picks:["food-01", "food-02", "food-04", "food-07", "food-15"] },
   { id:"tbfitmusic", source:"bank", category:"music", picks:["music-01", "music-03", "music-04", "music-05", "music-08"] },
   { id:"tbfitfinal", source:"final", category:"Landmarks", questions:[
     { id:"qbfitfinal", format:"choice", text:"The world's tallest building, the Burj Khalifa, stands in which city?",

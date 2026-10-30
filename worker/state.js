@@ -1,3 +1,4 @@
+import { recommendedPlan } from "./qbank.js";
 import { EMPTY_STATE, allEventsOf, cleanLeg, cleanLogistics, migrateAwardLadder } from "../shared/core.js";
 import { FLOAT_EVENT, FLOAT_STANDBY, floatSlate } from "../shared/float.js";
 
@@ -84,6 +85,9 @@ function hydrateStoredState(stored, storedWagerOps) {
   if (Number(state.v || 0) < EMPTY_STATE.v) state.v = EMPTY_STATE.v;
   placeKaraoke(state);
   placeFloat(state);
+  /* Trivia's question bank: the board starts as the recommended one, and a
+     board the commissioner has not touched keeps following it */
+  if (!state.triviaPlan || state.triviaPlan.from === "recommended") state.triviaPlan = recommendedPlan(0);
   /* Float plays, Beerio Kart stands by: once a board, while Beerio has
      nothing on it (shared/float.js floatSlate) */
   floatSlate(state);

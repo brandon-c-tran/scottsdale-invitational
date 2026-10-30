@@ -55,6 +55,8 @@ gameplay and scoring stay as they are unless this file says otherwise.
 
 Files: `worker/triviaQBank/<category>.json`, one array of records each,
 plus `worker/triviaQBank/recommended.json` (the 7 x 5 recommended board).
+`aux` is a reserved file name on Windows (git cannot add `aux.json`), so
+Pass the Aux's file is `worker/triviaQBank/aux-bank.json`.
 Never imported under `src/` or `shared/` (the existing bank's rule and its
 test extend to this folder). Served to the commissioner only over
 `GET /api/trivia/qbank` (GM token), records plus each one's merged edits and

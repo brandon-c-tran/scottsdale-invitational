@@ -1,0 +1,1915 @@
+{
+ "records": [
+  {
+   "id": "fx-nba-1",
+   "category": "nba",
+   "tier": 1,
+   "format": "image",
+   "prompt": "Who does he play for?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-nba-1"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-nba-1"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-nba-1"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-nba-1"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-nba-1.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content",
+   "subject": "Fixture Player",
+   "media": {
+    "kind": "image",
+    "src": "/tq/fe2d5126e9fd.webp",
+    "w": 400,
+    "h": 500,
+    "mime": "image/webp"
+   },
+   "revealMedia": {
+    "kind": "image",
+    "src": "/tq/29b7c9fdf0ad.webp",
+    "w": 400,
+    "h": 500
+   }
+  },
+  {
+   "id": "fx-nba-2",
+   "category": "nba",
+   "tier": 2,
+   "format": "choice",
+   "prompt": "Fixture nba 200: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-nba-2"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-nba-2"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-nba-2"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-nba-2"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-nba-2.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-nba-3",
+   "category": "nba",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture nba 300: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-nba-3"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-nba-3"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-nba-3"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-nba-3"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-nba-3.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-nba-4",
+   "category": "nba",
+   "tier": 4,
+   "format": "choice",
+   "prompt": "Fixture nba 400: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-nba-4"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-nba-4"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-nba-4"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-nba-4"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-nba-4.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-nba-5",
+   "category": "nba",
+   "tier": 5,
+   "format": "choice",
+   "prompt": "Fixture nba 500: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-nba-5"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-nba-5"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-nba-5"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-nba-5"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-nba-5.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-kim-1",
+   "category": "kim",
+   "tier": 1,
+   "format": "choice",
+   "prompt": "Fixture kim 100: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-kim-1"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-kim-1"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-kim-1"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-kim-1"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-kim-1.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-kim-2",
+   "category": "kim",
+   "tier": 2,
+   "format": "choice",
+   "prompt": "Fixture kim 200: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-kim-2"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-kim-2"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-kim-2"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-kim-2"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-kim-2.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-kim-3",
+   "category": "kim",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture kim 300: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-kim-3"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-kim-3"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-kim-3"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-kim-3"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-kim-3.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-kim-4",
+   "category": "kim",
+   "tier": 4,
+   "format": "choice",
+   "prompt": "Fixture kim 400: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-kim-4"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-kim-4"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-kim-4"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-kim-4"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-kim-4.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-kim-5",
+   "category": "kim",
+   "tier": 5,
+   "format": "choice",
+   "prompt": "Fixture kim 500: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-kim-5"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-kim-5"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-kim-5"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-kim-5"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-kim-5.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-lore-1",
+   "category": "lore",
+   "tier": 1,
+   "format": "choice",
+   "prompt": "Fixture lore 100: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-lore-1"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-lore-1"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-lore-1"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-lore-1"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-lore-1.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-lore-2",
+   "category": "lore",
+   "tier": 2,
+   "format": "choice",
+   "prompt": "Fixture lore 200: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-lore-2"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-lore-2"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-lore-2"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-lore-2"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-lore-2.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-lore-3",
+   "category": "lore",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture lore 300: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-lore-3"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-lore-3"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-lore-3"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-lore-3"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-lore-3.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-lore-4",
+   "category": "lore",
+   "tier": 4,
+   "format": "choice",
+   "prompt": "Fixture lore 400: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-lore-4"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-lore-4"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-lore-4"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-lore-4"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-lore-4.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-lore-5",
+   "category": "lore",
+   "tier": 5,
+   "format": "choice",
+   "prompt": "Fixture lore 500: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-lore-5"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-lore-5"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-lore-5"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-lore-5"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-lore-5.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-aux-1",
+   "category": "aux",
+   "tier": 1,
+   "format": "choice",
+   "prompt": "Fixture aux 100: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-aux-1"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-aux-1"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-aux-1"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-aux-1"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-aux-1.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-aux-2",
+   "category": "aux",
+   "tier": 2,
+   "format": "audio",
+   "prompt": "Name the fixture song.",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-aux-2"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-aux-2"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-aux-2"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-aux-2"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-aux-2.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content",
+   "media": {
+    "kind": "audio",
+    "src": "/tq/db5126dbe810.mp3",
+    "start": 0.2,
+    "duration": 0.6,
+    "mime": "audio/mpeg"
+   }
+  },
+  {
+   "id": "fx-aux-3",
+   "category": "aux",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture aux 300: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-aux-3"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-aux-3"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-aux-3"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-aux-3"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-aux-3.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-aux-4",
+   "category": "aux",
+   "tier": 4,
+   "format": "choice",
+   "prompt": "Fixture aux 400: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-aux-4"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-aux-4"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-aux-4"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-aux-4"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-aux-4.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-aux-5",
+   "category": "aux",
+   "tier": 5,
+   "format": "choice",
+   "prompt": "Fixture aux 500: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-aux-5"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-aux-5"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-aux-5"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-aux-5"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-aux-5.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-web-1",
+   "category": "web",
+   "tier": 1,
+   "format": "video",
+   "prompt": "Which fixture video is this?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-web-1"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-web-1"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-web-1"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-web-1"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-web-1.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content",
+   "media": {
+    "kind": "video",
+    "src": "/tq/9a71fcb340b3.mp4",
+    "w": 640,
+    "h": 360,
+    "start": 0,
+    "duration": 2,
+    "mime": "video/mp4"
+   }
+  },
+  {
+   "id": "fx-web-2",
+   "category": "web",
+   "tier": 2,
+   "format": "image",
+   "prompt": "Which fixture site is this?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-web-2"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-web-2"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-web-2"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-web-2"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-web-2.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content",
+   "media": {
+    "kind": "image",
+    "src": "/tq/f569e45e59a3.webp",
+    "w": 480,
+    "h": 270,
+    "mime": "image/webp"
+   },
+   "revealMedia": {
+    "kind": "image",
+    "src": "/tq/ee4f6e118d72.webp",
+    "w": 1280,
+    "h": 720
+   }
+  },
+  {
+   "id": "fx-web-3",
+   "category": "web",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture web 300: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-web-3"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-web-3"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-web-3"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-web-3"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-web-3.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-web-4",
+   "category": "web",
+   "tier": 4,
+   "format": "choice",
+   "prompt": "Fixture web 400: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-web-4"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-web-4"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-web-4"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-web-4"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-web-4.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-web-5",
+   "category": "web",
+   "tier": 5,
+   "format": "choice",
+   "prompt": "Fixture web 500: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-web-5"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-web-5"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-web-5"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-web-5"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-web-5.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sound-1",
+   "category": "sound",
+   "tier": 1,
+   "format": "audio",
+   "prompt": "Which fixture made this sound?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sound-1"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sound-1"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sound-1"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sound-1"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-sound-1.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content",
+   "media": {
+    "kind": "audio",
+    "src": "/tq/931ce96a03fe.mp3",
+    "start": 0,
+    "duration": 1,
+    "mime": "audio/mpeg"
+   }
+  },
+  {
+   "id": "fx-sound-2",
+   "category": "sound",
+   "tier": 2,
+   "format": "choice",
+   "prompt": "Fixture sound 200: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sound-2"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sound-2"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sound-2"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sound-2"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-sound-2.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sound-3",
+   "category": "sound",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture sound 300: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sound-3"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sound-3"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sound-3"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sound-3"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-sound-3.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sound-4",
+   "category": "sound",
+   "tier": 4,
+   "format": "choice",
+   "prompt": "Fixture sound 400: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sound-4"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sound-4"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sound-4"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sound-4"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-sound-4.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sound-5",
+   "category": "sound",
+   "tier": 5,
+   "format": "choice",
+   "prompt": "Fixture sound 500: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sound-5"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sound-5"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sound-5"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sound-5"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-sound-5.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sil-1",
+   "category": "sil",
+   "tier": 1,
+   "format": "image",
+   "prompt": "Who is this?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sil-1"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sil-1"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sil-1"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sil-1"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-sil-1.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content",
+   "media": {
+    "kind": "image",
+    "src": "/tq/9f2da17d8055.webp",
+    "w": 600,
+    "h": 600,
+    "mime": "image/webp"
+   },
+   "revealMedia": {
+    "kind": "image",
+    "src": "/tq/5da1a4738e94.webp",
+    "w": 600,
+    "h": 600
+   }
+  },
+  {
+   "id": "fx-sil-2",
+   "category": "sil",
+   "tier": 2,
+   "format": "choice",
+   "prompt": "Fixture sil 200: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sil-2"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sil-2"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sil-2"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sil-2"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-sil-2.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sil-3",
+   "category": "sil",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture sil 300: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sil-3"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sil-3"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sil-3"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sil-3"
+    }
+   ],
+   "answer": "c",
+   "reveal": "Fixture reveal for fx-sil-3.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sil-4",
+   "category": "sil",
+   "tier": 4,
+   "format": "choice",
+   "prompt": "Fixture sil 400: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sil-4"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sil-4"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sil-4"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sil-4"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-sil-4.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-sil-5",
+   "category": "sil",
+   "tier": 5,
+   "format": "choice",
+   "prompt": "Fixture sil 500: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-sil-5"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-sil-5"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-sil-5"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-sil-5"
+    }
+   ],
+   "answer": "a",
+   "reveal": "Fixture reveal for fx-sil-5.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-lore-6",
+   "category": "lore",
+   "tier": 3,
+   "format": "choice",
+   "prompt": "Fixture spare: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-lore-6"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-lore-6"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-lore-6"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-lore-6"
+    }
+   ],
+   "answer": "d",
+   "reveal": "Fixture reveal for fx-lore-6.",
+   "sources": [
+    {
+     "url": "https://example.com/fixture",
+     "note": "test fixture",
+     "checkedAt": "2026-10-29"
+    }
+   ],
+   "verified": {
+    "by": "web",
+    "at": "2026-10-29"
+   },
+   "status": "ready",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content"
+  },
+  {
+   "id": "fx-kim-6",
+   "category": "kim",
+   "tier": 2,
+   "format": "choice",
+   "prompt": "Fixture kim 200: which letter?",
+   "options": [
+    {
+     "id": "a",
+     "text": "Alpha fx-kim-6"
+    },
+    {
+     "id": "b",
+     "text": "Bravo fx-kim-6"
+    },
+    {
+     "id": "c",
+     "text": "Charlie fx-kim-6"
+    },
+    {
+     "id": "d",
+     "text": "Delta fx-kim-6"
+    }
+   ],
+   "answer": "b",
+   "reveal": "Fixture reveal for fx-kim-6.",
+   "sources": [],
+   "status": "confirm",
+   "tags": {
+    "topics": [
+     "fixture"
+    ],
+    "likely": [],
+    "possible": [],
+    "reach": "broad"
+   },
+   "notes": "TEST FIXTURE, not content",
+   "personal": "needs-brandon"
+  }
+ ],
+ "plan": {
+  "columns": [
+   {
+    "category": "nba",
+    "name": "",
+    "slots": [
+     "fx-nba-1",
+     "fx-nba-2",
+     "fx-nba-3",
+     "fx-nba-4",
+     "fx-nba-5"
+    ]
+   },
+   {
+    "category": "kim",
+    "name": "",
+    "slots": [
+     "fx-kim-1",
+     "fx-kim-2",
+     "fx-kim-3",
+     "fx-kim-4",
+     "fx-kim-5"
+    ]
+   },
+   {
+    "category": "lore",
+    "name": "",
+    "slots": [
+     "fx-lore-1",
+     "fx-lore-2",
+     "fx-lore-3",
+     "fx-lore-4",
+     "fx-lore-5"
+    ]
+   },
+   {
+    "category": "aux",
+    "name": "",
+    "slots": [
+     "fx-aux-1",
+     "fx-aux-2",
+     "fx-aux-3",
+     "fx-aux-4",
+     "fx-aux-5"
+    ]
+   },
+   {
+    "category": "web",
+    "name": "",
+    "slots": [
+     "fx-web-1",
+     "fx-web-2",
+     "fx-web-3",
+     "fx-web-4",
+     "fx-web-5"
+    ]
+   },
+   {
+    "category": "sound",
+    "name": "",
+    "slots": [
+     "fx-sound-1",
+     "fx-sound-2",
+     "fx-sound-3",
+     "fx-sound-4",
+     "fx-sound-5"
+    ]
+   },
+   {
+    "category": "sil",
+    "name": "",
+    "slots": [
+     "fx-sil-1",
+     "fx-sil-2",
+     "fx-sil-3",
+     "fx-sil-4",
+     "fx-sil-5"
+    ]
+   }
+  ]
+ }
+}

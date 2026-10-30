@@ -26,6 +26,10 @@ import {
   slotChoices, slotKey, slotTarget, statusCounts, valueOfTier, warningLines, windowLabel,
 } from "./qbankModel.js";
 import { toggleClip, stopClip, useClip } from "./qbankMedia.js";
+import { FormatSwitch } from "./BoardDesk.jsx";
+import { BOARD_FORMAT, triviaFormatOf } from "../../../shared/triviaBoard.js";
+import { triviaLive } from "../../../shared/trivia.js";
+import "./trivia.css";
 import "./qbank.css";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -339,6 +343,8 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
   const warnings = useMemo(() => qbankWarnings(plan, byId), [plan, byId]);
   const board = useMemo(() => boardView(plan, byId, warnings), [plan, byId, warnings]);
   const summary = planSummary(plan, byId);
+  const format = triviaFormatOf(state);
+  const running = triviaLive(state);
   const lines = warningLines(warnings);
   const problems = warningCount(lines);
 
@@ -427,9 +433,14 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
 
   return <div className="fd-qb">
     <section className="fd-qb-side" aria-label="Board">
+      {/* the board deals only in the Board format: the switch sits with it */}
+      <div className={`fd-qb-format${format === BOARD_FORMAT ? " is-board" : ""}`}>
+        <FormatSwitch format={format} disabled={running || !!pending}
+          onChange={next => write("format", "plan", "triviaSetFormat", { format:next })} />
+      </div>
       <div className="fd-qb-summary">
-        <span className="fd-qb-reel"><b>{summary.filled}</b>/{summary.total}</span>
-        <span className="fd-qb-sumtext">{summary.ready} ready</span>
+        <span className="fd-qb-reel" aria-label={`${summary.ready} of ${summary.total} ready`}><b>{summary.ready}</b>/{summary.total}</span>
+        <span className="fd-qb-sumtext">ready{summary.total - summary.filled > 0 ? ` · ${summary.total - summary.filled} empty` : ""}</span>
         <button type="button" className={`fd-qb-warnbtn${problems ? " is-on" : ""}`} aria-expanded={showWarnings}
           onClick={() => setShowWarnings(on => !on)} disabled={!problems}>
           {problems ? <><b className="fd-qb-dot" aria-hidden="true" />{plural(problems, "warning")}</> : "No warnings"}</button>

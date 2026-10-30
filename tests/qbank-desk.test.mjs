@@ -319,8 +319,17 @@ test("the desk renders the board, the bank's cards and a slot's alternatives", a
     preloaded:qbankFixtureResponse(state), ...props }));
   const html = render();
   assert.equal((html.match(/class="fd-qb-cell( is-[a-z]+)*"/g) || []).length, 35);
-  assert.match(html, /34<\/b>\/35/);
-  assert.match(html, /warnings/);
+  /* what the board can deal, and what is missing */
+  assert.match(html, /31<\/b>\/35/);
+  assert.match(html, /ready · 1 empty/);
+  /* the warnings the bank finds, counted as the summary says them, dotted only where they are */
+  const { warnings } = desk("worked");
+  assert.ok(html.includes(`${warningCount(warningLines(warnings))} warnings`));
+  assert.match(html, /aria-label="Who He Play For\? 100: Avery Lane, ready"/);
+  assert.match(html, /aria-label="Pass the Aux 100: Fixture Anthem, ready, \d warnings"/);
+  /* the board deals only in the Board format: its switch is here */
+  assert.match(html, /role="radio" aria-checked="true"[^>]*>Rounds/);
+  assert.match(html, />Board</);
   for (const text of ["Reset to recommended", "Export", "Import", "Avery Lane", "Favorite", "Shortlist", "Reject", "Sources and audience",
     "(right answer)", "Wedding surprise", "Asset gives it away", "Edited"]) assert.ok(html.includes(text), text);
   assert.match(html, /Put in 100|Take off board/);
@@ -339,7 +348,7 @@ test("the desk renders the board, the bank's cards and a slot's alternatives", a
   /* a frame without a plan reads the bank's answer */
   const bare = renderToStaticMarkup(React.createElement(QBankDesk, { state:{}, onAct:async () => ({ ok:true }),
     preloaded:qbankFixtureResponse({}) }));
-  assert.match(bare, /35<\/b>\/35/);
+  assert.match(bare, /34<\/b>\/35/);
 });
 
 test("the way in: Trivia's desk opens the question bank; only a commissioner's view renders it", async () => {

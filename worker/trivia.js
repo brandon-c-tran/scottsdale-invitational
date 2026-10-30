@@ -19,7 +19,7 @@
 import { allEventsOf, isActivePlayer, isAway, presentPlayers, resolveEventLifecycle, isAbsent } from "../shared/core.js";
 import {
   TRIVIA_DIGITS_MAX, TRIVIA_GRACE_MS, TRIVIA_MAX_QUESTIONS, TRIVIA_MAX_ROUNDS, TRIVIA_NAME_MAX,
-  cleanTriviaQuestion, durationOf, hasAnswer, leadFor, triviaActive, triviaAutoBeat, triviaCurrent, triviaGame, triviaLast,
+  cleanTriviaQuestion, triviaConfigured, durationOf, hasAnswer, leadFor, triviaActive, triviaAutoBeat, triviaCurrent, triviaGame, triviaLast,
   triviaLive, triviaPlays, triviaQuestionId, triviaQuestionTotal, triviaResultSlots, triviaRoundEnd, triviaRoundId,
   triviaStandings,
 } from "../shared/trivia.js";
@@ -215,7 +215,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       if (state.trivia?.eventId === evId && running(state)) return ok({ unchanged:true });
       if (state.results?.[evId]) return err("The result is already posted");
       if (resolveEventLifecycle(state, ev).phase !== "in-progress") return err(`Lock and start ${ev.name} first`);
-      if (!triviaQuestionTotal(rounds(state))) return err("Add rounds in the Trivia desk first");
+      if (!triviaConfigured(state)) return err("Add rounds in the Trivia desk first");
       /* QA's solo game (worker/qa.js, never a client's payload): its players
          alone, and nobody joins it */
       const solo = Array.isArray(ctx.qaSolo) ? [...ctx.qaSolo] : null;

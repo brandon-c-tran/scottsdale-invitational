@@ -39,6 +39,7 @@ import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { geoActions } from "./geo.js";
 import { triviaActions } from "./trivia.js";
 import { qbankActions } from "./qbank.js";
+import { triviaConfigured } from "../shared/trivia.js";
 import { karaokeActions } from "./karaoke.js";
 import { floatActions } from "./float.js";
 import { teamNameActions } from "./teamNames.js";
@@ -1571,7 +1572,7 @@ export const ACTIONS = {
        game without content leaves the pill's Start beat in place. */
     if (ev.game === "where" && (state.geoRounds || []).length && !state.geo?.order)
       ACTIONS.geoStart(state, { evId }, ctx);
-    if (ev.game === "trivia" && (state.triviaRounds || []).length && !state.trivia)
+    if (ev.game === "trivia" && triviaConfigured(state) && !state.trivia)
       ACTIONS.triviaStart(state, { evId }, ctx);
     /* karaoke's pick window, when the capability is on; its start checks
        everything before it writes, so a refusal leaves the event as it is */

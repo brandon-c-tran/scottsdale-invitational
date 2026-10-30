@@ -46,9 +46,14 @@
 
    The game (state.trivia when format is "board"):
      { id, eventId, format:"board", startedAt, players:[player], questions:[],
-       columns:[{ name, clues:[clueId] }],          top to bottom
+       columns:[{ name, category?, clues:[clueId] }], top to bottom
+       values?:[100..500],                           a question bank game's own
        clues:{ [clueId]:{ id, col, row, value, format, text, options, answer,
-         photo?, clip?, source? } },
+         photo?, clip?, source?,
+         subject?, optionIds?, reveal?, media?, revealMedia?, category? } },
+                   a question bank clue (docs/TRIVIA-QBANK.md, dealt by
+                   shared/triviaQBank.js dealPlan) plays as "choice" with
+                   its options' bank ids beside them and its media
        dd:clueId|null,                               hidden until picked
        final:{ id, category, format, text, options, answer, photo? }|null,
        control:player|null, phase, current:clueId|null, pickAt,
@@ -57,6 +62,8 @@
          buzzes:{ [player]:{ ms, at } }, closedAt, order:[player], turn,
          turnAt, attempts:[{ player, choice, at, right, timeout? }],
          races?:[{ armAt, openUntil, buzzes, closedAt, order }],
+         mediaWait?:{ from }, mediaReadyAt?,   a media clue waiting on the TV
+         mediaCue?:{ action:"replay"|"pause", at, n },   the host's last cue
          wager?, wagerAt?, revealedAt?, winner? } },
                    armAt..order are the race under way (the first, or the
                    latest rebound); `races` the ones before it, oldest
@@ -66,6 +73,14 @@
        finalPicks:{ [player]:{ choice, at, locked, lockedAt } },
        finishedAt, ops (server only: retried writes) }
 
+   A media clue (Oct 29): the TV shows its image, or plays its audio or
+   video clip (`start` seconds in, `duration` long) from the arm, exactly
+   as a tune's clip (a rebound plays it again from its own arm); phones
+   never play it. The arm waits for the TV (boardMediaReady, or
+   MEDIA_READY_CAP_MS). The host may replay or pause the clip
+   (boardMediaCue); leaving the clue stops it. The reveal swaps in the
+   clue's `revealMedia`.
+
    Points are trivia points, never chips, and may go below zero. Scores are
    derived from the log, never stored. Pure. */
 
@@ -74,9 +89,23 @@ import { disp } from "./core.js";
 export const BOARD_FORMAT = "board";
 export const TRIVIA_GAME_FORMATS = Object.freeze(["rounds", BOARD_FORMAT]);
 export const BOARD_VALUES = Object.freeze([200, 400, 600, 800, 1000]);
-export const BOARD_COLUMNS_MAX = 6;
+/* seven: Brandon's question bank board (docs/TRIVIA-QBANK.md) */
+export const BOARD_COLUMNS_MAX = 7;
 /* what a buzzer can answer: four options on a phone */
 export const BOARD_CLUE_FORMATS = Object.freeze(["choice", "picture", "tune"]);
+
+/* A media clue (a bank clue's `media`: image, audio or video) is media
+   first: the buzzers arm once the TV has it ready (boardMediaReady), and
+   never later than MEDIA_READY_CAP_MS past their reading time. A TV's
+   ready moves the arm to MEDIA_ARM_LEAD_MS after it (never before the
+   reading time), so every phone hears of it before its lamp lights. */
+export const MEDIA_READY_CAP_MS = 2500;
+export const MEDIA_ARM_LEAD_MS = 500;
+/* a clip plays at most this long; the host's replay starts this far ahead
+   so every TV starts it together */
+export const MEDIA_CLIP_MAX_MS = 30000;
+export const MEDIA_CUE_LEAD_MS = 400;
+export const MEDIA_CUE_ACTIONS = Object.freeze(["replay", "pause"]);
 
 /* the picker's time before the autopilot picks for them */
 export const BOARD_PICK_MS = 15000;
@@ -157,25 +186,62 @@ export function boardCells(game) {
 export const cellsLeft = game => boardCells(game).filter(id => !boardPlayed(game, id));
 /* the autopilot's pick: the lowest value left, leftmost first */
 export const autoPickClue = game => cellsLeft(game)[0] || null;
-export const boardTopValue = game => Math.max(BOARD_VALUES[0], ...Object.values(game?.clues || {}).map(clue => num(clue?.value)));
+/* the game's values down a column: its own (a question bank board plays
+   100 to 500), else the set list's 200 to 1,000 */
+export const boardValues = game => Array.isArray(game?.values) && game.values.length ? game.values : BOARD_VALUES;
+export const boardTopValue = game => Math.max(Math.max(...boardValues(game)) || 0,
+  ...Object.values(game?.clues || {}).map(clue => num(clue?.value)));
+
+/* a clue's media (a bank clue's image, audio or video), and a clip: the
+   audio or video the TV plays, `start` seconds in for `duration` */
+export const clueMedia = clue => clue?.media && typeof clue.media === "object" && clue.media.src ? clue.media : null;
+export const isClipClue = clue => ["audio", "video"].includes(clueMedia(clue)?.kind);
+export const clipMs = clue => isClipClue(clue)
+  ? Math.max(500, Math.min(MEDIA_CLIP_MAX_MS, Math.round(num(clue.media.duration) * 1000) || BOARD_CLIP_MS)) : 0;
 
 /* how long a clue reads before its buzzers arm */
 export function readMs(clue) {
   if (!clue) return 0;
   if (clue.format === "tune") return BOARD_TUNE_LEAD_MS;
   const length = String(clue.text || "").length;
-  if (clue.format === "picture") return Math.min(5000, 2500 + 30 * length);
+  /* a clip: the prompt (it says what kind of answer) reads, then it plays */
+  if (isClipClue(clue)) return Math.max(BOARD_TUNE_LEAD_MS, Math.min(3500, 1000 + 30 * length));
+  if (clue.format === "picture" || clueMedia(clue)) return Math.min(5000, 2500 + 30 * length);
   return Math.max(3000, Math.min(7000, 2000 + 45 * length));
 }
-/* how long the buzzers stay open with nobody in */
-export const openMs = clue => clue?.format === "tune" ? BOARD_CLIP_MS + 2000 : BUZZ_OPEN_MS;
+/* how long the buzzers stay open with nobody in (a clip: all of it and
+   two seconds more) */
+export const openMs = clue => clue?.format === "tune" ? BOARD_CLIP_MS + 2000 : isClipClue(clue) ? clipMs(clue) + 2000 : BUZZ_OPEN_MS;
 
 /* A clue's clock from the instant it was picked (the pick write stamps
-   these into the log): { shownAt, armAt, openUntil }. */
+   these into the log): { shownAt, armAt, openUntil }. A media clue arms
+   at the cap and waits for the TV (`mediaWait`: from its reading time;
+   boardMediaReady brings the arm forward). */
 export function clueClock(clue, pickedAt) {
   const shownAt = num(pickedAt) + BOARD_ZOOM_MS;
-  const armAt = shownAt + readMs(clue);
-  return { shownAt, armAt, openUntil:armAt + openMs(clue) };
+  const read = shownAt + readMs(clue);
+  if (!clueMedia(clue)) return { shownAt, armAt:read, openUntil:read + openMs(clue) };
+  const armAt = read + MEDIA_READY_CAP_MS;
+  return { shownAt, armAt, openUntil:armAt + openMs(clue), mediaWait:{ from:read } };
+}
+/* The arm once the TV reports the media ready at `at`: a beat on, never
+   before the reading time, never later than it stood. */
+export function mediaReadyArm(log, at) {
+  const from = num(log?.mediaWait?.from);
+  return Math.min(num(log?.armAt), Math.max(from, num(at) + MEDIA_ARM_LEAD_MS));
+}
+/* When the clue's clip starts playing on the TV (server clock), or 0: from
+   the arm of the race under way (a rebound plays it again from its own
+   arm), the Daily Double's from its answer turn, the host's replay from
+   his cue; his pause stops it. { at, from, ms, paused } */
+export function clipStart(game, id = game?.current) {
+  const clue = boardClue(game, id), log = boardLog(game, id);
+  if (!isClipClue(clue) || !log) return null;
+  const anchor = isDailyDouble(game, id) ? num(log.turnAt) : num(log.armAt);
+  const cue = log.mediaCue;
+  const ms = clipMs(clue);
+  if (cue && num(cue.at) >= anchor) return { at:num(cue.at), ms, paused:cue.action === "pause", cue:num(cue.n) };
+  return anchor ? { at:anchor, ms, paused:false, cue:num(cue?.n) } : null;
 }
 /* A rebound's clock from the wrong answer (or the turn running out) that
    opened it: the buzzers arm again a beat later and stay open as long as
@@ -499,9 +565,15 @@ export function projectBoard(game, { isGm = false, player = null } = {}) {
   for (const [id, clue] of Object.entries(game.clues || {})) {
     const base = { id, col:clue.col, row:clue.row, value:clue.value };
     if (!played.has(id)) { clues[id] = base; continue; }
+    /* a bank clue: its subject, media and option ids once picked; the
+       answer, its reveal text and reveal media once revealed */
+    const revealed = !!game.log?.[id]?.revealedAt;
     clues[id] = { ...base, format:clue.format, text:clue.text || "", options:clue.options,
+      ...(clue.optionIds ? { optionIds:clue.optionIds } : {}), ...(clue.subject ? { subject:clue.subject } : {}),
+      ...(clue.media ? { media:clue.media } : {}),
       ...(clue.photo ? { photo:clue.photo } : {}), ...(game.dd === id ? { dd:true } : {}),
-      ...(game.log?.[id]?.revealedAt ? { answer:clue.answer } : {}) };
+      ...(revealed ? { answer:clue.answer, ...(clue.reveal ? { reveal:clue.reveal } : {}),
+        ...(clue.revealMedia ? { revealMedia:clue.revealMedia } : {}) } : {}) };
   }
   const log = {};
   for (const id of game.played || []) {

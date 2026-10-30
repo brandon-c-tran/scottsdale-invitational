@@ -26,12 +26,15 @@ import {
   boardClue, boardLog, boardPlayed, boardPlayers, boardPlays, boardRace, boardResultSlots, boardScore, boardStandings, boardTopValue,
   buzzCloseAt, buzzOrder, cellsLeft, clampBuzzMs, clueClock, dealBoard, ddDefault, ddMax, finalEligible, finalMax, isBoardGame,
   raceBuzzes, readMs, reboundClock, reboundPlayers, struckChoices, turnPlayer, turnUntil, validWager,
+  MEDIA_CUE_ACTIONS, MEDIA_CUE_LEAD_MS, clipMs, isClipClue, mediaReadyArm, openMs,
 } from "../shared/triviaBoard.js";
+import { dealPlan } from "../shared/triviaQBank.js";
 import { TRIVIA_FINALS } from "./triviaBank.js";
+import { effectiveQBank } from "./qbank.js";
 
 export const BOARD_ACTION_TYPES = Object.freeze([
   "boardPick", "boardBuzz", "boardCloseBuzz", "boardAnswer", "boardTimeout", "boardNext", "boardWager", "boardDdClue",
-  "boardFinalClue", "boardFinalPick", "boardFinalReveal", "boardFinalBoard", "boardSim",
+  "boardFinalClue", "boardFinalPick", "boardFinalReveal", "boardFinalBoard", "boardSim", "boardMediaReady", "boardMediaCue",
 ]);
 
 /* retried writes a player's own taps remember, per clue (and the Final) */
@@ -151,18 +154,24 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
   };
 
   /* triviaStart in the board format: worker/trivia.js has checked the
-     event, its lifecycle, the set list and who is here. Every round but the
-     Final becomes a column (shared/triviaBoard.js dealBoard), a random
-     player here holds the board first. */
+     event, its lifecycle, the set list and who is here. The question bank's
+     board (state.triviaPlan, docs/TRIVIA-QBANK.md) deals exactly as the
+     commissioner set it once any slot holds a clue, and only when every
+     slot is filled and ready (or forced); with an empty plan every round
+     of the set list but the Final becomes a column (shared/triviaBoard.js
+     dealBoard). A random player here holds the board first. */
   const start = (state, ev, players) => {
     const now = Date.now();
     const id = `tb${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    const board = dealBoard(rounds(state).filter(round => round?.source !== "final").map(round => roundQuestions(round)),
-      { gameId:id });
+    const bank = effectiveQBank(state);
+    const board = bank.plan ? dealPlan(bank.plan, bank.byId, { gameId:id })
+      : dealBoard(rounds(state).filter(round => round?.source !== "final").map(round => roundQuestions(round)), { gameId:id });
+    if (board.error) return err(board.error);
     if (!board.columns.length) return err("Add rounds in the Trivia desk first");
     const final = dealFinal(state, id);
     const control = players[Math.floor(Math.random() * players.length)];
     state.trivia = { id, eventId:ev.id, format:BOARD_FORMAT, startedAt:now, players:[...players], questions:[],
+      ...(board.values ? { values:board.values } : {}),
       columns:board.columns, clues:board.clues, dd:board.dd, final, control, phase:"pick", current:null, pickAt:now,
       played:[], log:{}, finalAt:{}, finalWagers:{}, finalPicks:{}, ops:{} };
     return ok({ game:id });
@@ -457,6 +466,49 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
       if (game.phase !== "final-reveal") return ok({ unchanged:true });
       game.finalAt = { ...(game.finalAt || {}), boardAt:Date.now() };
       game.phase = "final-board";
+      return ok();
+    },
+    /* A TV has the clue's media ready (its image painted, its clip able to
+       play): the buzzers arm a beat on, never before the clue has read,
+       never later than they stood. A TV or the commissioner reports it;
+       only the first race of a clue waiting on its media, before anyone
+       buzzed; any other report changes nothing. */
+    boardMediaReady(state, { clueId } = {}, ctx) {
+      if (!ctx?.tv && !ctx?.isGm) return err("The TV reports this");
+      const game = liveBoard(state);
+      const log = game?.log?.[clueId];
+      if (!game || game.phase !== "clue" || game.current !== clueId || !log?.mediaWait || boardRace(log) > 0
+          || Object.keys(log.buzzes || {}).length) return ok({ unchanged:true });
+      const now = Date.now();
+      const armAt = mediaReadyArm(log, now);
+      const clue = game.clues[clueId];
+      delete log.mediaWait;
+      log.mediaReadyAt = now;
+      if (armAt < num(log.armAt)) Object.assign(log, { armAt, openUntil:armAt + openMs(clue) });
+      return ok({ armAt:log.armAt });
+    },
+    /* The host replays or pauses the clue's clip on the TV (audio or
+       video), while the clue is up or being answered; a replay starts a
+       beat on so every TV starts it together, and while the buzzers wait
+       for the first buzz it keeps them open to the clip's end. The clue
+       leaving (the reveal, the next pick) stops it on the TV by itself. */
+    boardMediaCue(state, { clueId, action } = {}, ctx) {
+      const g = gmOnly(ctx); if (g) return g;
+      if (!MEDIA_CUE_ACTIONS.includes(action)) return err("Replay or pause");
+      const game = liveBoard(state);
+      if (!game) return err("The board is closed");
+      const opKey = opKeyOf(ctx);
+      if (seen(game, "cue", "commissioner", opKey)) return ok({ unchanged:true });
+      const clue = game.clues?.[clueId];
+      if (game.current !== clueId || !["clue", "answer", "dd-clue"].includes(game.phase)) return err("That clue isn't up");
+      if (!isClipClue(clue)) return err("That clue has no clip");
+      const log = game.log[clueId];
+      const now = Date.now();
+      const at = action === "replay" ? now + MEDIA_CUE_LEAD_MS : now;
+      log.mediaCue = { action, at, n:num(log.mediaCue?.n) + 1 };
+      if (action === "replay" && game.phase === "clue" && !Object.keys(log.buzzes || {}).length && now >= num(log.armAt))
+        log.openUntil = Math.max(num(log.openUntil), at + clipMs(clue) + 2000);
+      remember(game, "cue", "commissioner", opKey);
       return ok();
     },
     /* QA: the moves the room is waiting on, for every player but the

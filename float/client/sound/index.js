@@ -11,6 +11,10 @@
      useFloatControllerSound(net, { me })  the phone: Through and Out at the
                                            cut, your place, Done's echo;
                                            returns the taps below
+     floatMissSound(), floatStreakBreakSound(n), floatStreakSound(n)
+                                           v4: your miss, your streak broken,
+                                           its milestones (streakStep(streak, q)
+                                           the rule; STREAK_MILESTONES)
      floatTapSound(q, kind)                the controller's own taps: call
      floatDoneSound(), floatCheerSound()   them inside its touch handler (q a
                                            quality from chart.js, or null for
@@ -48,7 +52,8 @@ import { unlockSound, useSoundUnlockNeeded } from "../../../src/lib/sound.js";
 
 export { useFloatScreenSound, createGrooveScreenSound as createFloatScreenSound, screenStep, grooveView, loadGrooveVoice } from "./grooveScreen.js";
 export { useFloatControllerSound, createGroovePhoneSound as createFloatControllerSound, phoneStep as controllerStep,
-  floatTapSound, floatDoneSound, floatCheerSound, floatStrokeSound, floatDrinkSound, floatThrowSound, GROOVE_TAPS as FLOAT_TAPS } from "./groovePhone.js";
+  floatTapSound, floatDoneSound, floatCheerSound, floatStrokeSound, floatDrinkSound, floatThrowSound, GROOVE_TAPS as FLOAT_TAPS,
+  floatMissSound, floatStreakBreakSound, floatStreakSound, streakStep, STREAK_MILESTONES, STREAK_BREAK_MIN, isStreakMilestone } from "./groovePhone.js";
 export { PODIUM_BEATS, CUT_BEATS, TITLE_BEATS, LAST_CALL_BEATS, CHUGOFF_BEATS, GROOVE_PRE_MS, chartFor, songEvents, songSlots,
   cutBeats, lastCallBeats, chugoffPlan, narration, ROCKET_BURST_MS, BURST_SIZE, skyBeat, darkBars } from "./groove.js";
 

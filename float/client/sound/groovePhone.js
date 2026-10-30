@@ -71,6 +71,41 @@ export function floatCheerSound() {
     return playSound("floatYouCheer", { bus:"you" });
   } catch { return null; }
 }
+/* ── v4: right versus wrong (float/GROOVE.md v4 2) ──
+   The tap's own sound already tells the grade (floatTapSound: Perfect and
+   Nice crisp, Perfect with a glint, OK plain, Early a muffled slap leaning
+   up, Late one sagging down). On top of it, for the controller to call
+   when it learns them (each plays at once, on the you bus):
+     floatMissSound()          the room called your cue a Miss: a splash in
+                               the face, duller than any tap
+     floatStreakBreakSound(n)  your streak of n just broke (Early, Late or
+                               Miss); silent under STREAK_BREAK_MIN
+     floatStreakSound(n)       your streak reached a milestone (n in
+                               STREAK_MILESTONES and every 10 after): a run
+                               up the chord, brighter each ten
+   streakStep(streak, q) is the rule, pure: { streak, sound } with sound
+   "streak", "break" or null (Nice or better grows it, OK keeps it, Early,
+   Late and Miss break it). Call the sound it names with the new or old
+   count. */
+export const STREAK_MILESTONES = Object.freeze([10, 20, 30]);
+export const STREAK_BREAK_MIN = 3;
+export const isStreakMilestone = n => Number.isInteger(n) && n >= 10 && n % 10 === 0;
+export function streakStep(streak = 0, q = null) {
+  const n = Math.max(0, Math.floor(Number(streak) || 0));
+  if (q === "perfect" || q === "nice") { const next = n + 1; return { streak:next, sound:isStreakMilestone(next) ? "streak" : null }; }
+  if (q === "ok") return { streak:n, sound:null };
+  if (q === "early" || q === "late" || q === "miss") return { streak:0, sound:n >= STREAK_BREAK_MIN ? "break" : null };
+  return { streak:n, sound:null };
+}
+const moment = (id, opts) => { try { unlockSound(); return playSound(id, { bus:"you", ...(opts ? { opts } : {}) }); } catch { return null; } };
+export const floatMissSound = () => moment("floatYouMiss");
+export function floatStreakBreakSound(n = STREAK_BREAK_MIN) {
+  return Number(n) >= STREAK_BREAK_MIN ? moment("floatYouBreak", { n:Math.floor(Number(n)) }) : null;
+}
+export function floatStreakSound(n = 10) {
+  return isStreakMilestone(Number(n)) ? moment("floatYouStreak", { n:Number(n) }) : null;
+}
+
 /* the race's taps (the parked 3D controller's names), on the Groove's sounds:
    a stroke is a paddle tap judged on its beat, a drink is Done, a balloon a cheer */
 const STROKE_Q = Object.freeze({ perfect:"perfect", good:"nice", early:"early", late:"late", fast:"early" });

@@ -248,3 +248,39 @@ test("five rounds: every song has its title and its bed, the final is Fireworks,
   f.emit("room", room("cut", f.now(), { round:4, song:"fireworks", startAt:f.now(), out:[4, 3], field:[0, 1, 2] }));
   assert.ok(!f.played.some(p => p.id === "floatRoll" || p.id === "floatExit"), "the final's cut names nobody");
 });
+
+/* ── v4 (float/GROOVE.md "v4 (Oct 29: playtest 3)") ── */
+const phoneMod = await import("../float/client/sound/groovePhone.js");
+
+test("v4 everyone rows: outside Paddle Party the band keeps a soft stroke on 1 and 3, never under a cue or a call; Paddle Party leaves it to the riders", () => {
+  const ctx = recorder(), E = kit.makeEngine(ctx, { listen:"tv" });
+  const at = step => 10 + kit.GROOVE_PRE_S + step * 0.125;
+  /* a stroke's bloop: a sine from 0.7 of its pitch (350 Hz left, 420 Hz right) */
+  const strokes = opts => { ctx.nodes.length = 0; kit.playRecipe(E, "floatGroove", 10, { sec:"play", part:0, k:1, len:8, next:"play", ...opts });
+    return ctx.nodes.filter(n => n.kind === "osc" && n.type === "sine" && n.frequency.events.some(([k, v, t]) => k === "set" && (Math.abs(v - 350) < 1e-6 || Math.abs(v - 420) < 1e-6) && (Math.abs(t - at(0) - 0.002) < 1e-6 || Math.abs(t - at(8) - 0.002) < 1e-6))).length; };
+  assert.equal(strokes({ song:"rock", bar:7, hits:[[3, "hop"]], calls:[[1, "hop"]] }), 2, "Rock Hop: both strokes");
+  assert.equal(strokes({ song:"rock", bar:7, hits:[[2, "hop"]], calls:[[0, "hop"]] }), 0, "none under the host's ba on 1 or a hop on 3");
+  assert.equal(strokes({ song:"spin", bar:7, hits:[[1, "spin"], [3, "spin"]], calls:[[0, "spin"], [2, "spin"]] }), 0, "none under Spin Cycle's whirls on 1 and 3");
+  assert.equal(strokes({ song:"fireworks", bar:7, hits:[[3, "rocket"]], calls:[[1, "rocket"]] }), 2);
+  assert.equal(strokes({ song:"paddle", bar:7, hits:[[3, "hey"]], calls:[[1, "hey"]] }), 0, "Paddle Party: the riders row");
+  assert.equal(strokes({ song:"rock", bar:7, dark:true }), 0, "nobody rows aloud in the dark");
+  assert.ok(kit.GROOVE_AUTO_ROW < 0.6, "quieter than an answered paddle");
+});
+
+test("v4 right versus wrong: the streak's rule, the phone's miss, break and milestones, each its own sound", () => {
+  const { streakStep } = phoneMod;
+  assert.deepEqual(streakStep(9, "nice"), { streak:10, sound:"streak" });
+  assert.deepEqual(streakStep(4, "perfect"), { streak:5, sound:null });
+  assert.deepEqual(streakStep(7, "ok"), { streak:7, sound:null });
+  assert.deepEqual(streakStep(7, "late"), { streak:0, sound:"break" });
+  assert.deepEqual(streakStep(2, "miss"), { streak:0, sound:null }, "a short streak breaks quietly");
+  assert.deepEqual(phoneMod.STREAK_MILESTONES, [10, 20, 30]);
+  assert.equal(index.floatStreakSound, phoneMod.floatStreakSound);
+  const ctx = recorder(), E = kit.makeEngine(ctx, { listen:"phone" });
+  const shape = (id, opts) => { ctx.nodes.length = 0; assert.ok(kit.playRecipe(E, id, 10, opts), id); return ctx.nodes.map(n => `${n.kind}${n.type}`).join(); };
+  const sounds = [shape("floatYouTap", { q:"perfect", kind:"hop" }), shape("floatYouTap", { q:"early", kind:"hop" }), shape("floatYouTap", { q:"late", kind:"hop" }),
+    shape("floatYouMiss"), shape("floatYouBreak", { n:12 }), shape("floatYouStreak", { n:10 })];
+  assert.equal(new Set(sounds).size, sounds.length - 1, "every one its own (early and late share a shape, their pitch moves apart)");
+  assert.ok(shape("floatYouStreak", { n:30 }).length > shape("floatYouStreak", { n:10 }).length, "a longer run at 30");
+  for (const id of ["floatYouMiss", "floatYouBreak", "floatYouStreak"]) assert.deepEqual(kit.SOUNDS[id].where, ["phone"], `${id}: the phone's alone`);
+});

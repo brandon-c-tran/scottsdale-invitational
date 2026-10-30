@@ -2023,6 +2023,10 @@ export function floatParts() {
     part("floatYouGrade", "Float: your grade", PHONE, 1000, grooveYouGrade),
     /* v3 Fireworks: the host lights a fuse on the call (opts.after), a rider's firework bursts
        (opts.size 0 to 1, q, pan) or fizzles (opts.pan), and the sky fills after the finale */
+    /* v4 the phone's feedback: your miss, a streak broken (opts.n, how long it was), a streak's milestone (opts.n: 10, 20, 30) */
+    part("floatYouMiss", "Float: you missed", PHONE, 600, grooveYouMiss),
+    part("floatYouBreak", "Float: your streak breaks", PHONE, 700, grooveYouBreak),
+    part("floatYouStreak", "Float: your streak", PHONE, 900, grooveYouStreak),
     part("floatFuse", "Float: the host lights a fuse", TV, 1100, grooveFuse),
     part("floatBurst", "Float: a firework bursts", TV, 1800, grooveBurst),
     part("floatFizzle", "Float: a firework fizzles", TV, 900, grooveFizzle),
@@ -2051,7 +2055,7 @@ const FL_MIX = Object.freeze({
   floatSting:0.8, floatOpen:0.8, floatRoll:0.8, floatGone:1.1, floatFanfare:0.8, floatCheer:1, floatDone:1, floatHello:1.4, floatSet:1.4, floatClip:1,
   floatBar:0.6, floatDrinks:0.85, floatEcho:1.1, floatGrades:1, floatAward:0.9, floatExit:1.1, floatChugGo:0.8, floatChant:0.72, floatKeep:0.75,
   floatBarVoice:2, floatTick:1, floatTrick:1.1, floatZero:1.1, floatYouGrade:1.1,
-  floatFuse:1.1, floatBurst:0.9, floatFizzle:0.9, floatSky:0.85,
+  floatFuse:1.1, floatBurst:0.9, floatFizzle:0.9, floatSky:0.85, floatYouMiss:1.1, floatYouBreak:1, floatYouStreak:1.05,
   floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1, floatYouGulp:1.1,
 });
 export const FLOAT_MIX = FL_MIX;
@@ -3947,6 +3951,7 @@ function gPlayBar(c, level) {
   if (level >= 2 && S.swirl && c.on("harmony")) gSwirl(c);
   if (S === G_SONGS.drop) gDropColour(c, level);
   if (S.big && level >= 1) gBig(c, level);
+  gAutoRow(c);
   if (c.on("melody") && level >= 1) {
     /* the marimba with the host's "ba"s, an octave over them, so the tune is in the band too */
     c.calls.filter(([, kind]) => kind === "hop").forEach(([s], i, all) =>
@@ -4108,6 +4113,21 @@ function gCutBar(c) {
   if (c.on("drums")) flRiser(E, c.at(4), FLOAT_BAR_S * 0.74, 0.07, 0);
 }
 
+/* Everyone rows (GROOVE.md v4 1): outside Paddle Party, where rowing is
+   no tap, the band keeps a soft kayak stroke on 1 and 3 (left, then
+   right), well under an answered paddle, and never on a sixteenth a cue
+   or a host's call has (the rider's own move, the host's voice) */
+const G_AUTO_ROW = 0.42;
+function gAutoRow(c) {
+  if (c.id === "paddle" || !c.on("drums")) return;
+  const busy = new Set([...c.hits, ...c.calls.filter(([, kind]) => kind !== "line")].map(([s]) => s));
+  [0, 8].forEach((s, i) => {
+    if (busy.has(s) || busy.has(s + 1)) return;
+    const v = voice(c.E, { pan:i ? 0.32 : -0.32, send:0.16, bright:0.75, gain:G_AUTO_ROW });
+    gStroke(c.E, v, c.at(s), { size:0.55, f:i ? 600 : 500 });
+  });
+}
+export const GROOVE_AUTO_ROW = G_AUTO_ROW;
 /* a blackout bar (chart.dark): the band and the host drop out, a bare
    closed hi-hat on the eighths keeps the bar exact; the riders' answers are
    silent (only each phone's own tap sounds) */
@@ -4278,6 +4298,33 @@ function grooveAnswer(E, t0, o = {}) {
   flImpact(E, at);
   gSplash(E, voice(E, { send:0.4, bright:1, gain:0.8 }), at + 0.01, { size:1.6, f:440 });
 }
+/* ── v4: right versus wrong on the phone (float/GROOVE.md v4 2) ── */
+/* your miss (floatYouMiss): a splash in the face and a deadpan "bwop", duller than any tap */
+function grooveYouMiss(E, t) {
+  const v = voice(E, { send:0.08, bright:0.55, gain:0.85 });
+  flSweep(E, v, t, { type:"lowpass", f0:2600, f1:420, q:0.7, d:0.16, peak:0.3, a:0.003 });
+  glide(E, v, t + 0.02, 520, 230, 0.2, 0.09, { type:"triangle" });
+  M.knock(E, t + 0.01, { pitch:0.75, gain:0.35 });
+}
+/* your streak breaks (floatYouBreak, opts.n the streak it ends): a slide
+   whistle sagging down and a soft thud; a longer streak falls further */
+function grooveYouBreak(E, t, o = {}) {
+  const n = gInt(o.n, 0, 999, 5), k = Math.min(1, 0.55 + n / 40);
+  const v = voice(E, { send:0.12, bright:0.8, gain:0.8 });
+  gWhistle(E, v, t, 900, 900 * Math.pow(2, -(5 + 7 * k) / 12), 0.22 + 0.16 * k, 0.07);
+  M.knock(E, t + 0.24 + 0.16 * k, { pitch:0.8, gain:0.35 });
+}
+/* a streak's milestone (floatYouStreak, opts.n: 10, 20, 30): a quick run up
+   the chord on the glockenspiel, a note longer and an octave brighter each
+   ten, a sparkle on top */
+function grooveYouStreak(E, t, o = {}) {
+  const level = gInt(Math.floor(gInt(o.n, 10, 999, 10) / 10), 1, 3, 1);
+  const v = voice(E, { send:0.22, bright:1, gain:0.9 });
+  const run = [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6, NOTE.Fs6, NOTE.A6].slice(0, 3 + level);
+  run.forEach((f, i) => gGlock(E, v, t + i * 0.055, f * (level === 3 ? 2 : 1), 0.1, { dec:i === run.length - 1 ? 1.1 : 0.5 }));
+  M.bell(E, t + run.length * 0.055, NOTE.A6 * (level === 3 ? 2 : 1), { gain:0.1, dec:0.6, send:0.2 });
+}
+
 /* ── Fireworks (float/GROOVE.md v3 9): the rocket ── */
 /* the launch on a rocket's beat, for everyone: the mortar's thump on the
    beat, the tube's pop, the rocket whistling up (alternating a little left
@@ -4527,9 +4574,10 @@ function grooveYouTap(E, t, o = {}) {
   const q = ["perfect", "nice", "ok", "early", "late"].includes(o.q) ? o.q : null;
   if (!q) { const v = voice(E, { send:0.04, bright:0.4, gain:0.4 }); burst(E, v, t, { type:"lowpass", f:1300, q:0.7, d:0.03, peak:0.3 }); return; }
   if (q === "early" || q === "late") {
-    const v = voice(E, { send:0.05, bright:0.32, gain:0.6 });
+    /* a muffled slap: early a hair higher and leaning up, late lower and sagging (the ear hears which side) */
+    const v = voice(E, { send:0.05, bright:0.32, gain:0.6 }), early = q === "early";
     burst(E, v, t, { type:"lowpass", f:900, q:0.7, d:0.05, peak:0.4 });
-    mode(E, v, t, 470, 0.05, 0.12, { drop:0.1 });
+    glide(E, v, t, early ? 470 : 430, early ? 560 : 340, 0.07, 0.12, { type:"sine" });
     return;
   }
   const crisp = q === "perfect" || q === "nice", v = voice(E, { send:0.14, bright:crisp ? 1 : 0.8, gain:crisp ? 0.9 : 0.7 });

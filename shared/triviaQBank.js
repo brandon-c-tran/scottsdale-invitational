@@ -415,6 +415,7 @@ export function qbankWarnings(plan, recordsById) {
     if (!qbankPlayable(record, plan)) out.push({ ...at, kind:"not-ready", text:record.personal === "needs-brandon" ? "Needs your answer"
       : record.status === "asset" ? "Needs its asset" : record.status === "rejected" ? "Rejected" : "Not confirmed" });
     if (record.flags?.includes("reveals-answer")) out.push({ ...at, kind:"reveals", text:"Asset gives the answer away" });
+    if (qbankPromptGivesAway(record)) out.push({ ...at, kind:"reveals", text:"The question names its answer" });
     const answer = norm(answerText(record));
     /* a hash can spell a hex word ("cafe") by chance: not a name */
     const words = answer.split(" ").filter(word => word.length >= 3 && !/^[0-9a-f]+$/.test(word));
@@ -476,13 +477,33 @@ export function qbankOptionOrder(seed, count = 4) {
   return order;
 }
 
-/* One record as a board clue: the prompt, the shown subject, the options
-   in their dealt order with their ids, the answer as an index, the reveal
-   and the media. Sources, tags, notes and status stay in the bank. */
+/* two texts that would read as the same answer: equal, or one inside the
+   other ("Pikachu" and "pikachu", "Orange" and "Annoying Orange") */
+const sameAnswer = (a, b) => {
+  const x = norm(a), y = norm(b);
+  return x.length >= 2 && y.length >= 2 && (x === y || ` ${x} `.includes(` ${y} `) || ` ${y} `.includes(` ${x} `));
+};
+/* The subject a clue may show on the TV and the phones: the player whose
+   team is asked, never a caption that names one of the four options (the
+   bank keeps `subject` as the desk's label, which for a silhouette or a
+   screenshot is the answer itself) */
+export function qbankShownSubject(record) {
+  const subject = record?.subject;
+  if (!subject) return null;
+  return (record.options || []).some(option => sameAnswer(subject, option?.text)) ? null : subject;
+}
+/* a prompt that spells out its own answer */
+export const qbankPromptGivesAway = record => !!answerText(record) && ` ${norm(record?.prompt)} `.includes(` ${norm(answerText(record))} `);
+
+/* One record as a board clue: the prompt, the shown subject (only one that
+   names no option), the options in their dealt order with their ids, the
+   answer as an index, the reveal and the media. Sources, tags, notes and
+   status stay in the bank. */
 export function qbankClue(record, { id, col, row, value, seed }) {
   const order = qbankOptionOrder(`${seed}:${record.id}`);
   const options = order.map(i => record.options[i]);
-  return { id, col, row, value, format:"choice", text:record.prompt, ...(record.subject ? { subject:record.subject } : {}),
+  const subject = qbankShownSubject(record);
+  return { id, col, row, value, format:"choice", text:record.prompt, ...(subject ? { subject } : {}),
     options:options.map(option => option.text), optionIds:options.map(option => option.id),
     answer:options.findIndex(option => option.id === record.answer), source:record.id, category:record.category,
     ...(record.reveal ? { reveal:record.reveal } : {}),

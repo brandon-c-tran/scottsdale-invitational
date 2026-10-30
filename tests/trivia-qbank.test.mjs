@@ -15,7 +15,7 @@ import path from "node:path";
 import { EMPTY_STATE, RESET_PROGRESS_CONFIRMATION } from "../shared/core.js";
 import {
   QBANK_CATEGORY_IDS, QBANK_COLUMNS, QBANK_SLOTS, QBANK_VALUES, cleanQBankPlan, cleanQBankRecord, dealPlan, emptyQBankPlan,
-  mergeQBankEdit, qbankEditPatch, qbankOptionOrder, qbankPlanStatus, qbankWarnings,
+  mergeQBankEdit, qbankClue, qbankEditPatch, qbankOptionOrder, qbankPlanStatus, qbankPromptGivesAway, qbankShownSubject, qbankWarnings,
 } from "../shared/triviaQBank.js";
 import { publicState } from "../worker/publicState.js";
 import { hydrateStoredState } from "../worker/state.js";
@@ -55,6 +55,31 @@ function bankFiles() {
 }
 
 /* ── the bank ── */
+
+/* Brandon's playtest (Oct 29): a silhouette captioned "Pikachu". A dealt
+   clue never shows a subject that names one of its options, and no prompt
+   names its own answer. */
+test("no dealt clue shows its answer: a subject naming an option is dropped; no prompt names its answer", () => {
+  const leaks = [], prompts = [];
+  for (const { records } of bankFiles()) for (const record of records) {
+    const clue = qbankClue(record, { id:"c", col:0, row:0, value:100, seed:"leak" });
+    const words = text => String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (clue.subject && clue.options.some(option => words(option) === words(clue.subject)
+      || ` ${words(clue.subject)} `.includes(` ${words(option)} `) || ` ${words(option)} `.includes(` ${words(clue.subject)} `))) leaks.push(record.id);
+    if (qbankPromptGivesAway(record)) prompts.push(record.id);
+  }
+  assert.deepEqual(leaks, []);
+  assert.deepEqual(prompts, []);
+  /* the player's name on an NBA clue is the clue, and stays */
+  const nba = { id:"n", options:[{ id:"a", text:"Phoenix Suns" }, { id:"b", text:"Houston Rockets" }, { id:"c", text:"Utah Jazz" }, { id:"d", text:"Miami Heat" }],
+    answer:"a", subject:"Dillon Brooks", prompt:"Who does he play for?" };
+  assert.equal(qbankShownSubject(nba), "Dillon Brooks");
+  assert.equal(qbankShownSubject({ ...nba, subject:"phoenix suns" }), null);
+  assert.equal(qbankShownSubject({ ...nba, options:[{ id:"a", text:"Annoying Orange" }, ...nba.options.slice(1)], subject:"Orange" }), null);
+  assert.ok(qbankWarnings({ columns:[{ category:"web", slots:["g", null, null, null, null]}] },
+    { g:{ ...nba, id:"g", tier:1, status:"ready", prompt:"Is it the Phoenix Suns?" } }).some(w => w.text === "The question names its answer"));
+});
+
 
 test("every bank record meets the contract; ready ones are verified with their files in public/tq/", () => {
   const errors = [];

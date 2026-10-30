@@ -58,7 +58,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-gangnam-style",
@@ -119,7 +120,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-gods-plan",
@@ -180,7 +182,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-lose-yourself",
@@ -241,7 +243,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-mr-brightside",
@@ -268,7 +270,7 @@
       }
     ],
     "answer": "c",
-    "reveal": "Mr. Brightside by The Killers. From Direct Hits.",
+    "reveal": "Mr. Brightside by The Killers. From Hot Fuss.",
     "media": {
       "kind": "audio",
       "src": "/tq/aff86bc723bb.mp3",
@@ -303,7 +305,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Party candidate, not a confirmed favorite."
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-mr-brightside-b",
@@ -330,7 +332,7 @@
       }
     ],
     "answer": "c",
-    "reveal": "Mr. Brightside by The Killers. From Direct Hits.",
+    "reveal": "Mr. Brightside by The Killers. From Hot Fuss.",
     "media": {
       "kind": "audio",
       "src": "/tq/70cb5c0d4297.mp3",
@@ -366,7 +368,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Party candidate, not a confirmed favorite. Another excerpt of the same song."
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Another excerpt of the same song."
   },
   {
     "id": "aux-party-in-the-usa",
@@ -428,7 +430,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Party candidate, not a confirmed favorite."
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-poker-face",
@@ -489,7 +491,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-rolling-in-the-deep",
@@ -549,7 +551,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-single-ladies",
@@ -609,7 +612,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-stronger",
@@ -670,7 +674,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-tik-tok",
@@ -730,7 +734,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-wake-me-up",
@@ -790,7 +795,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-call-me-maybe",
@@ -850,7 +856,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-get-lucky",
@@ -907,13 +914,11 @@
         "edm",
         "brandon"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Brandon attempted it on guitar and vocals (provided)."
+    "notes": "Brandon attempted it on guitar and vocals (provided). Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-get-lucky-b",
@@ -971,13 +976,11 @@
         "edm",
         "brandon"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Brandon attempted it on guitar and vocals (provided). Another excerpt of the same song."
+    "notes": "Brandon attempted it on guitar and vocals (provided). Window chosen from a lyric transcript, not by ear; preview before use. Another excerpt of the same song."
   },
   {
     "id": "aux-humble",
@@ -1038,7 +1041,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-pumped-up-kicks",
@@ -1099,7 +1102,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-pursuit-of-happiness",
@@ -1161,7 +1165,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Party candidate, not a confirmed favorite. Original album version (Man on the Moon), not the Steve Aoki remix. Explicit track."
+    "notes": "Party candidate, not a confirmed favorite. Original album version (Man on the Moon), not the Steve Aoki remix. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-radioactive",
@@ -1221,7 +1225,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-seven-nation-army",
@@ -1248,7 +1253,7 @@
       }
     ],
     "answer": "b",
-    "reveal": "Seven Nation Army by The White Stripes. From The White Stripes Greatest Hits.",
+    "reveal": "Seven Nation Army by The White Stripes. From Elephant.",
     "media": {
       "kind": "audio",
       "src": "/tq/d279d8df5a66.mp3",
@@ -1282,7 +1287,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Instrumental riff excerpt."
+    "notes": "Instrumental riff excerpt. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-sicko-mode",
@@ -1343,7 +1348,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-sweet-child-o-mine",
@@ -1404,7 +1409,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-thrift-shop",
@@ -1465,7 +1471,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Explicit track. Excerpt has strong language; preview before use."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track. Excerpt has strong language; preview before use."
   },
   {
     "id": "aux-titanium",
@@ -1525,7 +1531,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-yeah",
@@ -1587,7 +1594,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Party candidate, not a confirmed favorite. The title is sung in the excerpt."
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. The title is sung in the excerpt."
   },
   {
     "id": "aux-bubblin",
@@ -1644,13 +1651,11 @@
         "hip-hop",
         "brandon"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "shared"
     },
-    "notes": "One of Brandon's favorite songs (provided)."
+    "notes": "One of Brandon's favorite songs (provided). Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-bubblin-b",
@@ -1708,13 +1713,11 @@
         "hip-hop",
         "brandon"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "shared"
     },
-    "notes": "One of Brandon's favorite songs (provided). Another excerpt of the same song."
+    "notes": "One of Brandon's favorite songs (provided). Window chosen from a lyric transcript, not by ear; preview before use. Another excerpt of the same song."
   },
   {
     "id": "aux-chop-suey",
@@ -1775,7 +1778,8 @@
       "likely": [],
       "possible": [],
       "reach": "shared"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-day-n-nite",
@@ -1835,7 +1839,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-even-flow",
@@ -1897,7 +1902,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Explicit track."
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-everlong",
@@ -1959,7 +1964,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Discussed soundtrack candidate, not a confirmed favorite."
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-fireflies",
@@ -2019,7 +2024,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-knights-of-cydonia",
@@ -2081,7 +2087,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Discussed soundtrack candidate, not a confirmed favorite."
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-love-sosa",
@@ -2143,7 +2149,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Party candidate, not a confirmed favorite. Explicit track."
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-sandstorm",
@@ -2205,7 +2211,7 @@
       "possible": [],
       "reach": "broad"
     },
-    "notes": "Instrumental."
+    "notes": "Instrumental. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-somebody-that-i-used-to-know",
@@ -2265,7 +2271,8 @@
       "likely": [],
       "possible": [],
       "reach": "broad"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-swimming-pools",
@@ -2292,7 +2299,7 @@
       }
     ],
     "answer": "d",
-    "reveal": "Swimming Pools (Drank) by Kendrick Lamar. From Swimming Pools (Drank).",
+    "reveal": "Swimming Pools (Drank) by Kendrick Lamar. From good kid, m.A.A.d city.",
     "media": {
       "kind": "audio",
       "src": "/tq/dac0ad97e449.mp3",
@@ -2326,7 +2333,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Explicit track. Excerpt has strong language; preview before use."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track. Excerpt has strong language; preview before use."
   },
   {
     "id": "aux-when-you-were-young",
@@ -2388,7 +2395,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Discussed soundtrack candidate, not a confirmed favorite."
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-dancing-in-the-kitchen",
@@ -2447,13 +2454,11 @@
         "brandon",
         "wedding"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "deep"
     },
-    "notes": "POSSIBLE WEDDING SURPRISE: the first-dance song Brandon selected. Brandon reviews before use."
+    "notes": "POSSIBLE WEDDING SURPRISE: the first-dance song Brandon selected. Brandon reviews before use. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-mask-off",
@@ -2514,7 +2519,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-mr-rager",
@@ -2574,7 +2579,8 @@
       "likely": [],
       "possible": [],
       "reach": "shared"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-my-name-is-jonas",
@@ -2636,7 +2642,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Discussed soundtrack candidate, not a confirmed favorite."
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-no-problem",
@@ -2697,7 +2703,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Editorial suggestion. Brandon's first concert was Chance the Rapper (provided); the song itself is not a stated favorite. Explicit track."
+    "notes": "Editorial suggestion. Brandon's first concert was Chance the Rapper (provided); the song itself is not a stated favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-no-role-modelz",
@@ -2759,7 +2765,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Party candidate, not a confirmed favorite. Explicit track."
+    "notes": "Party candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-rnp",
@@ -2816,13 +2822,11 @@
         "hip-hop",
         "brandon"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Brandon knows the words and rapped along live (provided). Cordae feat. Anderson .Paak. Explicit track."
+    "notes": "Brandon knows the words and rapped along live (provided). Cordae feat. Anderson .Paak. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-scary-monsters",
@@ -2882,7 +2886,8 @@
       "likely": [],
       "possible": [],
       "reach": "shared"
-    }
+    },
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-the-heart-of-life",
@@ -2940,13 +2945,11 @@
         "brandon",
         "john-mayer"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "shared"
     },
-    "notes": "John Mayer song Brandon has a connection to (provided)."
+    "notes": "John Mayer song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-through-the-fire-and-flames",
@@ -3008,7 +3011,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Discussed soundtrack candidate, not a confirmed favorite."
+    "notes": "Discussed soundtrack candidate, not a confirmed favorite. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-cliffs-of-dover",
@@ -3066,13 +3069,11 @@
         "guitar-hero",
         "brandon"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "deep"
     },
-    "notes": "Guitar Hero connection (provided). Instrumental."
+    "notes": "Guitar Hero connection (provided). Instrumental. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-come-down",
@@ -3133,7 +3134,7 @@
       "possible": [],
       "reach": "deep"
     },
-    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Explicit track. Excerpt has strong language; preview before use."
+    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track. Excerpt has strong language; preview before use."
   },
   {
     "id": "aux-lets-fall-in-love-for-the-night",
@@ -3190,13 +3191,11 @@
         "pop",
         "brandon"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "deep"
     },
-    "notes": "FINNEAS song Brandon has a connection to (provided). Explicit track."
+    "notes": "FINNEAS song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-lose-yourself-to-dance",
@@ -3257,7 +3256,7 @@
       "possible": [],
       "reach": "shared"
     },
-    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief."
+    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-neon",
@@ -3315,13 +3314,11 @@
         "brandon",
         "john-mayer"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "deep"
     },
-    "notes": "John Mayer song Brandon has a connection to (provided)."
+    "notes": "John Mayer song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-soundtrack-2-my-life",
@@ -3382,7 +3379,7 @@
       "possible": [],
       "reach": "deep"
     },
-    "notes": "Explicit track."
+    "notes": "Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   },
   {
     "id": "aux-stop-this-train",
@@ -3440,13 +3437,11 @@
         "brandon",
         "john-mayer"
       ],
-      "likely": [
-        "Brandon"
-      ],
+      "likely": [],
       "possible": [],
       "reach": "deep"
     },
-    "notes": "John Mayer song Brandon has a connection to (provided)."
+    "notes": "John Mayer song Brandon has a connection to (provided). Window chosen from a lyric transcript, not by ear; preview before use."
   },
   {
     "id": "aux-two-tens",
@@ -3507,6 +3502,6 @@
       "possible": [],
       "reach": "deep"
     },
-    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Explicit track."
+    "notes": "Editorial suggestion; named only as a decoy in Brandon's brief. Window chosen from a lyric transcript, not by ear; preview before use. Explicit track."
   }
 ]

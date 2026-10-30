@@ -69,7 +69,7 @@
     "Shulker Box",
     "Ender Chest"
    ],
-   "tier": 2,
+   "tier": 3,
    "reach": "shared",
    "topics": [
     "minecraft"
@@ -331,7 +331,7 @@
     "Smithing Table",
     "Enchanting Table"
    ],
-   "tier": 2,
+   "tier": 3,
    "reach": "shared",
    "topics": [
     "minecraft"
@@ -360,7 +360,7 @@
     "Jukebox",
     "Lectern"
    ],
-   "tier": 3,
+   "tier": 4,
    "reach": "shared",
    "topics": [
     "minecraft"
@@ -506,7 +506,7 @@
     "Illusioner",
     "Pillager"
    ],
-   "tier": 3,
+   "tier": 4,
    "reach": "shared",
    "topics": [
     "minecraft"
@@ -798,7 +798,7 @@
     "Ziggs",
     "Gnar"
    ],
-   "tier": 2,
+   "tier": 3,
    "reach": "shared",
    "topics": [
     "league"
@@ -828,7 +828,7 @@
     "Mordekaiser",
     "Evelynn"
    ],
-   "tier": 3,
+   "tier": 5,
    "reach": "shared",
    "topics": [
     "league"
@@ -858,7 +858,7 @@
     "Shaco",
     "Evelynn"
    ],
-   "tier": 3,
+   "tier": 5,
    "reach": "shared",
    "topics": [
     "league"
@@ -906,7 +906,8 @@
     "page": "https://archive.org/details/MicrosoftWindowsXPStartupSound",
     "sha1": "610b805b4781f67e2ba28119c866207d3c7791e4",
     "bytes": 77640
-   }
+   },
+   "note": "File length 4.8 s matches the known original (trimmed of its quiet tail)."
   },
   {
    "slug": "os-xp-shutdown",
@@ -975,7 +976,7 @@
     "Windows XP",
     "Windows Me"
    ],
-   "tier": 3,
+   "tier": 4,
    "reach": "shared",
    "topics": [
     "nostalgia",
@@ -993,7 +994,8 @@
     "page": "https://archive.org/details/the-microsoft-sound_202601",
     "sha1": "2eefab9ff78aefdcef361e4919de311f827bb3db",
     "bytes": 135876
-   }
+   },
+   "note": "File length 6.1 s matches the known original."
   },
   {
    "slug": "os-98-startup",
@@ -1004,7 +1006,7 @@
     "Windows Me",
     "Windows XP"
    ],
-   "tier": 4,
+   "tier": 5,
    "reach": "shared",
    "topics": [
     "nostalgia",
@@ -1047,7 +1049,7 @@
     "label": "Internet Archive item windows-vista-7-startup-sound"
    },
    "reveal": "Windows Vista and Windows 7 share this startup sound.",
-   "note": "Vista and 7 share this startup; the answer names both.",
+   "note": "Vista and 7 share this startup, so the answer names both. File length 5.1 s matches the known original.",
    "fetched": {
     "url": "https://archive.org/download/windows-vista-7-startup-sound/Windows%20Vista%2B7%20Startup%20Sound.mp3",
     "page": "https://archive.org/details/windows-vista-7-startup-sound",
@@ -1209,7 +1211,7 @@
     "You muted",
     "You were disconnected"
    ],
-   "tier": 3,
+   "tier": 4,
    "reach": "shared",
    "topics": [
     "apps"
@@ -1322,7 +1324,7 @@
     "Skype",
     "ICQ"
    ],
-   "tier": 3,
+   "tier": 5,
    "reach": "shared",
    "topics": [
     "nostalgia",
@@ -1351,7 +1353,7 @@
     "MSN Messenger",
     "Skype"
    ],
-   "tier": 2,
+   "tier": 3,
    "reach": "shared",
    "topics": [
     "nostalgia",
@@ -1399,7 +1401,9 @@
     "page": "https://archive.org/details/ps1-startup-recorded",
     "sha1": "628c5e242d3dd121249d4a5ff2b2d4554ffb06f5",
     "bytes": 6646268
-   }
+   },
+   "status": "confirm",
+   "note": "Archive upload recorded from a console; listen to confirm it is the console's own startup."
   },
   {
    "slug": "con-ps2",
@@ -1429,7 +1433,9 @@
     "page": "https://archive.org/details/playstation2startup60fps",
     "sha1": "9b589640fc269b73588705811daddd73123cac3b",
     "bytes": 2530746
-   }
+   },
+   "status": "confirm",
+   "note": "Archive upload of a video capture; listen to confirm it is the console's own startup."
   },
   {
    "slug": "con-xbox360",
@@ -1459,7 +1465,9 @@
     "page": "https://archive.org/details/xbox-360-classic-startup",
     "sha1": "3190def139e869624b188422a2a7bab7ccbf0cb1",
     "bytes": 10452708
-   }
+   },
+   "status": "confirm",
+   "note": "Archive upload of a video capture; listen to confirm it is the console's own startup."
   },
   {
    "slug": "con-wii",
@@ -1501,7 +1509,7 @@
     "Nintendo 3DS",
     "PlayStation Portable"
    ],
-   "tier": 3,
+   "tier": 4,
    "reach": "shared",
    "topics": [
     "nostalgia",
@@ -1519,7 +1527,9 @@
     "page": "https://archive.org/details/001-start-up",
     "sha1": "db08db3aca1de454a86629593d67dcb076afb8d6",
     "bytes": 51328
-   }
+   },
+   "status": "confirm",
+   "note": "Archive upload; listen to confirm it is the console's own startup."
   },
   {
    "slug": "game-wasted",
@@ -1561,7 +1571,7 @@
     "Rumble Fighter",
     "Audition Online"
    ],
-   "tier": 3,
+   "tier": 5,
    "reach": "deep",
    "topics": [
     "maplestory",
@@ -1621,7 +1631,7 @@
     "Kid Icarus",
     "Star Fox"
    ],
-   "tier": 2,
+   "tier": 3,
    "reach": "broad",
    "topics": [
     "nostalgia",
@@ -1640,7 +1650,9 @@
     "page": "https://archive.org/details/TheLegendOfZeldaOcarinaOfTime-TreasureChest",
     "sha1": "00d8eb4fbc9e46ddee6f15f86634e6ec95147d8a",
     "bytes": 320098
-   }
+   },
+   "status": "confirm",
+   "note": "Archive upload with a long tail; listen to confirm it is the chest jingle."
   },
   {
    "slug": "game-pokemon-heal",
@@ -1651,7 +1663,7 @@
     "Animal Crossing",
     "Fire Emblem"
    ],
-   "tier": 2,
+   "tier": 3,
    "reach": "broad",
    "topics": [
     "nostalgia",
@@ -1829,7 +1841,7 @@
     "Discord",
     "ICQ"
    ],
-   "tier": 4,
+   "tier": 5,
    "reach": "shared",
    "topics": [
     "nostalgia",
@@ -1847,6 +1859,39 @@
     "page": "https://archive.org/details/SkypeSounds",
     "sha1": "08d7db06a53fac942edcc8905eccbadcfb8f3c81",
     "bytes": 73244
+   }
+  },
+  {
+   "slug": "game-maplestory-login-b",
+   "variantOf": "game-maplestory-login",
+   "prompt": "Which game's login theme is this?",
+   "answer": "MapleStory",
+   "decoys": [
+    "Grand Chase",
+    "Rumble Fighter",
+    "Audition Online"
+   ],
+   "tier": 5,
+   "reach": "deep",
+   "topics": [
+    "maplestory",
+    "nostalgia"
+   ],
+   "source": {
+    "type": "wiki",
+    "api": "https://maplestory.fandom.com/api.php",
+    "file": "Title_(Old).ogg",
+    "label": "MapleStory Wiki, Music page: Title (Pre Chaos)"
+   },
+   "reveal": "MapleStory's login theme from before the Chaos update.",
+   "max": 10,
+   "note": "The older login theme; the other clip is the 2010 to 2023 one.",
+   "fetched": {
+    "url": "https://static.wikia.nocookie.net/maplestory/images/b/bc/Title_%28Old%29.ogg/revision/latest?cb=20111123021118",
+    "page": "https://maplestory.fandom.com/wiki/File:Title_(Old).ogg",
+    "sha1": "ebcf20ce1eb54a5305c2f9a88063af7489f454ab",
+    "bytes": 6982267,
+    "uploaded": "2011-11-23T02:11:18Z"
    }
   }
  ]

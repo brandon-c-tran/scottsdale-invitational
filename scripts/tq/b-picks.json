@@ -40,8 +40,8 @@
     },
     {
       "tier": 3,
-      "id": "sound-game-maplestory-login",
-      "why": "The 2010 to 2023 login theme; a specialist moment for the maternal cousins."
+      "id": "sound-mc-totem",
+      "why": "The totem pop; Minecraft gives Chinh and Khoa a moment."
     },
     {
       "tier": 4,
@@ -50,8 +50,8 @@
     },
     {
       "tier": 5,
-      "id": "sound-mc-evoker",
-      "why": "Evoker's chant; a Minecraft deep cut."
+      "id": "sound-game-maplestory-login",
+      "why": "MapleStory's 2010 to 2023 login theme (variant: the pre-Chaos one); a specialist moment for the maternal cousins."
     }
   ]
 }

@@ -38,7 +38,6 @@ const GUESTS = {
   league: ["Chinh", "Khoa", "Chiang", "Henry", "Ben", "Richard", "Allan", "Jeremy"],
   maplestory: ["Richard", "Allan", "Jeremy"],
   gta: ["Eyob", "Henry", "Ben"],
-  roblox: ["Brandon"],
 };
 
 async function fetchRetry(url, init = {}) {
@@ -152,6 +151,8 @@ for (let index = 0; index < sounds.length; index++) {
     const status = s.status || "ready";
     const likely = [...new Set(s.topics.flatMap(t => GUESTS[t] || []))];
     const notes = [s.note, m.mode === "peak -3 dBFS" ? `Short sound, peak-normalised (${m.I} LUFS).` : null].filter(Boolean).join(" ");
+    const base = s.variantOf ? records.find(r => r.id === `sound-${s.variantOf}`) : null;
+    if (base) { texts.length = 0; base.options.forEach(o => texts.push(o.text)); }
     records.push({
       id,
       category: "sound",
@@ -159,7 +160,8 @@ for (let index = 0; index < sounds.length; index++) {
       format: "audio",
       prompt: s.prompt,
       options: texts.map((text, i) => ({ id: ids[i], text })),
-      answer: ids[pos],
+      answer: base ? base.answer : ids[pos],
+      ...(base ? { variantOf: base.id } : {}),
       reveal: s.reveal,
       media: { kind: "audio", src: `/tq/${hash}.mp3`, start: 0, duration: Number(m.duration.toFixed(2)), mime: "audio/mpeg" },
       sources: [

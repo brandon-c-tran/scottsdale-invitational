@@ -96,7 +96,7 @@ for (let index = 0; index < songs.length; index++) {
   const ids = ["a", "b", "c", "d"];
   const options = texts.map((text, i) => ({ id: ids[i], text }));
   const feat = s.feat ? `, featuring ${s.feat}` : "";
-  const reveal = `${s.title} by ${s.artist}${feat}.${s.showAlbum ? ` From ${meta.album}.` : ""}${s.revealExtra ? " " + s.revealExtra : ""}`;
+  const reveal = `${s.title} by ${s.artist}${feat}.${s.showAlbum ? ` From ${s.albumName || meta.album}.` : ""}${s.revealExtra ? " " + s.revealExtra : ""}`;
 
   for (const clip of clips) {
     const hash = crypto.createHash("sha1").update(`${s.deezerId}:${clip.from}:${clip.len}:${SALT}`).digest("hex").slice(0, 12);
@@ -110,6 +110,7 @@ for (let index = 0; index < songs.length; index++) {
     if (Math.abs(m.duration - clip.len) > 0.15) problems.push(`${id}${clip.suffix}: duration ${m.duration}`);
     const notes = [
       s.note,
+      "Window chosen from a lyric transcript, not by ear; preview before use.",
       meta.explicit ? "Explicit track." : null,
       s.lang ? "Excerpt has strong language; preview before use." : null,
       s.titleSung ? "The title is sung in the excerpt." : null,
@@ -134,7 +135,7 @@ for (let index = 0; index < songs.length; index++) {
       verified: { by: s.by, at: CHECKED },
       status: "ready",
       ...(s.surprise ? { surprise: true } : {}),
-      tags: { topics: [...s.topics, ...(editorial ? ["editorial"] : [])], likely: s.by === "provided" ? ["Brandon"] : [], possible: [], reach: s.reach },
+      tags: { topics: [...s.topics, ...(editorial ? ["editorial"] : [])], likely: [], possible: [], reach: s.reach },
       ...(notes ? { notes } : {}),
     });
   }

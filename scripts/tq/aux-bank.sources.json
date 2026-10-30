@@ -669,7 +669,8 @@
      "from": 1,
      "len": 8
     }
-   ]
+   ],
+   "albumName": "Hot Fuss"
   },
   {
    "slug": "no-role-modelz",
@@ -909,7 +910,8 @@
     "duration": 248,
     "explicit": true,
     "released": "2012-07-31"
-   }
+   },
+   "albumName": "good kid, m.A.A.d city"
   },
   {
    "slug": "humble",
@@ -1607,7 +1609,8 @@
     "duration": 231,
     "explicit": false,
     "released": "2020-12-04"
-   }
+   },
+   "albumName": "Elephant"
   },
   {
    "slug": "all-star",

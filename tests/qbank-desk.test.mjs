@@ -328,9 +328,8 @@ test("the desk renders the board, the bank's cards and a slot's alternatives", a
   assert.ok(html.includes(`${warningCount(warningLines(warnings))} warnings`));
   assert.match(html, /aria-label="Who He Play For\? 100: Avery Lane, ready"/);
   assert.match(html, /aria-label="Pass the Aux 100: Fixture Anthem, ready, \d warnings"/);
-  /* the board deals only in the Board format: its switch is here */
-  assert.match(html, /role="radio" aria-checked="true"[^>]*>Rounds/);
-  assert.match(html, />Board</);
+  /* a board with clues in it is what Trivia plays: no format switch to flip */
+  assert.doesNotMatch(html, /role="radio"[^>]*>Rounds/);
   for (const text of ["Reset to recommended", "Export", "Import", "Avery Lane", "Favorite", "Shortlist", "Reject", "Sources and audience",
     "(right answer)", "Wedding surprise", "Asset gives it away", "Edited"]) assert.ok(html.includes(text), text);
   assert.match(html, /Put in 100|Take off board/);
@@ -357,10 +356,11 @@ test("the way in: Trivia's desk opens the question bank; only a commissioner's v
   const state = { ...qbankFixtureState("fresh"), triviaRounds:[], trivia:null };
   const html = renderToStaticMarkup(React.createElement(TriviaDesk, { state, onAct:async () => ({ ok:true }), loadBank:async () => ({ ok:true, categories:[] }),
     onOpenBank:() => {} }));
-  assert.match(html, /Question bank/);
+  assert.match(html, /Your board/, "a board in the bank: it leads, the old set list folds away");
   assert.match(html, /35 of 35/);
+  assert.match(html, /Old set list/);
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(TriviaDesk, { state, onAct:async () => ({ ok:true }),
-    loadBank:async () => ({ ok:true, categories:[] }) })), /Question bank/);
+    loadBank:async () => ({ ok:true, categories:[] }) })), /Question bank|Your board/);
   const app = read("src/App.jsx");
   assert.match(app, /lazyPart\(\(\) => import\("\.\/features\/trivia\/QBankDesk\.jsx"\), "QBankDesk"\)/, "loaded on first use");
   assert.match(app, /COMMISSIONER_PARTS = \[[^\]]*QBankDesk/);

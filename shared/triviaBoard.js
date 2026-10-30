@@ -165,7 +165,10 @@ const num = value => Number(value) || 0;
 
 export const isBoardGame = game => game?.format === BOARD_FORMAT && !!game.clues && typeof game.clues === "object";
 /* the format a new game would start in */
-export const triviaFormatOf = state => state?.triviaFormat === BOARD_FORMAT ? BOARD_FORMAT : "rounds";
+/* Brandon's board from the question bank (state.triviaPlan, docs/TRIVIA-QBANK.md)
+   is what Trivia plays whenever it has a clue in it: no format to flip */
+export const qbankPlanInUse = state => (state?.triviaPlan?.columns || []).some(column => (column?.slots || []).some(Boolean));
+export const triviaFormatOf = state => qbankPlanInUse(state) || state?.triviaFormat === BOARD_FORMAT ? BOARD_FORMAT : "rounds";
 export const boardPlayers = game => Array.isArray(game?.players) ? game.players : [];
 export const boardPlays = (game, player) => !!player && boardPlayers(game).includes(player);
 /* the game's players still in the room */

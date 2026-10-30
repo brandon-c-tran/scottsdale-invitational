@@ -193,8 +193,11 @@ window.__lobby = async () => {
 };
 /* the phone's own, on a phone's engine */
 window.__phone = async () => {
-  const ctx = new OfflineAudioContext(2, SR * 14, SR);
+  const ctx = new OfflineAudioContext(2, SR * 19, SR);
   const E = await engine(ctx, "phone");
+  /* v4: a miss, a streak broken, the milestones at 10, 20, 30 */
+  [[14.2, "floatYouMiss", {}], [15, "floatYouBreak", { n:12 }], [16, "floatYouStreak", { n:10 }], [16.9, "floatYouStreak", { n:20 }], [17.8, "floatYouStreak", { n:30 }]]
+    .forEach(([s, id, opts]) => playRecipe(E, id, s, opts));
   ["perfect", "nice", "ok", "early", "late", null].forEach((q, i) => ["paddle", "hey", "hop", "spin"].forEach((kind, j) =>
     playRecipe(E, "floatYouTap", 0.3 + i * 0.9 + j * 0.2, { q, kind })));
   [[6, "floatYouDone"], [6.8, "floatYouCheer"], [7.3, "floatYouSafe"], [8.0, "floatYouOut"]].forEach(([s, id]) => playRecipe(E, id, s));

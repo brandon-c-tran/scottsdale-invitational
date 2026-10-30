@@ -78,12 +78,12 @@ test("the patterns: paddles on 1 and 3, Rock Hop answers two beats after the hos
   assert.ok(rock.cues.filter(c => !["echo", "paddle"].includes(c.kind)).every(c => c.kind === "hop" && c.call === c.beat - 2 && c.beat % 4 >= 2 && c.call % 4 < 2),
     "the host's half, then yours");
   assert.ok(spin.cues.filter(c => !["echo", "paddle"].includes(c.kind)).every(c => c.kind === "spin" && [1, 1.5, 3, 3.5].includes(c.beat % 4)));
-  assert.deepEqual(cuesBetween(spin, 24, 28).map(c => [c.beat % 4, c.kind]), [[0, "paddle"], [1, "spin"], [2, "paddle"], [3, "spin"]],
-    "row, spin, row, spin");
+  assert.deepEqual(cuesBetween(spin, 24, 28).map(c => [c.beat % 4, c.kind]), [[1, "spin"], [3, "spin"]], "v4: the backbeat alone");
+  for (const id of ["rock", "spin"]) assert.ok(!chartOf(id).cues.some(c => c.kind === "paddle"), `${id}: no rowing taps (v4)`);
   const last = drop.cues[drop.cues.length - 1];
   assert.deepEqual([last.kind, last.beat, last.call], ["drop", 120, 117]);
   assert.equal(drop.modes[29], "drop", "the countdown bar is the drop's");
-  assert.deepEqual(callsBetween(rock, 12, 16).map(c => c.call), [13], "the host's ba on 2 for the hop on 4");
+  assert.deepEqual(callsBetween(rock, 12, 16).map(c => c.call), [12], "the host's ba on 1 for the hop on 3");
 });
 
 test("the windows: Perfect 50, Nice 100, OK 160, then Early or Late", () => {
@@ -210,6 +210,7 @@ test("Last Call is a countdown: shown and said, then dark; one tap on zero, a wi
     assert.ok(cd.steps.filter(s => s.n <= 3).every(s => !s.show && !s.say && !s.tick), "dark from 3");
     assert.equal(cd.hideAt, cd.steps[7].at);
     assert.ok(cd.revealAt >= cd.zeroAt + LAST_CALL.WINDOW && cd.verdictAt > cd.revealAt && chart.ms > cd.verdictAt);
+    assert.ok(cd.revealAt >= cd.zeroAt + LAST_CALL.WINDOW + 250 + 250 + 100, "the ranking is in before the reveal, at any offset");
     assert.deepEqual(JSON.parse(JSON.stringify(chart)), chart);
   }
   assert.equal(lights.countdown.introMs, LAST_CALL.INTRO_FIRST_MS, "the first says what Last Call is");
@@ -278,28 +279,23 @@ test("dark bars: in play, each the bar before it again, and only their own cues 
   assert.deepEqual(chartOf("paddle").dark, []);
 });
 
-test("rowing is the base of every song: a stroke on 1 and 3 of every play bar unless the song's own cue takes it; practice opens with a bar of rowing; the breakdown only copies", () => {
+test("rowing taps are Paddle Party's alone (v4): a stroke on 1 and 3 of every play bar there; the others tap their own move (The Drop's and Fireworks' paddle bars are a pattern); every practice calibrates", () => {
+  const paddle = chartOf("paddle");
+  for (const section of paddle.sections.filter(s => s.kind === "play")) for (let bar = section.bar; bar < section.bar + section.bars; bar += 1)
+    for (const beat of [bar * 4, bar * 4 + 2]) assert.equal(paddle.cues.find(c => c.beat === beat)?.kind, "paddle", `a stroke on ${beat}`);
+  for (const id of ["drop", "fireworks"]) {
+    const chart = chartOf(id);
+    const bars = chart.sections.filter(s => s.kind === "play").flatMap(s => Array.from({ length:s.bars }, (_, k) => s.bar + k));
+    const rowing = bars.filter(bar => cuesBetween(chart, bar * 4, bar * 4 + 4).some(c => c.kind === "paddle"));
+    assert.ok(rowing.length > 0 && rowing.length <= bars.length / 2, `${id}: paddle bars are a pattern, not a layer (${rowing})`);
+  }
+  assert.deepEqual(cuesBetween(chartOf("drop"), 116, 120), [], "the drop's countdown bar: the music cuts");
   for (const id of SONG_IDS) {
     const chart = chartOf(id);
-    const plays = chart.sections.filter(s => s.kind === "play");
-    for (const section of plays) for (let bar = section.bar; bar < section.bar + section.bars; bar += 1) {
-      if (id === "drop" && bar === 29) {
-        assert.deepEqual(cuesBetween(chart, bar * 4, bar * 4 + 4), [], "the drop's countdown bar: the music cuts");
-        continue;
-      }
-      for (const beat of [bar * 4, bar * 4 + 2]) {
-        const on = chart.cues.filter(c => c.beat === beat);
-        assert.equal(on.length, 1, `${id}: one cue on beat ${beat}`);
-      }
-      assert.ok(cuesBetween(chart, bar * 4, bar * 4 + 4).some(c => c.kind === "paddle"), `${id}: bar ${bar} rows`);
-      assert.ok(cuesBetween(chart, bar * 4, bar * 4 + 4).every(c => c.kind !== "paddle" || c.beat % 1 === 0), `${id}: strokes on the beat`);
-    }
     const practice = chart.sections.find(s => s.kind === "practice");
-    assert.deepEqual(cuesBetween(chart, practice.from, practice.from + 4).map(c => [c.beat - practice.from, c.kind, !!c.demo]),
-      [[0, "paddle", false], [2, "paddle", false]], `${id}: a bar of rowing first`);
-    assert.match(lineAt(chart, practice.from).text, /^(Row|Paddle) on 1 and 3$/);
     assert.ok(cuesBetween(chart, 56, 88).every(c => c.kind === "echo"), `${id}: the breakdown only copies`);
     assert.ok(practiceCues(chart).filter(c => c.beat < practice.to - 0.5).length >= 4, `${id}: calibrates`);
+    assert.ok(chart.lines.every(line => !/rowing/i.test(line.text)), `${id}: no "Keep rowing"`);
     const beats = chart.cues.map(c => c.beat);
     assert.equal(new Set(beats).size, beats.length, `${id}: never two cues at one time`);
   }

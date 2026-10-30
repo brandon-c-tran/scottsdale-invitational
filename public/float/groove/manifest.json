@@ -11523,7 +11523,8 @@
       "seam": "critters/frog/tee/out-seam.webp"
      }
     }
-   }
+   },
+   "browShare": 0.32
   },
   "winnie": {
    "anchor": {

@@ -214,8 +214,15 @@ export function songEvents(chart) {
      the host's calls and the whistle's "Spin!", and the crowd's quick "Hey! Hey!" */
   shortOf(events.filter(e => (e.id === "floatVoice" && !e.opts.narration) || e.id === "floatWhirl"));
   shortOf(events.filter(e => e.id === "floatAnswer" && e.opts.kind === "hey"));
-  /* a fuse sizzles up to the next one at most */
+  /* a fuse sizzles up to the next one at most, and stops short of the crowd's "Hey!" or a host's word;
+     one that lands under a host's word (a "Ready?" half a beat before it) is lit softly */
   shortOf(events.filter(e => e.id === "floatFuse"));
+  const voices = events.filter(e => (e.id === "floatVoice" && !e.opts.narration) || (e.id === "floatAnswer" && e.opts.kind === "hey"));
+  for (const f of events.filter(e => e.id === "floatFuse")) {
+    const next = voices.find(e => e.beat > f.beat);
+    if (next) f.opts.after = round3(Math.min(f.opts.after ?? 1.5, ((next.beat - f.beat) * BEAT_MS) / 1000 - 0.05));
+    if (voices.some(e => e.id === "floatVoice" && e.beat < f.beat && (f.beat - e.beat) * BEAT_MS < clipSpan(e.opts.line).dur)) f.opts.soft = true;
+  }
   return events;
 }
 /* the blackout bars (float/GROOVE.md v3 8): chart.dark's bar indices */

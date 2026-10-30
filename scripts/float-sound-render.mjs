@@ -107,6 +107,14 @@ window.__song = async (song, stem = null, room = false) => {
       else playRecipe(E, "floatBurst", at + ROCKET_BURST_MS / 1000, { pan, q, size:BURST_SIZE[q] });
     }) });
   });
+  /* the room at 13 (v4): every played cue missed by a few of thirteen riders now and then, through the TV's density rule
+     (up to three flubs inside 220 ms, the third one bigger), as the room calls them 550 ms after the cue */
+  if (room) chartOf(song).cues.filter(c => !c.demo && c.kind !== "rocket").forEach((c, k) => {
+    const misses = [0, 0, 1, 0, 2, 0, 0, 4, 0, 1, 0, 13][(k * 5 + 3) % 12];
+    if (!misses) return;
+    const at = (songAt + c.beat * 500 + 550) / 1000;
+    slots.push({ at:at - 1, lay:() => Array.from({ length:Math.min(3, misses) }, (_, j) => playRecipe(E, "floatFlub", at + j * 0.04, { pan:-0.6 + ((k + j * 5) % 13) * 0.1, n:j + 1 + (j === 2 ? misses - 3 : 0) })) });
+  });
   slots.sort((a, b) => a.at - b.at);
   const t0 = performance.now();
   const buffer = await laid(ctx, slots);
@@ -185,8 +193,11 @@ window.__lobby = async () => {
 };
 /* the phone's own, on a phone's engine */
 window.__phone = async () => {
-  const ctx = new OfflineAudioContext(2, SR * 14, SR);
+  const ctx = new OfflineAudioContext(2, SR * 19, SR);
   const E = await engine(ctx, "phone");
+  /* v4: a miss, a streak broken, the milestones at 10, 20, 30 */
+  [[14.2, "floatYouMiss", {}], [15, "floatYouBreak", { n:12 }], [16, "floatYouStreak", { n:10 }], [16.9, "floatYouStreak", { n:20 }], [17.8, "floatYouStreak", { n:30 }]]
+    .forEach(([s, id, opts]) => playRecipe(E, id, s, opts));
   ["perfect", "nice", "ok", "early", "late", null].forEach((q, i) => ["paddle", "hey", "hop", "spin"].forEach((kind, j) =>
     playRecipe(E, "floatYouTap", 0.3 + i * 0.9 + j * 0.2, { q, kind })));
   [[6, "floatYouDone"], [6.8, "floatYouCheer"], [7.3, "floatYouSafe"], [8.0, "floatYouOut"]].forEach(([s, id]) => playRecipe(E, id, s));
@@ -257,6 +268,7 @@ try {
     const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"], ["lobby", "window.__lobby()"], ["rockets", "window.__rockets()"]]
       : job === "fireworks" ? [["fireworks", `window.__song("fireworks")`], ["fireworks-room", `window.__song("fireworks", null, true)`],
         ...(STEMS ? ["band", "calls", "answers"].map(s => [`fireworks-${s}`, `window.__song("fireworks", ${JSON.stringify(s)})`]) : [])]
+      : job === "room" ? ["paddle", "rock", "spin", "drop"].map(id => [`${id}-room13`, `window.__song(${JSON.stringify(id)}, null, true)`])
       : job === "after" ? [["after", "window.__after()"]]
       : [[job, `window.__song(${JSON.stringify(job)})`], ...(STEMS ? ["band", "calls", "answers"].map(s => [`${job}-${s}`, `window.__song(${JSON.stringify(job)}, ${JSON.stringify(s)})`]) : [])];
     for (const [name, expr] of renders) {

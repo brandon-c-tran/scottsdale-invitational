@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { dispatch } from "../../lib/client.js";
-import { serverNow } from "../../lib/serverClock.js";
+import { serverNow, useServerWake } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import { freshFrameNow, playSound, unlockSound } from "../../lib/sound.js";
 import { disp } from "../../../shared/core.js";
@@ -25,29 +25,18 @@ import "./board.css";
 export const sendBoard = (type, payload) => dispatch(type, payload, { retry:true });
 const useIso = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-/* the phone's clock for the board: the server clock, woken on the
-   instants the view changes by itself (the buzzer lighting on the beat) */
+/* The phone's clock for the board: the server clock, woken on the
+   instants the view changes by itself (the buzzer lighting on the beat,
+   the answer turn opening). The wake can't land early and stay there
+   (useServerWake): a wake that fired a hair short of its instant, the
+   clock's estimate having moved back meanwhile, used to re-render on the
+   same instant and arm nothing more, so a phone with no frame coming (a
+   solo game, a quiet room) sat dark until the turn timed out. */
 function useBoardNow(state, me, fixed) {
-  const [, wake] = useState(0);
   const now = fixed ?? serverNow();
   const next = fixed === undefined ? nextBoardInstant(boardView(state, me, now), now) : 0;
-  useEffect(() => {
-    if (!next) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, next - serverNow()) + 5);
-    return () => clearTimeout(timer);
-  }, [next]);
+  useServerWake(next, { drawnAt:now });
   return now;
-}
-/* wake once at a local server instant (a lockout ending) */
-function useWakeAt(at) {
-  const [, wake] = useState(0);
-  useEffect(() => {
-    if (!at) return undefined;
-    const wait = at - serverNow();
-    if (wait <= 0) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), wait + 5);
-    return () => clearTimeout(timer);
-  }, [at]);
 }
 
 /* what is left of a window, draining on the server clock */
@@ -144,10 +133,10 @@ export function Buzzer({ view, onBuzz, now: drawn }) {
   const [sent, setSent] = useState(null);
   const [shake, setShake] = useState(0);
   const painted = useRef({ perf:null, server:null });
-  useWakeAt(lockUntil);
   /* its own wakes (a lockout ending) read the clock afresh, never the
      instant the sheet last drew */
   const now = Math.max(Number(drawn) || 0, serverNow());
+  useServerWake(lockUntil, { drawnAt:now });
   const mine = view.myBuzz || sent;
   const state = buzzerState({ armAt:view.armAt, now, lockoutUntil:lockUntil, buzzed:!!mine, open:view.phase === "clue" });
   /* the reaction clock starts on the frame that paints the lit buzzer */

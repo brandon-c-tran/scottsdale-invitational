@@ -169,7 +169,7 @@ function Podium({ game, entrant, cheer = null, onCheer, onExit }) {
     {podium.length > 0 && <ol className="flc-podium-row">
       {podium.map((i, k) => <li key={i} className={`is-p${k + 1}${i === idx ? " is-me" : ""}`}>
         <Portrait entrant={entrants[i] || {}} size={k === 0 ? 60 : 50} label={entrants[i]?.name} />
-        <span>{ordinal(k + 1)}</span></li>)}
+        <span>{ordinal(k + 1)}</span><b className="flc-podium-name">{i === idx ? "You" : entrants[i]?.name || ""}</b></li>)}
     </ol>}
     {crowd && <TapButton className="flc-cheer" onPress={onCheer}>Cheer</TapButton>}
   </section>;

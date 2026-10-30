@@ -35,3 +35,9 @@
 @media (prefers-reduced-motion: reduce) {
   .flp img { animation: none; }
 }
+
+/* a hat or glasses chip: a neutral disc, so an accessory in the rider's colour never sinks into it */
+.flp.is-neutral {
+  background: radial-gradient(circle at 50% 38%, #ffffff 0%, transparent 70%), #dcdbe3;
+  box-shadow: inset 0 0 0 calc(var(--flp-size, 64px) * 0.045) #b9b6c6;
+}

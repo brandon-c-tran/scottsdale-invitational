@@ -433,7 +433,7 @@ export function seatView({ room, idx }) {
    and the beat now. Practice only (null elsewhere). A demo bar (the host
    shows it) lights its beats as the host's: `demo`.
    { bar, now, beats:[{ n, on, kinds, and, demo, row, move, word }] } */
-export const COUNTER_WORDS = Object.freeze({ paddle:"Row", hey:"Hey!", hop:"Hop", spin:"Spin", drop:"Drop", rocket:"Launch" });
+export const COUNTER_WORDS = Object.freeze({ paddle:"Paddle", hey:"Hey!", hop:"Hop", spin:"Spin", drop:"Drop", rocket:"Launch" });
 export function beatCounter(chart, view) {
   if (!chart || view?.moment !== "practice" || !Number.isFinite(view.beat)) return null;
   const perBar = 4;
@@ -494,3 +494,77 @@ export function lastCallPlace({ room, me = null, idx }) {
 }
 /* "Closest of 9", "3rd closest of 9", "Farthest of 9" (alone at the far end) */
 const placeWords = (place, of) => place === 1 ? `Closest of ${of}` : place === of ? `Farthest of ${of}` : `${ordinal(place)} closest of ${of}`;
+
+/* ---- v4: right versus wrong at a glance (GROOVE.md v4 item 2) ----
+
+   This phone's own judgements this song, in order: its taps at once (and
+   the room's restamp of one), the room's misses. One entry a cue.
+   { c, q, d, key } */
+export const TAP_KEEP = 40;
+export function foldTaps(list, item) {
+  const items = Array.isArray(list) ? list : [];
+  if (!item || !Number.isInteger(item.c) || typeof item.q !== "string") return items;
+  const entry = { c:item.c, q:item.q, d:item.q === "miss" ? null : num(item.d), key:item.key ?? `${item.c}` };
+  const at = items.findIndex(row => row.c === item.c);
+  if (at >= 0) {
+    if (items[at].q === entry.q && items[at].d === entry.d) return items;
+    const next = items.slice();
+    next[at] = { ...entry, key:items[at].key };
+    return next;
+  }
+  return [...items, entry].slice(-TAP_KEEP);
+}
+
+/* What the taps say: the streak (Nice or better in a row), the one just
+   broken (a streak of 3 or more ended by an Early, Late or Miss), the
+   meter's last 8 ticks (signed ms; misses leave none), and the coach line
+   after three off the beat the same way in a row ("Tap earlier" when late,
+   "Tap later" when early), gone with the next tap on time.
+   { streak, broken:{ n, key }|null, ticks:[{ d, q, key }], coach } */
+export const GOOD = Object.freeze(["perfect", "nice"]);
+export const STREAK_SHOW = 3;
+export const METER_TICKS = 8;
+export const COACH_AFTER = 3;
+const offSide = row => row.q === "miss" || !Number.isFinite(row.d) ? null
+  : row.q === "late" || (row.q === "ok" && row.d > 0) ? "late" : row.q === "early" || (row.q === "ok" && row.d < 0) ? "early" : null;
+/* the streak's rule, the sound's own (float/client/sound streakStep, the
+   tests hold them equal): Nice or better grows it, OK keeps it, Early, Late
+   and a Miss break it; a break of 3 or more sounds, and every 10 a run */
+export const STREAK_BREAK_MIN = 3;
+export function streakStep(streak = 0, q = null) {
+  const n = Math.max(0, Math.floor(Number(streak) || 0));
+  if (q === "perfect" || q === "nice") { const next = n + 1; return { streak:next, sound:next >= 10 && next % 10 === 0 ? "streak" : null }; }
+  if (q === "early" || q === "late" || q === "miss") return { streak:0, sound:n >= STREAK_BREAK_MIN ? "break" : null };
+  return { streak:n, sound:null };
+}
+export function tapsView(list) {
+  const items = Array.isArray(list) ? list : [];
+  let streak = 0, step = null, before = 0;
+  for (const row of items) { before = streak; step = streakStep(streak, row.q); streak = step.streak; }
+  const last = items[items.length - 1];
+  const broken = last && step?.sound === "break" ? { n:before, key:last.key } : null;
+  const milestone = last && step?.sound === "streak" ? { n:streak, key:last.key } : null;
+  const ticks = items.filter(row => row.q !== "miss" && Number.isFinite(row.d)).slice(-METER_TICKS).map(row => ({ d:row.d, q:row.q, key:row.key }));
+  let coach = null;
+  const tail = items.slice(-COACH_AFTER);
+  if (tail.length === COACH_AFTER) {
+    const sides = tail.map(offSide);
+    if (sides.every(side => side === "late")) coach = "Tap earlier";
+    else if (sides.every(side => side === "early")) coach = "Tap later";
+  }
+  return { streak, broken, milestone, ticks, coach, last:last || null };
+}
+/* the pad's answer to one judgement: its strength by grade, and which way an early or late nudges it */
+export const ANSWERS = Object.freeze({ perfect:"perfect", nice:"nice", ok:"ok", early:"early", late:"late", miss:"miss" });
+
+/* Auto-rowing (GROOVE.md v4 item 1): every rider rows on 1 and 3 by the
+   clock in every song, left on 1 (`stroke`), right on 3 (`stroke-r`), for
+   half a beat; not in the card, the intro, the breakdown (copying) or a
+   blackout bar. Your own judged move plays over it. */
+export const ROW_MOMENTS = Object.freeze(["practice", "play", "outro"]);
+export function autoRowPose(chart, view) {
+  if (!chart || !ROW_MOMENTS.includes(view?.moment) || !Number.isFinite(view.beat) || darkAt(chart, view.beat)) return "idle";
+  const b = Math.floor(view.beat + 1e-6), k = ((b % 4) + 4) % 4;
+  if ((k !== 0 && k !== 2) || view.beat - b >= 0.5) return "idle";
+  return k === 0 ? "stroke" : "stroke-r";
+}

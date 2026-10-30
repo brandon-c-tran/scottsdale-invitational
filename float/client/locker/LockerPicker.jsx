@@ -78,8 +78,9 @@ function LookGrid({ entrant, kind, groom, onPick }) {
     {lockerOptions(kind, { groom }).map(option => {
       const on = (entrant.look[kind] || "none") === option.id;
       return <li key={option.id}>
-        <button type="button" className={`fll-tile${on ? " is-on" : ""}${option.groom ? " is-groom" : ""}`} aria-pressed={on} onClick={() => onPick(option.id)}>
-          <span className="fll-tile-art"><Portrait entrant={lookTile(entrant, kind, option.id)} size={58} />{on && <CheckBadge />}</span>
+        <button type="button" className={`fll-tile is-${kind}${on ? " is-on" : ""}${option.groom ? " is-groom" : ""}`} aria-pressed={on} onClick={() => onPick(option.id)}>
+          <span className="fll-tile-art"><Portrait entrant={lookTile(entrant, kind, option.id)} size={58}
+            frame={kind === "hat" || kind === "shades" ? "head" : "full"} neutral={kind === "hat" || kind === "shades"} />{on && <CheckBadge />}</span>
           <span className="fll-tile-name">{option.name}</span>
         </button>
       </li>;

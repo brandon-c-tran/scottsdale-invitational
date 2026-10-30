@@ -129,7 +129,7 @@ export function Host({ pose = "idle", size = 72 }) {
 export const POPUP_SIZE = 76;
 export function Popup({ q, d, size = POPUP_SIZE, className = "", life = true, count = false }) {
   const tone = numberTone(q, d, { count });
-  return <span className={`flc-popup is-num-${tone}${className ? ` ${className}` : ""}`} data-tone={tone} role="status">
+  return <span className={`flc-popup is-num-${tone}${className ? ` ${className}` : ""}`} data-tone={tone} data-q={q || ""} role="status">
     <ArtPopup q={q} d={d} size={size} life={life} />
   </span>;
 }

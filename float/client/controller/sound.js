@@ -18,6 +18,11 @@ export const tapSound = (q, kind = null) => call("floatTapSound", q ?? null, kin
 export const doneSound = () => call("floatDoneSound");
 export const cheerSound = () => call("floatCheerSound");
 export const unlockSound = () => call("unlockFloatSound");
+/* your streak broken (v4 item 2): the sound builder's, a no-op until it exists */
+export const streakBreakSound = n => call("floatStreakBreakSound", n);
+/* your streak at 10, 20, 30; the room calling your cue a Miss */
+export const streakSound = n => call("floatStreakSound", n);
+export const missSound = () => call("floatMissSound");
 
 /* the cut's beats as the phone's sound plays them (CUT_BEATS: Out on your turn, Through after the last), or null */
 export const cutBeats = () => floatSound.CUT_BEATS && Number.isFinite(floatSound.CUT_BEATS.reveal) ? floatSound.CUT_BEATS : null;

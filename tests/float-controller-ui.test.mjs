@@ -212,7 +212,7 @@ test("the chug-off: the two get Chug-off!, the count, one huge Done, Waiting, th
   assert.match(at(goAt + 3500, { room:won, idx:1 }), />Out</);
   /* everyone else: the names, the two critters, the Cheer */
   const crowd = at(goAt + 1500, { idx:5 });
-  assert.match(crowd, />Chug-off: Rider 0 vs Rider 1</);
+  assert.match(crowd, /flc-chug-one[^>]*>.*?<b>Rider 0<\/b>.*flc-chug-one[^>]*>.*?<b>Rider 1<\/b>/s, "each critter named under it");
   assert.match(crowd, />Cheer</);
   assert.doesNotMatch(crowd, /flc-chug-done/);
   const scored = at(goAt + 31000, { idx:5, room:{ ...room, chugoff:{ ...room.chugoff, winner:1, by:"score" } } });

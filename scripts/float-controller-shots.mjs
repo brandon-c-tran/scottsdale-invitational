@@ -15,6 +15,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { launchChrome } from "./headless-chrome.mjs";
+import { HATS, SHADES } from "../float/shared/looks.js";
+
+/* the Locker check taps each rack's second tile (the first after None): what that is in the rack as it stands */
+const SECOND_HAT = HATS.filter(hat => !hat.groom)[1]?.id;
+const SECOND_SHADES = SHADES[1]?.id;
 
 const args = process.argv.slice(2);
 const arg = (name, fallback) => {
@@ -43,7 +48,7 @@ const MOMENTS = [
   ["lobby"], ["lobby-ready"], ["lobby-fieldday"], ["intro"], ["card"], ["count"],
   ["practice", { tap:true, word:"Nice!" }], ["hey"], ["play", { tap:true, word:"Perfect" }], ["play-late", { tap:true, word:"Late" }],
   ["play-miss", { word:"Miss", settle:200 }], ["watch-demo"], ["breakdown"], ["breakdown-copy", { tap:true, word:"Perfect" }],
-  ["outro"], ["after"], ["rock"], ["spin"], ["drop"], ["fireworks"], ["fireworks-launch", { tap:true, word:"Perfect" }], ["fireworks-dark"], ["cut", { settle:1200 }], ["cut-out", { settle:1200 }], ["cut-bubble", { settle:1200 }],
+  ["outro"], ["after"], ["rock"], ["spin"], ["drop"], ["fireworks"], ["fireworks-launch", { tap:true, word:"Perfect" }], ["fireworks-dark"], ["play-streak", { settle:900 }], ["play-drift", { settle:900 }], ["cut", { settle:1200 }], ["cut-out", { settle:1200 }], ["cut-bubble", { settle:1200 }],
   ["cut-final", { settle:1200 }], ["chugoff"], ["chugoff-count"], ["chugoff-go"], ["chugoff-kept", { settle:1200 }],
   ["chugoff-out", { settle:1200 }], ["chugoff-crowd"], ["lastcall"], ["lastcall-tap", { tap:true, locked:true }], ["lastcall-locked"],
   ["lastcall-reveal", { settle:1200 }], ["lastcall-drink", { settle:1200 }], ["lastcall-safe", { settle:1200 }], ["crowd"], ["podium"],
@@ -285,7 +290,7 @@ async function joinChecks(page, size) {
   await sleep(600);
   await shot(page, size, "join-lobby");
   const saved = await page.evaluate("JSON.parse(localStorage.getItem('float-rider') || 'null')");
-  check(saved?.look?.critter === "jackrabbit" && saved?.look?.hat === "cowboy" && saved?.look?.shades === "aviators" && saved?.drinks === true,
+  check(saved?.look?.critter === "jackrabbit" && saved?.look?.hat === SECOND_HAT && saved?.look?.shades === SECOND_SHADES && saved?.drinks === true,
     `${size}: the rider is kept (${JSON.stringify(saved)})`);
   /* the lobby's own Locker, and a pick there goes to the room */
   await tapElement(page, ".flc-lobby .flc-pill");

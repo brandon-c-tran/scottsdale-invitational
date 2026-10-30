@@ -35,9 +35,9 @@ import LastCall from "./LastCall.jsx";
 import ChugOff from "./ChugOff.jsx";
 import Screens from "./Screens.jsx";
 import { useRoom } from "./useRoom.js";
-import { indexOf, lastCallJudged, offsetOf, roundShape, roundSong, screenOf, seatView, songAtOf, wakeFor } from "./controllerModel.js";
+import { foldTaps, indexOf, lastCallJudged, offsetOf, roundShape, roundSong, screenOf, seatView, songAtOf, wakeFor } from "./controllerModel.js";
 import { createGate, createPad, padTap, restamp, serverStamp, stampOf } from "./rhythm.js";
-import { cheerSound, doneSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
+import { cheerSound, doneSound, missSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
 import { usePreloadArt } from "./art.jsx";
 import "./controller.css";
 
@@ -170,8 +170,10 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   const [act, setAct] = useState(null);
   /* Last Call: this phone's own call on its one tap, kept for the reveal */
   const [lcTap, setLcTap] = useState(null);
+  /* your judgements this song, for the streak, the meter and the coach (v4 item 2) */
+  const [taps, setTaps] = useState([]);
   /* a new song starts with nothing on the screen */
-  useEffect(() => { setPopup(null); setAct(null); }, [songKey]);
+  useEffect(() => { setPopup(null); setAct(null); setTaps([]); }, [songKey]);
   const popupRef = useRef(null);
   popupRef.current = popup;
   const live = useRef({});
@@ -191,6 +193,10 @@ export default function FloatController({ room = "test", rider = null, onExit = 
       if (!Number.isInteger(msg.c) || typeof msg.q !== "string" || (msg.t === "ev" && msg.i !== g.idx)) return;
       if (msg.t === "me" && msg.i !== undefined && msg.i !== g.idx) return;
       pad.take(msg.c);
+      /* the room's word on a cue is the record: a restamp corrects the tap, a miss joins it */
+      if (live.current.screen === "song" && (msg.q === "miss" || msg.t === "me" || msg.e === "hit")) {
+        setTaps(list => foldTaps(list, { c:msg.c, q:msg.q, d:msg.d, key:`r${msg.c}` }));
+      }
       const up = popupRef.current;
       const fresh = up && perfNow() - up.at < 900;
       if (fresh && up.c === msg.c) {
@@ -202,6 +208,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
       const s = live.current;
       if (msg.t === "ev" && msg.q === "miss" && (!fresh || up.c < msg.c) && s.screen === "song") {
         show({ c:msg.c, q:"miss", d:null });
+        missSound();
         seq.current += 1;
         setAct({ key:seq.current, kind:"miss", q:"miss", at:perfNow() });
       }
@@ -235,7 +242,8 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     }
     if (found) {
       net.send(found.hit);
-      show({ c:found.c, q:found.q, d:found.d });
+      const shown = show({ c:found.c, q:found.q, d:found.d });
+      setTaps(list => foldTaps(list, { c:found.c, q:found.q, d:found.d, key:shown.key }));
       seq.current += 1;
       setAct({ key:seq.current, kind:found.cue.kind, q:found.q, at:perfNow() });
     }
@@ -300,7 +308,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   return <div className="flc-root" style={{ "--me":entrant.color }} data-screen={screen} onTouchEnd={onTouchEnd}>
     {screen === "song"
       ? <SongScreen serverNow={serverNow} chart={chart} songAt={songAt} entrant={entrant} shape={shape} name={song.name}
-        popup={popup} act={act} me={game.me} seats={seatView({ room:game.room, idx })} onTap={onTap} />
+        popup={popup} act={act} me={game.me} taps={taps} seats={seatView({ room:game.room, idx })} onTap={onTap} />
       : screen === "lastcall"
       ? <LastCall serverNow={serverNow} room={game.room} idx={idx} chart={chart} songAt={songAt} entrant={entrant}
         judged={lastCallJudged(game, songKey)} tap={lcTap?.key === songKey ? lcTap : null} me={game.me} onTap={onTap} />

@@ -1357,7 +1357,7 @@
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
+    "status": "rejected",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -1371,7 +1371,7 @@
       ],
       "reach": "shared"
     },
-    "notes": "Decoys are not in the brief; Brandon may mod one. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
+    "notes": "Brandon: skip Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
   },
   {
     "id": "lore-role-2022",
@@ -1521,19 +1521,19 @@
       },
       {
         "id": "b",
-        "text": "Chaox"
-      },
-      {
-        "id": "c",
         "text": "Dyrus"
       },
       {
+        "id": "c",
+        "text": "HotshotGG"
+      },
+      {
         "id": "d",
-        "text": "WildTurtle"
+        "text": "Saintvicious"
       }
     ],
     "answer": "b",
-    "reveal": "Chaox. He also liked The Rain Man.",
+    "reveal": "Dyrus. He liked TSM a lot and watched the whole lineup.",
     "sources": [],
     "verified": {
       "by": "provided",
@@ -1560,7 +1560,186 @@
       ],
       "reach": "deep"
     },
-    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-league, b-tsm."
+  },
+  {
+    "id": "lore-tsm",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which team did Brandon like a lot in old League of Legends?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Counter Logic Gaming"
+      },
+      {
+        "id": "b",
+        "text": "Dignitas"
+      },
+      {
+        "id": "c",
+        "text": "Curse Gaming"
+      },
+      {
+        "id": "d",
+        "text": "Team SoloMid"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Team SoloMid (TSM). He watched its Reginald, OddOne, Chaox, Xpecial and Dyrus lineup a lot.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-tsm."
+  },
+  {
+    "id": "lore-tsm-jungler",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "In the TSM lineup Brandon watched, who played jungle?",
+    "options": [
+      {
+        "id": "a",
+        "text": "TheOddOne"
+      },
+      {
+        "id": "b",
+        "text": "Dyrus"
+      },
+      {
+        "id": "c",
+        "text": "Xpecial"
+      },
+      {
+        "id": "d",
+        "text": "Chaox"
+      }
+    ],
+    "answer": "a",
+    "reveal": "TheOddOne. Dyrus was top, Chaox AD carry, Xpecial support and Reginald mid.",
+    "sources": [
+      {
+        "url": "https://www.gamespot.com/articles/theoddone-moves-to-coach-former-copenhagen-wolves-/1100-6437581/",
+        "note": "TheOddOne stepped down from the jungle in 2014; Chaox AD and Xpecial support per GosuGamers and Wikipedia",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/TSM_League_of_Legends_division",
+        "note": "TSM roster history",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-tsm."
+  },
+  {
+    "id": "lore-tsm-founder",
+    "category": "lore",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which TSM player co-founded the team?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Dyrus"
+      },
+      {
+        "id": "b",
+        "text": "Chaox"
+      },
+      {
+        "id": "c",
+        "text": "Reginald"
+      },
+      {
+        "id": "d",
+        "text": "Xpecial"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Reginald (Andy Dinh) co-founded TSM in 2009 with his brother Dan.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Team_SoloMid",
+        "note": "Co-founded in September 2009 by the brothers Andy Reginald Dinh and Dan Dinh",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-tsm."
   },
   {
     "id": "lore-league-season",
@@ -1579,14 +1758,14 @@
       },
       {
         "id": "c",
-        "text": "Season 5"
+        "text": "Season 4"
       },
       {
         "id": "d",
-        "text": "Season 4"
+        "text": "Season 5"
       }
     ],
-    "answer": "d",
+    "answer": "c",
     "reveal": "Season 4.",
     "sources": [],
     "verified": {
@@ -1678,14 +1857,14 @@
       },
       {
         "id": "c",
-        "text": "PRS Silver Sky"
+        "text": "Ibanez RG"
       },
       {
         "id": "d",
-        "text": "Ibanez RG"
+        "text": "PRS Silver Sky"
       }
     ],
-    "answer": "c",
+    "answer": "d",
     "reveal": "A PRS Silver Sky.",
     "sources": [],
     "verified": {
@@ -1719,18 +1898,18 @@
       },
       {
         "id": "b",
-        "text": "Oculus Rift S"
+        "text": "Valve Index"
       },
       {
         "id": "c",
-        "text": "Valve Index"
+        "text": "Oculus Rift S"
       },
       {
         "id": "d",
         "text": "HP Reverb G2"
       }
     ],
-    "answer": "c",
+    "answer": "b",
     "reveal": "A Valve Index, plus a Meta Quest 3.",
     "sources": [],
     "verified": {
@@ -1760,22 +1939,22 @@
     "options": [
       {
         "id": "a",
-        "text": "Films by the same director"
-      },
-      {
-        "id": "b",
         "text": "Albums by one band"
       },
       {
-        "id": "c",
+        "id": "b",
         "text": "Levels of one game"
       },
       {
-        "id": "d",
+        "id": "c",
         "text": "Chapters of one book"
+      },
+      {
+        "id": "d",
+        "text": "Films by the same director"
       }
     ],
-    "answer": "a",
+    "answer": "d",
     "reveal": "Different films by the same director: one identity, different worlds.",
     "sources": [],
     "verified": {
@@ -1808,18 +1987,18 @@
       },
       {
         "id": "b",
-        "text": "Highlights Hidden Pictures"
+        "text": "I Spy"
       },
       {
         "id": "c",
-        "text": "Magic Eye"
+        "text": "Highlights Hidden Pictures"
       },
       {
         "id": "d",
-        "text": "I Spy"
+        "text": "Magic Eye"
       }
     ],
-    "answer": "d",
+    "answer": "b",
     "reveal": "I Spy: a diorama you search through.",
     "sources": [],
     "verified": {
@@ -1852,18 +2031,18 @@
       },
       {
         "id": "b",
-        "text": "Self Atlas"
+        "text": "Life Atlas"
       },
       {
         "id": "c",
-        "text": "Life Atlas"
+        "text": "Self Atlas"
       },
       {
         "id": "d",
         "text": "Inner Map"
       }
     ],
-    "answer": "b",
+    "answer": "c",
     "reveal": "Self Atlas, along with Nouri, Clarity, Stacky and Field Day.",
     "sources": [],
     "verified": {
@@ -1892,29 +2071,29 @@
     "options": [
       {
         "id": "a",
-        "text": "Imaqtpie"
+        "text": "PhantomL0rd"
       },
       {
         "id": "b",
-        "text": "Scarra"
+        "text": "Imaqtpie"
       },
       {
         "id": "c",
-        "text": "Voyboy"
+        "text": "Scarra"
       },
       {
         "id": "d",
-        "text": "PhantomL0rd"
+        "text": "Voyboy"
       }
     ],
-    "answer": "d",
+    "answer": "a",
     "reveal": "PhantomL0rd, and old League-era Sykkuno.",
     "sources": [],
     "verified": {
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
+    "status": "rejected",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -1935,7 +2114,7 @@
       ],
       "reach": "deep"
     },
-    "notes": "Decoys are not in the brief; he may have watched them too. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
+    "notes": "Brandon: skip. He watched Imaqtpie, Scarra and Voyboy, so none can be a decoy. Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
   },
   {
     "id": "lore-concert-venue",
@@ -1946,11 +2125,11 @@
     "options": [
       {
         "id": "a",
-        "text": "House of Blues Dallas"
+        "text": "The Bomb Factory"
       },
       {
         "id": "b",
-        "text": "The Bomb Factory"
+        "text": "House of Blues Dallas"
       },
       {
         "id": "c",
@@ -1961,7 +2140,7 @@
         "text": "Gexa Energy Pavilion"
       }
     ],
-    "answer": "b",
+    "answer": "a",
     "reveal": "The Bomb Factory in Dallas, 2016, to see Chance the Rapper.",
     "sources": [],
     "verified": {
@@ -2034,11 +2213,11 @@
     "options": [
       {
         "id": "a",
-        "text": "Playground"
+        "text": "Photography"
       },
       {
         "id": "b",
-        "text": "Photography"
+        "text": "Playground"
       },
       {
         "id": "c",
@@ -2049,7 +2228,7 @@
         "text": "Now"
       }
     ],
-    "answer": "a",
+    "answer": "b",
     "reveal": "Playground, a diorama in the spirit of I Spy.",
     "sources": [],
     "verified": {
@@ -2078,29 +2257,29 @@
     "options": [
       {
         "id": "a",
-        "text": "BeamNG"
-      },
-      {
-        "id": "b",
         "text": "Forza Horizon"
       },
       {
-        "id": "c",
+        "id": "b",
         "text": "Euro Truck Simulator 2"
       },
       {
-        "id": "d",
+        "id": "c",
         "text": "Need for Speed Heat"
+      },
+      {
+        "id": "d",
+        "text": "BeamNG"
       }
     ],
-    "answer": "a",
+    "answer": "d",
     "reveal": "BeamNG, plus Skyrim, Fallout and The Sims.",
     "sources": [],
     "verified": {
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
+    "status": "rejected",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -2114,14 +2293,14 @@
       ],
       "reach": "deep"
     },
-    "notes": "Decoys are not in the brief; Brandon may mod one. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
+    "notes": "Brandon: skip Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
   },
   {
     "id": "lore-league-champ",
     "category": "lore",
-    "tier": 5,
+    "tier": 4,
     "format": "choice",
-    "prompt": "Which of these champions does Brandon play in League?",
+    "prompt": "Which of these champions was one of Brandon's League mains?",
     "options": [
       {
         "id": "a",
@@ -2129,25 +2308,25 @@
       },
       {
         "id": "b",
-        "text": "Teemo"
+        "text": "Fizz"
       },
       {
         "id": "c",
-        "text": "Cassiopeia"
+        "text": "Yasuo"
       },
       {
         "id": "d",
-        "text": "Lee Sin"
+        "text": "Katarina"
       }
     ],
-    "answer": "c",
-    "reveal": "Cassiopeia, along with Fizz, Orianna, Ahri, Jinx, Caitlyn, Graves and Vayne.",
+    "answer": "b",
+    "reveal": "Fizz. His mains were Orianna, Fizz and Ahri.",
     "sources": [],
     "verified": {
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "confirm",
+    "status": "ready",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -2168,7 +2347,7 @@
       ],
       "reach": "deep"
     },
-    "notes": "The brief lists his champions but not that he avoids Zed, Teemo or Lee Sin. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-league."
   },
   {
     "id": "lore-roadtrip-sister",
@@ -2183,18 +2362,18 @@
       },
       {
         "id": "b",
-        "text": "Bethany"
-      },
-      {
-        "id": "c",
         "text": "Both sisters"
       },
       {
-        "id": "d",
+        "id": "c",
         "text": "A cousin"
+      },
+      {
+        "id": "d",
+        "text": "Bethany"
       }
     ],
-    "answer": "b",
+    "answer": "d",
     "reveal": "Bethany.",
     "sources": [],
     "verified": {

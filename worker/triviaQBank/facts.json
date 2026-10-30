@@ -72,8 +72,8 @@
     },
     {
       "id": "b-league",
-      "text": "Favorite old League pro: Chaox; also liked The Rain Man. Stopped playing League regularly after Season 4. Mainly Mid/ADC. Champions: Fizz, Orianna, Ahri, Cassiopeia, Jinx, Caitlyn, Graves, Vayne. Watched PhantomL0rd and old League-era Sykkuno.",
-      "provenance": "provided, Brandon's brief Oct 29 2026"
+      "text": "Favorite old League pro: Dyrus (corrected Oct 29; the brief said Chaox). Also liked The Rain Man. Stopped playing League regularly after Season 4. Mainly Mid/ADC. Champions: Fizz, Orianna, Ahri, Cassiopeia, Jinx, Caitlyn, Graves, Vayne; his mains were Orianna, Fizz and Ahri (Oct 29). Watched PhantomL0rd and old League-era Sykkuno.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
     },
     {
       "id": "b-gear",
@@ -99,6 +99,11 @@
       "id": "b-friends",
       "text": "Evan: best friend since 7th grade, best man, same middle/high school/college, college roommate. Sahil: freshman-year roommate. Henry and Ben: cousins (dad side). Richard, Allan, Jeremy: cousins (mom side). Chinh and Khoa: longtime precollege friends. Adi and Chiang: college friends.",
       "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-tsm",
+      "text": "Watched all the old League pros and liked TSM a lot, specifically the Reginald, OddOne, Chaox, Xpecial and Dyrus lineup, which he watched quite a bit. Also watched Imaqtpie, Scarra and Voyboy.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
     },
     {
       "id": "b-roadtrip",
@@ -151,30 +156,6 @@
       "provenance": "provided, Brandon's brief Oct 29 2026"
     }
   ],
-  "needsBrandon": [
-    {
-      "id": "kim-proposal-meetup",
-      "who": "Kim & Winnie",
-      "question": "How was the staged meetup actually done (who met Kim, where)?",
-      "why": "A plan only; confirm execution."
-    }
-  ],
-  "decoyChecks": [
-    {
-      "id": "lore-mod-sims",
-      "note": "Decoys are not in the brief; Brandon may mod one. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
-    },
-    {
-      "id": "lore-streamer",
-      "note": "Decoys are not in the brief; he may have watched them too. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
-    },
-    {
-      "id": "lore-mod-beamng",
-      "note": "Decoys are not in the brief; Brandon may mod one. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
-    },
-    {
-      "id": "lore-league-champ",
-      "note": "The brief lists his champions but not that he avoids Zed, Teemo or Lee Sin. Check before use. Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
-    }
-  ]
+  "needsBrandon": [],
+  "decoyChecks": []
 }

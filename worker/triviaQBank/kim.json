@@ -775,7 +775,7 @@
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "ready",
+    "status": "rejected",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -788,7 +788,7 @@
       "reach": "shared"
     },
     "surprise": true,
-    "notes": "Possible wedding surprise: Brandon reviews before use. Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
+    "notes": "Brandon: wedding surprise, leave out Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
   },
   {
     "id": "kim-dance-style",
@@ -821,7 +821,7 @@
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "ready",
+    "status": "rejected",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -833,7 +833,7 @@
       "reach": "shared"
     },
     "surprise": true,
-    "notes": "Possible wedding surprise: Brandon reviews before use. Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
+    "notes": "Brandon: wedding surprise, leave out Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
   },
   {
     "id": "kim-studio",
@@ -866,7 +866,7 @@
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "ready",
+    "status": "rejected",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -878,7 +878,7 @@
       "reach": "deep"
     },
     "surprise": true,
-    "notes": "Possible wedding surprise: Brandon reviews before use. Decoy studio names are generic. Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
+    "notes": "Brandon: wedding surprise, leave out Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
   },
   {
     "id": "kim-instructor",
@@ -911,7 +911,7 @@
       "by": "provided",
       "at": "2026-10-29"
     },
-    "status": "ready",
+    "status": "rejected",
     "personal": "provided",
     "tags": {
       "topics": [
@@ -923,7 +923,7 @@
       "reach": "deep"
     },
     "surprise": true,
-    "notes": "Possible wedding surprise: Brandon reviews before use. Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
+    "notes": "Brandon: wedding surprise, leave out Provenance: Brandon's brief, Oct 29 2026. Facts: k-dance."
   },
   {
     "id": "kim-how-met",
@@ -1086,7 +1086,7 @@
       "by": "suggested",
       "at": "2026-10-29"
     },
-    "status": "confirm",
+    "status": "rejected",
     "personal": "needs-brandon",
     "tags": {
       "topics": [
@@ -1096,7 +1096,7 @@
       "possible": [],
       "reach": "deep"
     },
-    "notes": "Brandon: supply the answer. The staged meetup was only a plan; confirm how it went. Provenance: Brandon's brief, Oct 29 2026. Facts: k-proposal."
+    "notes": "Brandon: skip Provenance: Brandon's brief, Oct 29 2026. Facts: k-proposal."
   },
   {
     "id": "kim-proposal-ring",

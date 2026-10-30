@@ -23,6 +23,8 @@ test("seats: a cut closes gaps without swapping neighbours", () => {
 test("seats: words", () => {
   assert.equal(seatWords({ row:0, rows:3, col:2, cols:4 }), "Front row, 3rd from the left");
   assert.equal(seatWords({ row:2, rows:3, col:3, cols:4 }), "Back row, far right");
-  assert.equal(seatWords({ row:0, rows:1, col:0, cols:3 }), "1st from the left");
+  assert.equal(seatWords({ row:0, rows:1, col:0, cols:3 }), "Far left");
+  assert.equal(seatWords({ row:0, rows:3, col:0, cols:4 }), "Front row, far left");
+  assert.equal(seatWords({ row:0, rows:1, col:0, cols:2 }), "1st from the left");
   assert.equal(seatWords({ row:1, rows:2, col:1, cols:5 }), "Back row, 2nd from the left");
 });

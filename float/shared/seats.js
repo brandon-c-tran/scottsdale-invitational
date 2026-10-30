@@ -38,10 +38,12 @@ const ordinal = n => {
 };
 const ROW_WORDS = { 1:["Front row"], 2:["Front row", "Back row"], 3:["Front row", "Middle row", "Back row"] };
 
-/* a seat in words: "Front row, 3rd from the left"; one row: "3rd from the left" */
+/* a seat in words: "Front row, 3rd from the left", the ends "far left" and
+   "far right" (a row of three or more); one row: "3rd from the left" */
 export function seatWords(seat) {
   if (!seat) return "";
-  const from = seat.cols > 1 && seat.col === seat.cols - 1 && seat.cols > 2 ? "Far right" : `${ordinal(seat.col + 1)} from the left`;
+  const end = seat.cols > 2 && (seat.col === 0 ? "Far left" : seat.col === seat.cols - 1 ? "Far right" : null);
+  const from = end || `${ordinal(seat.col + 1)} from the left`;
   if (seat.rows <= 1) return from;
-  return `${ROW_WORDS[seat.rows]?.[seat.row] || `Row ${seat.row + 1}`}, ${from === "Far right" ? "far right" : from}`;
+  return `${ROW_WORDS[seat.rows]?.[seat.row] || `Row ${seat.row + 1}`}, ${end ? end.toLowerCase() : from}`;
 }

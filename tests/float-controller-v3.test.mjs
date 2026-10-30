@@ -44,7 +44,7 @@ test("who you are: your seat in the field (the TV's layout, front row first), it
     const { row, col } = seats.get(i);
     assert.equal(view.rows[row][col].i, i, "yours where seats.js puts it (row 0 the front)");
   }
-  assert.equal(seatView({ room, idx:0 }).words, "Front row, 1st from the left");
+  assert.equal(seatView({ room, idx:0 }).words, "Front row, far left");
   /* a cut closes the gaps without anyone passing a neighbour */
   const after = room13({ field:[0, 2, 3, 5, 8, 9, 11, 12, 1] });
   const v = seatView({ room:after, idx:5 });

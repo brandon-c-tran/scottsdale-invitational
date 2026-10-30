@@ -335,6 +335,8 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
   const wearsShades = !!(shades?.img && anchor?.eyes), wearsHat = !!(hat?.img && anchor?.head);
   if (wearsShades || wearsHat) {
     const glassesLayer = wearsShades ? canvas(w, h) : null, hatLayer = wearsHat ? canvas(w, h) : null;
+    /* the glasses' height over the eyes (art px), a brim stays off it; the hat's part over its crown line, which ears come through */
+    let glassesTop = null, hatCrown = null;
     if (wearsShades) {
       /* lenses on the eyes' span, the frame never wider than the head; a face turned three quarters
          has its eyes closer than a front face's, so the frame narrows with them but keeps its height */
@@ -346,6 +348,7 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
       gg.translate(anchor.eyes[0] * k, anchor.eyes[1] * k);
       gg.rotate(tilt);
       gg.drawImage(shades.img, -shades.anchor[0] * sc * k, -shades.anchor[1] * sy * k, shades.w * sc * k, shades.h * sy * k);
+      glassesTop = shades.anchor[1] * sy;
       /* never past the critter's own outline: on a three quarter face the far lens goes behind the snout */
       gg.setTransform(1, 0, 0, 1, 0, 0);
       gg.globalCompositeOperation = "destination-in";
@@ -354,7 +357,7 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
     if (wearsHat) {
       const hg = hatLayer.getContext("2d");
       /* a critter whose measured head takes in its horns or fluff wears its hat at its skull's width */
-      const skullW = Math.max(boxW * MIN_HEAD_SHARE, (measure.wearW || measure.headW || DEFAULT_MEASURE.headW) * (measure.hatScale ?? 1));
+      const skullW = Math.max(boxW * MIN_HEAD_SHARE, (measure.wearW || measure.headW || DEFAULT_MEASURE.headW) * (measure.hatScale ?? 1)) * (measure.wearScale ?? 1);
       const sc = (hat.fit * skullW) / hat.w;
       let baseY;
       if (hat.sink != null && anchor.eyes) {
@@ -365,8 +368,8 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
         if (Number.isFinite(measure.browDrop)) {
           /* riding the eyes: the critter's own brow height over its eyes (from idle), the same in every pose */
           baseY = eyeY - (1 - hat.sink) * (measure.seatDrop ?? measure.browDrop);
-          /* never over the skull's own top: a hat always takes some head in */
-          baseY = Math.max(baseY, eyeY - measure.browDrop + skullW * 0.05);
+          /* never over the skull's own top: a hat always takes some head in (a critter seated by its brow share sits where it says) */
+          if (measure.seatDrop == null || measure.seatDrop === measure.browDrop) baseY = Math.max(baseY, eyeY - measure.browDrop + skullW * 0.05);
         } else {
           /* from the skull's own top where the art measured it (an ear's tip or a slumped head throws the anchor off) */
           const top = Number.isFinite(measure.skullTop) ? Math.min(measure.skullTop, eyeY - skullW * 0.12) : 0;
@@ -381,9 +384,27 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
           baseY = Math.min(baseY, eyeY - (hat.gap ?? 0.08) * headW);
         }
       }
+      /* a brim never comes down over the glasses: its edge stops at their top */
+      if (glassesTop != null && anchor.eyes) {
+        const ex = anchor.eyes[0] - anchor.head[0], ey = anchor.eyes[1] - anchor.head[1];
+        const eyeY = -ex * Math.sin(tilt) + ey * Math.cos(tilt);
+        baseY = Math.min(baseY, eyeY - glassesTop * 0.85);
+      }
       hg.translate(anchor.head[0] * k, anchor.head[1] * k);
       hg.rotate(tilt);
-      hg.drawImage(hat.img, -hat.anchor[0] * sc * k, (baseY - hat.anchor[1] * sc) * k, hat.w * sc * k, hat.h * sc * k);
+      const hx0 = -hat.anchor[0] * sc * k, hy0 = (baseY - hat.anchor[1] * sc) * k;
+      hg.drawImage(hat.img, hx0, hy0, hat.w * sc * k, hat.h * sc * k);
+      /* ears come through a soft brimmed hat (hat.ears) over its crown line (hat.crown, hat px); the brim always wins */
+      if (hat.ears && Number.isFinite(hat.crown)) {
+        hatCrown = canvas(w, h);
+        const cg = hatCrown.getContext("2d");
+        cg.translate(anchor.head[0] * k, anchor.head[1] * k);
+        cg.rotate(tilt);
+        cg.beginPath();
+        cg.rect(hx0 - w, hy0 - h, hat.w * sc * k + 2 * w, h + hat.crown * sc * k);
+        cg.clip();
+        cg.drawImage(hat.img, hx0, hy0, hat.w * sc * k, hat.h * sc * k);
+      }
     }
     /* the cast shadow: each layer's shape a little down the head, on the critter only, in ink */
     const shadow = canvas(w, h);
@@ -407,18 +428,22 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
     if (wornTop && hatLayer) out.wornTop = topRow(hatLayer);
     /* in front: the sprite's own ears, horns, crest, paddle and cup, drawn back over what was worn;
        a part the hat swallows whole (a capybara's little ears under a cowboy hat) stays under it */
-    if (front) {
+    if (front && (glassesLayer || hatCrown)) {
       const worn = canvas(w, h), wg = worn.getContext("2d");
       if (glassesLayer) wg.drawImage(glassesLayer, 0, 0);
       if (hatLayer) wg.drawImage(hatLayer, 0, 0);
+      /* where a front part may show: over the glasses (the cup), over the crown of a hat ears come through */
+      const over = canvas(w, h), og = over.getContext("2d");
+      if (glassesLayer) og.drawImage(glassesLayer, 0, 0);
+      if (hatCrown) og.drawImage(hatCrown, 0, 0);
       const f = canvas(w, h);
       const fg = f.getContext("2d");
       fg.drawImage(front, 0, 0, w, h);
-      const sm = seam && hatLayer ? canvas(w, h) : null;
+      const sm = seam && hatCrown ? canvas(w, h) : null;
       if (sm) sm.getContext("2d").drawImage(seam, 0, 0, w, h);
       keepStandingOut(f, worn, sm, w, h);
       fg.globalCompositeOperation = "destination-in";
-      fg.drawImage(worn, 0, 0);
+      fg.drawImage(over, 0, 0);
       g.drawImage(f, 0, 0);
       /* where an ear comes out of the crown, its base inked */
       if (sm) {
@@ -427,7 +452,7 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
         smg.fillStyle = INK;
         smg.fillRect(0, 0, w, h);
         smg.globalCompositeOperation = "destination-in";
-        smg.drawImage(hatLayer, 0, 0);
+        smg.drawImage(hatCrown, 0, 0);
         g.drawImage(sm, 0, 0);
       }
     }
@@ -520,6 +545,9 @@ export function wearOf(c, entry = null) {
   return out;
 }
 
+/* a pose that draws the head slumped and sunk (out) wears its hat this much smaller */
+const POSE_WEAR = Object.freeze({ out:0.9 });
+
 /* the set a look's poses come from: the tee's with the photo tee (when the critter has one), else the plain one */
 const artSet = (c, look) => (look.shirt && c?.tee?.poses ? c.tee : c);
 /* a pose's front parts and seam, loaded only when something is worn (null when the art has none) */
@@ -606,7 +634,7 @@ export function riderSprites(raw = {}) {
       for (const pose of m.poses || POSES) {
         const art = set.poses?.[pose] || set.poses?.idle;
         const at = { ...c.anchor, ...(set.anchor || {}), ...(art?.anchor || {}) };
-        const measure = { ...measureOf(art, measureOf(set, measureOf(c))), ...wear };
+        const measure = { ...measureOf(art, measureOf(set, measureOf(c))), ...wear, wearScale:POSE_WEAR[pose] ?? 1 };
         const fileKey = `${art?.src}|${art?.tube}|${art?.shirt || ""}|${JSON.stringify(at)}|${JSON.stringify(measure)}`;
         if (done.has(fileKey)) { urls[pose] = done.get(fileKey); continue; }
         const [src, tube, shirt, front, seam] = await Promise.all([

@@ -734,8 +734,8 @@ the skull and hid everything thin above it. Now a hat is worn:
   size every pose's hat and glasses (the measured head moved up to 13%
   between stroke and stroke-r, which alternate on the beat). `hatScale`
   corrects a head measured with horns or fluff (bighorn 0.8) or too
-  narrow (jackrabbit 1.25, roadrunner 1.15); `browShare` gives the frog,
-  whose eyes are its top, a brow height.
+  narrow (jackrabbit 1.4, roadrunner 1.15; the frog's bean of a head 0.8);
+  `browShare` seats the frog, whose eyes are its top, over its eye bumps.
 - **Shadow.** The hat's and the glasses' shapes drop a little down the head
   in ink at 24%, on the critter only.
 - **In front.** `scripts/float-art-seat.mjs` writes, per pose (plain, tee)
@@ -743,10 +743,15 @@ the skull and hid everything thin above it. Now a hat is worn:
   the head: ears, horns, crests, the quail's plume, arms and a paddle held
   overhead, the cup) and `seam` (ink at a part's base), plus
   `measure.skullTop` (the opened body's top, so never an ear's tip). The
-  painter draws back over the hat and glasses only the parts that cross
-  out of them, inking the base where an ear leaves the crown; a part the
-  hat swallows whole (a capybara's little ears under a cowboy hat) stays
-  under it. Run it after `float-art-fit-anchors.mjs`, which rewrites every
+  painter draws back only the parts that cross out of what is worn: ears
+  (only pieces that grow from the head, never an arm or the paddle, which
+  pass behind) come through a soft brimmed hat (`ears`: cowboy, sun hat,
+  fishing, froggy) over its crown line (`crown`, hat px), so the brim
+  always wins, with the base inked; under a beanie, top hat, viking,
+  party hat, mushroom, propeller or crown they stand behind; the cup comes
+  over the glasses. A part the hat swallows whole stays under it. A brim
+  stops at the glasses' top; the slumped out pose wears its hat 10%
+  smaller. Run it after `float-art-fit-anchors.mjs`, which rewrites every
   measure.
 - **Glasses** stay inside the critter's outline (a three quarter face's far
   lens goes behind the snout).

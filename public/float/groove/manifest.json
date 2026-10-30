@@ -3568,7 +3568,7 @@
      }
     }
    },
-   "hatScale": 1.25
+   "hatScale": 1.4
   },
   "tortoise": {
    "anchor": {
@@ -11524,7 +11524,8 @@
      }
     }
    },
-   "browShare": 0.32
+   "browShare": 0.32,
+   "hatScale": 0.8
   },
   "winnie": {
    "anchor": {
@@ -13199,7 +13200,9 @@
    "fit": 1.5,
    "depth": 0.2,
    "gap": 0.08,
-   "sink": 0.62
+   "sink": 0.62,
+   "ears": true,
+   "crown": 118
   },
   "party": {
    "src": "looks/hats/party.webp",
@@ -13242,7 +13245,9 @@
    "fit": 1.22,
    "depth": 0.24,
    "gap": 0.08,
-   "sink": 0.58
+   "sink": 0.58,
+   "ears": true,
+   "crown": 150
   },
   "beanie": {
    "src": "looks/hats/beanie.webp",
@@ -13313,7 +13318,9 @@
    "fit": 1.2,
    "depth": 0.22,
    "gap": 0.08,
-   "sink": 0.58
+   "sink": 0.58,
+   "ears": true,
+   "crown": 150
   },
   "sunhat": {
    "src": "looks/hats/sunhat.webp",
@@ -13327,7 +13334,9 @@
    "fit": 1.55,
    "depth": 0.18,
    "gap": 0.08,
-   "sink": 0.6
+   "sink": 0.6,
+   "ears": true,
+   "crown": 95
   },
   "halo": {
    "src": "looks/hats/halo.webp",

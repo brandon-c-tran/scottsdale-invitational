@@ -9,7 +9,8 @@
    portrait, this writes:
 
    - `<pose>-front.webp`: the sprite's own pixels of those parts (the body's
-     alpha minus its morphological opening, near the head in its turned frame), and in
+     alpha minus its morphological opening, near the head in its turned frame,
+     only pieces that grow from the head: never an arm or the paddle), and in
      the chug pose the cup with its ink, which sits in front of glasses
    - `<pose>-seam.webp`: an ink line where a protrusion meets the skull (its
      base), drawn only over a hat, so an ear comes out of the crown with an
@@ -107,7 +108,7 @@ const isRed = (r, g, b) => r > 165 && g < 120 && b < 120 && r - g > 80;
 const isDark = (r, g, b) => Math.max(r, g, b) < 90;
 
 /* one sprite: { front:RGBA, seam:alpha, skullTop } in the image's own px. at: anchors, m: measure, k: image px per box px */
-export function seatOf(img, at, m, { pose = "", k = 1, open = OPEN_PX } = {}) {
+export function seatOf(img, at, m, { pose = "", k = 1, open = OPEN_PX, tube = null } = {}) {
   const { data:d, width:W, height:H } = img;
   const A = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) A[i] = d[i * 4 + 3] > 110 ? 1 : 0;
@@ -127,9 +128,21 @@ export function seatOf(img, at, m, { pose = "", k = 1, open = OPEN_PX } = {}) {
     if (down > eyeDown + headW * DOWN_REACH || Math.abs(across) > headW * REACH || down < -headW * 2.2) continue;
     P[i] = 1;
   }
-  /* small crumbs (a corner of the outline the disc rounded off) are not parts */
+  /* only what grows from the head: a piece whose lowest point is over the eyes (ears, horns, a crest,
+     a plume), never an arm (it hangs on down past them) nor the paddle (it carries the kayak's colour,
+     or is mostly its dark shaft); small crumbs (a corner the disc rounded off) are nothing */
   const { comps, labels } = components(P, W, H);
-  const keep = new Set(comps.filter(c => c.n >= MIN_PIECE * k * k).map(c => c.id));
+  const low = new Float64Array(comps.length).fill(-Infinity), tubeN = new Uint32Array(comps.length), darkN = new Uint32Array(comps.length);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    if (!P[i]) continue;
+    const c = labels[i], dx = x - hx, dy = y - hy;
+    const down = -(dx * n[0] + dy * n[1]);
+    if (down > low[c]) low[c] = down;
+    if (tube && tube[i * 4 + 3] > 80) tubeN[c]++;
+    if (isDark(d[i * 4], d[i * 4 + 1], d[i * 4 + 2])) darkN[c]++;
+  }
+  const keep = new Set(comps.filter(c => c.n >= MIN_PIECE * k * k && low[c.id] < eyeDown * 0.9 && tubeN[c.id] < c.n * 0.04 && darkN[c.id] < c.n * 0.5).map(c => c.id));
   for (let i = 0; i < W * H; i++) if (P[i] && !keep.has(labels[i])) P[i] = 0;
   /* a part's own ink just outside it comes too (its outline is drawn half on the skull) */
   const P2 = grow(P, W, H, 2.5 * k);
@@ -202,7 +215,8 @@ for (const [id, c] of Object.entries(manifest.critters)) {
   for (const [set, pose, art, at, m, k] of jobs) {
     if (!at?.head) continue;
     const img = await loadRGBA(path.join(OUT, art.src));
-    const seat = seatOf(img, at, m, { pose, k, open:OPEN_BY[id] || OPEN_PX });
+    const tube = art.tube ? (await loadRGBA(path.join(OUT, art.tube)).catch(() => null))?.data || null : null;
+    const seat = seatOf(img, at, m, { pose, k, open:OPEN_BY[id] || OPEN_PX, tube });
     const { front, seam, count } = seat, skullTop = SKULL_FROM_ANCHOR.has(id) ? null : seat.skullTop;
     const base = art.src.replace(/\.webp$/, "");
     const files = { front:`${base}-front.webp`, seam:`${base}-seam.webp`, skullTop };

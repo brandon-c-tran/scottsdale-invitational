@@ -229,3 +229,28 @@ export function paddleAt(hit, now, { side = -1 } = {}) {
 
 /* the poses that have no hands free for the paddle: it is put away */
 export const PADDLE_AWAY = Object.freeze(new Set(["chug", "cheer", "out"]));
+
+/* Auto-rowing (GROOVE.md v4 item 1): in every song every rider rows on 1
+   and 3 by the clock, 1 on the left (`stroke`) and 3 on the right
+   (`stroke-r`), through practice, play and the breakdown. A beat that
+   carries a cue belongs to that cue (Paddle Party's judged strokes, a
+   song's own move), and a blackout bar rows in the dark unseen. Returns
+   the stroke running at `beat`: { beat, side } or null. */
+const CUE_BEATS = new WeakMap();
+const ROWING = new Set(["practice", "play", "breakdown"]);
+export function autoStrokeAt(chart, beat, { beatMs = chart?.beatMs || 500 } = {}) {
+  if (!chart?.cues || !Number.isFinite(beat)) return null;
+  let taken = CUE_BEATS.get(chart);
+  if (!taken) CUE_BEATS.set(chart, taken = new Set(chart.cues.map(cue => Math.round(cue.beat * 2) / 2)));
+  const b = Math.floor(beat);
+  for (const k of [b, b - 1]) {
+    if (k < 0 || ((k % 4) !== 0 && (k % 4) !== 2)) continue;
+    if ((beat - k) * beatMs >= PADDLE.MS) return null;
+    if (taken.has(k)) return null;
+    const section = (chart.sections || []).find(x => k >= x.from && k < x.to);
+    if (!section || !ROWING.has(section.kind)) return null;
+    if (Array.isArray(chart.dark) && chart.dark.includes(Math.floor(k / 4))) return null;
+    return { beat:k, side:(k % 4) === 0 ? -1 : 1 };
+  }
+  return null;
+}

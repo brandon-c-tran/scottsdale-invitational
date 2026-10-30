@@ -77,7 +77,8 @@ export const RING_OVER = 62 * 1.45;
 /* everyone at the bar: one line-up behind the counter, so each rider's
    readout stands right over them and every name sits on the counter under
    them, in the order given (left to right): { [i]: { x, y, scale, row } } */
-export const BAR_LINE = Object.freeze({ lo:130, hi:1790, maxSpacing:300 });
+/* (v4 item 3: right of the bartender, so 13 readouts in two tiers clear him) */
+export const BAR_LINE = Object.freeze({ lo:520, hi:1800, maxSpacing:300 });
 export function barLayout(players = []) {
   const list = players.filter(i => Number.isInteger(i));
   const out = {};
@@ -85,7 +86,7 @@ export function barLayout(players = []) {
   if (!n) return out;
   const spacing = n > 1 ? Math.min(BAR_LINE.maxSpacing, (BAR_LINE.hi - BAR_LINE.lo) / (n - 1)) : 0;
   /* shoulder to shoulder: a critter's body is about 200 box px wide */
-  const scale = Math.max(0.3, Math.min(0.62, (spacing || BAR_LINE.maxSpacing) / 290));
+  const scale = Math.max(0.34, Math.min(0.62, (spacing || BAR_LINE.maxSpacing) / 280));
   /* the waterline just under the counter's top: the ring and the paws behind it */
   const y = Math.round(COUNTER.top + RING_OVER * scale + 6);
   const start = (BAR_LINE.lo + BAR_LINE.hi) / 2 - (spacing * (n - 1)) / 2;

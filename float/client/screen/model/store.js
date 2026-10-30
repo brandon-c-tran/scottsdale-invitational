@@ -10,6 +10,10 @@ import { PHASES } from "../../../shared/protocol.js";
 import { actionKind, chartFor, songStart } from "./song.js";
 import { indexList } from "./cupShape.js";
 
+/* the runs the TV marks over a critter (GROOVE.md v4 item 2) */
+export const STREAK_BADGES = Object.freeze([10, 20, 30]);
+export const BADGE_MS = 1400;
+
 export const phaseOf = name => (PHASES.includes(name) ? name : "lobby");
 
 export function createScreenStore() {
@@ -39,6 +43,10 @@ export function createScreenStore() {
     judged:new Map(),
     /* each rider's latest judged hit: { c, q, d, at, kind, scored } */
     last:new Map(),
+    /* each rider's run of Nice or better this song, and the streak badge
+       (v4 item 2: only at 10, 20 and 30, for a moment): { n, at } */
+    streaks:new Map(),
+    badges:new Map(),
     /* when each chug-off contender tapped Done (ev done) */
     done:new Map(),
     /* the crowd: when each last cheered, and the outs in order */
@@ -65,6 +73,8 @@ export function createScreenStore() {
   function resetSong() {
     state.judged = new Map();
     state.last = new Map();
+    state.streaks = new Map();
+    state.badges = new Map();
     state.done = new Map();
     state.scores = new Map();
     state.scoresAt = -Infinity;
@@ -145,6 +155,12 @@ export function createScreenStore() {
       const d = Number.isFinite(msg.d) ? msg.d : null;
       mine.set(msg.c, { q:msg.q, d, at, scored:!!cue.scored });
       state.last.set(msg.i, { c:msg.c, q:msg.q, d, at, kind:actionKind(state.chart, cue), scored:!!cue.scored });
+      if (cue.scored) {
+        const run = msg.q === "perfect" || msg.q === "nice" ? (state.streaks.get(msg.i) || 0) + 1
+          : msg.q === "ok" ? (state.streaks.get(msg.i) || 0) : 0;
+        state.streaks.set(msg.i, run);
+        if (STREAK_BADGES.includes(run) && msg.q !== "ok") state.badges.set(msg.i, { n:run, at });
+      }
     } else if (msg.e === "done") {
       if (!state.done.has(msg.i)) state.done.set(msg.i, at);
     } else if (msg.e === "cheer") {

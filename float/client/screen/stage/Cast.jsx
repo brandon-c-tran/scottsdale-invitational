@@ -18,7 +18,7 @@ import { ANCHOR, BOX, CROWD, NAME_H, POPUP_BOX, crowdLayout, flotillaLayout, nam
   popupSlots, seatOrder } from "../model/flotilla.js";
 import { propOf, sceneOf, spriteSize } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
-import { PADDLE, PADDLE_AWAY, actionAt, bobAt, cheerAt, chugAt, follow, paddleAt, popupAt, strokeSide } from "../model/motion.js";
+import { PADDLE, PADDLE_AWAY, actionAt, autoStrokeAt, bobAt, cheerAt, chugAt, follow, paddleAt, popupAt, strokeSide } from "../model/motion.js";
 import { actionKind, demoAt, lineShownAt, lineSpot, rankStripOn, sceneFor } from "../model/song.js";
 import { narrationOf } from "../soundBridge.js";
 import { reducedMotion } from "./driver.js";
@@ -27,10 +27,11 @@ import { cutField, cutShow } from "../model/cut.js";
 import { EXIT_MS, exitAt, exitKind } from "../model/exits.js";
 import { belowCut, rankNow } from "../model/rank.js";
 import { chugLayout, chugoffAt, firstChugoff } from "../model/chugoff.js";
-import { barLayout, barPlayersOf, barRanking, closestOf, countdownAt, readoutOf, verdictShown } from "../model/lastcall.js";
+import { COUNTER, barLayout, barPlayersOf, barRanking, closestOf, countdownAt, readoutOf, verdictShown } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
 import { inkOn } from "../hud/identity.js";
 import { countNumberTone, numberTone } from "../model/tone.js";
+import { BADGE_MS } from "../model/store.js";
 
 const BEAT = 500;
 /* Last Call's readouts: the popup lettered this much bigger */
@@ -47,6 +48,17 @@ export const LINE_RECTS = Object.freeze({ top:{ x0:520, x1:1400, y0:36, y1:160 }
 /* the cut's award cards, a row under the strip */
 export const CARDS_RECT = Object.freeze({ x0:380, x1:1880, y0:214, y1:420 });
 const ease = t => 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
+/* the bar's 13 names on the counter's front, in two rows left to right
+   (shoulder to shoulder, a tag is wider than a rider): { [i]: { dx, dy } } */
+export const BAR_NAMES = Object.freeze({ y:COUNTER.top + 62, step:48 });
+export function barNames(spots) {
+  const out = {};
+  spots.slice().sort((a, b) => a.x - b.x).forEach((n, k) => {
+    out[n.i] = { dx:0, dy:BAR_NAMES.y + (spots.length > 7 ? (k % 2) * BAR_NAMES.step : 0) - n.y };
+  });
+  return out;
+}
+
 /* Last Call's line-up once revealed: the room's ranking (`lastCall.order`,
    closest first, up to about 200 ms after revealAt), else, for a room that
    names who drinks without one, the screen's own; until either, the Cup's
@@ -220,9 +232,10 @@ function RiderPop({ i, setters }) {
   if (!say) return null;
   if (say.grade) return <span className={`fl-pop-in fl-grade is-${say.grade}`} key={`grade:${say.grade}`}><span>{gradeWord(say.grade)}</span></span>;
   const tone = say.big ? countNumberTone(say.q, say.d) : numberTone(say.q, say.d);
-  return <span className={`fl-pop-in${say.closest ? " is-closest" : ""}${say.drinks ? " is-drinks" : ""}`} data-tone={tone}
-    key={`${say.c}:${say.at}:${say.closest ? 1 : 0}:${say.drinks ? 1 : 0}`}>
+  return <span className={`fl-pop-in${say.closest ? " is-closest" : ""}${say.drinks ? " is-drinks" : ""}${say.streak ? " is-streak" : ""}`} data-tone={tone}
+    key={`${say.c}:${say.at}:${say.closest ? 1 : 0}:${say.drinks ? 1 : 0}:${say.streak || 0}`}>
     <PopupLetters q={say.q} d={say.d} size={say.big ? 40 * BAR_POP : 40} />
+    {say.streak && <span className="fl-pop-streak" key={`streak:${say.streak}`}>{say.streak} in a row</span>}
     {say.closest && <span className="fl-pop-tag is-closest">Closest</span>}
     {say.drinks && <span className="fl-pop-tag is-drinks">Drinks</span>}
   </span>;
@@ -316,7 +329,9 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       const exits = chug && chug.loser !== null && Number.isFinite(chug.exitAt) ? [{ i:chug.loser, at:chug.exitAt, ms:CHUGOFF.EXIT_MS }] : p.exits;
       const reformed = p.reform !== null && now >= p.reform;
       /* the cut's grades stand from their stamp until the line */
-      const gradesOn = cut && !!p.show && now >= p.show.gradesAt && now < p.show.awardsEnd;
+      /* (v4: the grades stand alone, then make way for the award cards) */
+      const cardsFrom = p.show?.awards?.length ? p.show.awards[0].at - 200 : Infinity;
+      const gradesOn = cut && !!p.show && now >= p.show.gradesAt && now < Math.min(cardsFrom, p.show.awardsEnd);
       const cardsOn = cut && !!p.show?.awards?.length && now >= p.show.awards[0].at - 200 && now < p.show.awardsEnd;
       /* the layouts and the popups' slots: every 120 ms (the scores move
          them; the motion is smoothed) */
@@ -335,7 +350,10 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const shown = reformed ? next : water;
         const faceOf = ([key, spot]) => {
           const i = Number(key);
-          return { i, x:spot.x, y:spot.y, scale:spot.scale, top:spot.y - headOver(anchorFor(i), spot.scale) };
+          const a = anchorFor(i);
+          /* the face: the head's own x (a kayak's critter sits off its hull's middle) */
+          const hx = ((a.head || a.water)[0] - a.water[0]) * spot.scale * (a.fill || 1);
+          return { i, x:spot.x + hx, y:spot.y, scale:spot.scale, top:spot.y - headOver(a, spot.scale) };
         };
         const faces = Object.entries(shown).map(faceOf);
         /* the names right under their tubes: the popups keep off them */
@@ -353,13 +371,13 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         if (cardsOn) avoid.push(CARDS_RECT);
         /* the host and the call's bubble on the left shore */
         if (inSong) { const shore = crowdY(p.scene); avoid.push({ x0:60, x1:500, y0:shore - 330, y1:shore + 10 }); }
-        slots = inSong || bar || cut ? popupSlots(faces, { box, others:Object.entries(bank).map(faceOf), names:nameRects, stagger:bar, avoid }) : {};
+        slots = inSong || bar || cut ? popupSlots(faces, { box, others:Object.entries(bank).map(faceOf), names:nameRects, stagger:bar, tierExtra:bar ? 64 : 0, avoid }) : {};
         /* then each name nudged clear of the others, the faces and the popups */
         const popups = Object.values(slots).map(slot => {
           const w = box.w * slot.size, h = box.h * slot.size;
           return { x0:slot.x - w / 2, x1:slot.x + w / 2, y0:slot.y - h, y1:slot.y };
         });
-        names = p.names ? nameSlots(nameSpots, { faces, popups }) : {};
+        names = !p.names ? {} : p.kind === "bar" ? barNames(nameSpots) : nameSlots(nameSpots, { faces, popups });
       }
       entrants.forEach((e, i) => {
         const r = refs.current.get(i);
@@ -436,6 +454,14 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
             const move = actionAt(shown, now);
             if (move) { act = move; stroke = shown; }
           }
+          /* auto-rowing: nothing of their own playing, not sinking, the clock's stroke */
+          if (!act && m.sink <= 0.5 && !still) {
+            const auto = autoStrokeAt(chart, beat);
+            if (auto) {
+              stroke = { c:null, kind:"paddle", q:"ok", at:songAt + auto.beat * (chart.beatMs || BEAT), side:auto.side, auto:true };
+              act = actionAt(stroke, now);
+            }
+          }
         } else if (where === "water" && chug) {
           const mine = chug.done[i];
           const doneAt = Number.isFinite(mine) && Number.isFinite(chug.goAt) ? chug.goAt + mine : null;
@@ -481,7 +507,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
            rider's left (`stroke`) or right (`stroke-r`), alternating along
            the chart's strokes, with a splash at that side; a miss slaps flat */
         const paddleOn = where === "water" && !bar && !PADDLE_AWAY.has(pose);
-        const pad = paddleOn && inSong && !still ? paddleAt(stroke, now, { side:strokeSide(chart, stroke?.c) })
+        const pad = paddleOn && inSong && !still ? paddleAt(stroke, now, { side:stroke?.side ?? strokeSide(chart, stroke?.c) })
           : { rot:PADDLE.REST, dx:0, dy:0, side:0, splash:0, flat:0 };
         /* `stroke` dips on the rider's left (the screen's right: they face us), `stroke-r` on their right */
         if (act?.kind === "paddle" && pose === "stroke") pose = pad.side > 0 ? "stroke-r" : "stroke";
@@ -607,9 +633,12 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
           say = { c:0, q:readout.q, d:readout.d, at:readout.at, big:true, closest:isClosest, drinks:isDrinks };
           key = `lc:${readout.q}:${readout.d}:${isClosest}:${isDrinks}`;
         } else if (inSong && last) {
-          showPop = popupAt(last, now);
-          say = last;
-          key = `${last.c}:${last.at}`;
+          /* a run of 10, 20 or 30 holds its popup a moment longer with the badge */
+          const badge = st.badges.get(i);
+          const streak = badge && badge.at === last.at && now - badge.at < BADGE_MS ? badge.n : 0;
+          showPop = streak ? { opacity:1, dy:0 } : popupAt(last, now);
+          say = streak ? { ...last, streak } : last;
+          key = `${last.c}:${last.at}:${streak}`;
         }
         if (popNode) {
           const slot = slots[i];

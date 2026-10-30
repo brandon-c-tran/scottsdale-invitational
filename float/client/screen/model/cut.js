@@ -125,5 +125,6 @@ export const awardValue = award => {
   if (award.id === "early") return `${v} ms early`;
   if (award.id === "late") return `${v} ms late`;
   if (award.id === "splashes") return `${v} ${v === 1 ? "miss" : "misses"}`;
+  if (award.id === "perfects") return `${v} ${v === 1 ? "Perfect" : "Perfects"}`;
   return String(v);
 };

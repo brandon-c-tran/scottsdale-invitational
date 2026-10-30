@@ -112,10 +112,10 @@ patterns of the same mechanic:
 | 3 | Spin Cycle | the host spins on 1 and 3, you echo one beat later on 2 and 4 (the backbeat); doubles on the "and" later |
 | 4 | The Drop | the final: a bar of each pattern in turn, switching faster after the drink, a bar of paddling on every beat, then the music cuts, the host counts three beats, and one tap on the drop (bar 30, over the falls) |
 
-Cue counts (v3, rowing in every song; scored, then practice taps and the
-host's demos): Paddle Party 60 (7, 3), Rock Hop 63 (11, 1), Spin Cycle 81
-(12, 2), The Drop 76 (12, 0), Fireworks 83 (10, 1); each breakdown is 16 of
-the scored. The last cue of every song but The Drop is in bar 30 (the
+Cue counts (v4: rowing taps in Paddle Party only; scored, then practice
+taps and the host's demos): Paddle Party 60 (7, 3), Rock Hop 41 (5, 1), Spin
+Cycle 51 (6, 2), The Drop 65 (9, 0), Fireworks 70 (7, 2); each breakdown is
+16 of the scored. The last cue of every song but The Drop is in bar 30 (the
 outro's big finish).
 
 Names say what you do (Brandon, Oct 27: no river jargon; "Put-in", "The
@@ -1022,6 +1022,24 @@ feels flat, collides or stutters, fix the best of it, and report what was
 left. Decisions are the builders' (Brandon: "make best decisions for me")
 within this contract, copy rules (terse, no em dashes) and the 13-player
 default.
+
+### As built: the engine, v4 (groove/engine, Oct 29)
+
+- Item 1: rowing taps are Paddle Party's alone. Rock Hop and Spin Cycle
+  are v2's patterns again; The Drop keeps v3's play B (no sign, the "and"
+  hops and spins, dark [25, 27]) and its paddle bars as a pattern (`P...P.H.`,
+  `P...PHO.`); Fireworks keeps its rockets, the mix (paddle bars as a
+  pattern), dark [26, 28] and the three-rocket finale, minus the layer.
+  `modes` read each bar's own move as before. Every practice has 5 or more
+  taps to calibrate on (Rock Hop 5, Spin Cycle 6, The Drop 9, Fireworks 7).
+- Practice lines, all with clips from earlier builds: Rock Hop "Hop two
+  beats after me", "Your turn", "Two this time" (the second "Your turn"
+  and the "Two this time" demo are gone: the host's own "ba ba" is the
+  demo, and the bar is played, for a fifth calibration tap); Spin Cycle
+  "Spin one beat after me", "Your turn", "On the backbeat"; The Drop "All
+  three, in turn", "Hop", "Spin"; Fireworks "Watch the fuse", "Launch two
+  beats after I light", "Two quick ones", "Three in a row". Paddle Party
+  unchanged. No line says "Keep rowing" or "Row on 1 and 3" any more.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

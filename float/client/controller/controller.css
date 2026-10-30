@@ -204,9 +204,26 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 /* the host's call */
 .flc-call { position: relative; display: flex; align-items: flex-end; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity 140ms ease, transform 200ms var(--ease); pointer-events: none; }
 .flc-call.is-on { opacity: 1; transform: none; }
+/* one line, always: two or three calls at once ("Launch Launch", "Hop Hop
+   Hop") step their size down instead of wrapping into a tall bubble that
+   lands on the popup */
 .flc-bubble {
-  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 64px; padding: 10px 20px 12px; margin-bottom: 26px;
+  position: relative; display: flex; flex-wrap: nowrap; align-items: center; gap: 0 10px; min-width: 0; max-width: 100%;
+  min-height: 64px; padding: 10px 20px 12px; margin-bottom: 26px; white-space: nowrap;
   border-radius: 26px; background: var(--paper); box-shadow: inset 0 0 0 3.5px var(--ink), 0 5px 0 rgba(43, 34, 51, 0.18);
+}
+.flc-bubble.is-n2 .flc-word { font-size: clamp(26px, 7.6vw, 36px); }
+.flc-bubble.is-n3 .flc-word { font-size: clamp(22px, 6.2vw, 30px); }
+.flc-bubble.is-n2, .flc-bubble.is-n3 { gap: 0 8px; padding: 10px 16px 12px; }
+/* a short phone (an SE): the host, the bubble and the narration tighter, so the popup keeps its room */
+@media (max-height: 700px) {
+  .flc-head { top: calc(var(--sa-top) + 54px); gap: 6px; }
+  .flc-call .flc-host { width: 64px; height: 64px; }
+  .flc-bubble { min-height: 50px; padding: 7px 16px 9px; margin-bottom: 16px; border-radius: 22px; }
+  .flc-word { font-size: clamp(26px, 8vw, 34px); }
+  .flc-bubble.is-n2 .flc-word { font-size: 26px; }
+  .flc-bubble.is-n3 .flc-word { font-size: 22px; }
+  .flc-line b { font-size: 19px; padding: 8px 16px 10px; }
 }
 .flc-bubble::before {
   content: ""; position: absolute; left: -9px; bottom: 6px; width: 22px; height: 22px; background: var(--paper);

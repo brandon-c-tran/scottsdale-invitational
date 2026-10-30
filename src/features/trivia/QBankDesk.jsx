@@ -10,7 +10,7 @@
    survives a reload and shows on his other devices; one write at a time.
    The records come over GET /api/trivia/qbank (the commissioner's token);
    the plan, edits and marks ride his frame. */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { triviaQBank } from "../../lib/client.js";
 import { useReducedMotion } from "../../lib/motion.js";
 import { writeError } from "../../lib/writeErrors.js";
@@ -34,6 +34,9 @@ import "./qbank.css";
 
 const LETTERS = ["A", "B", "C", "D"];
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const SOFT_HYPHEN = String.fromCharCode(173);
+/* a long word in a phone's narrow slot breaks with a hyphen, not mid-letter */
+const breakable = text => String(text || "").replace(/\S{9,}/g, word => word.replace(/(.{6})(?=.{3})/g, `$1${SOFT_HYPHEN}`));
 const LAMP = { ready:"is-ready", confirm:"is-confirm is-pending", asset:"is-asset is-off", rejected:"is-rejected is-void" };
 const SPOKEN = { ready:"ready", confirm:"needs your answer", asset:"needs its asset", rejected:"rejected", empty:"empty" };
 const shortDate = iso => {
@@ -81,7 +84,7 @@ function Board({ board, selected, onSelect }) {
               + `${cell.warnings.length ? `, ${plural(cell.warnings.length, "warning")}` : ""}`}>
             {cell.qid ? <Lamp status={cell.lamp} /> : <Icon name="plus" size={16} />}
             {cell.qid && <span className="fd-qb-cell-label is-long"><OneSafe text={cell.label} /></span>}
-            {cell.qid && <span className="fd-qb-cell-label is-short" aria-hidden="true"><OneSafe text={cell.short} /></span>}
+            {cell.qid && <span className="fd-qb-cell-label is-short" aria-hidden="true"><OneSafe text={breakable(cell.short)} /></span>}
             {cell.warnings.length > 0 && <b className="fd-qb-dot" aria-hidden="true" />}
           </button>;
         })}
@@ -175,6 +178,9 @@ function QCard({ group, plan, selected, showCategory, pending, error, onPut, onC
   const [shown, setShown] = useState(group.records[0].id);
   const [picking, setPicking] = useState(false);
   const record = group.records.find(item => item.id === shown) || group.records[0];
+  /* each cut by its window, or by its place when two windows read the same (two files) */
+  const windows = group.records.map(item => windowLabel(item.media));
+  const variantNames = windows.map((label, i) => label && windows.indexOf(label) === windows.lastIndexOf(label) ? label : `Cut ${i + 1}`);
   const target = selected || slotTarget(plan, record);
   const columns = planColumns(plan);
   const here = target && columns[target.col]?.slots[target.slot] === record.id;
@@ -186,7 +192,7 @@ function QCard({ group, plan, selected, showCategory, pending, error, onPut, onC
     <Badges record={record} showCategory={showCategory} />
     {group.records.length > 1 && <div className="fd-qb-variants" role="radiogroup" aria-label="Variants">
       {group.records.map((item, i) => <button type="button" role="radio" key={item.id} aria-checked={item.id === record.id}
-        onClick={() => { stopClip(); setShown(item.id); }}>{item.media ? windowLabel(item.media) || `Clip ${i + 1}` : `Version ${i + 1}`}</button>)}
+        onClick={() => { stopClip(); setShown(item.id); }}>{variantNames[i]}</button>)}
     </div>}
     <Media key={record.id} record={record} clipKey={`qb:${record.id}`} />
     <div className="fd-qb-q">
@@ -351,6 +357,8 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
   const [selected, setSelected] = useState(initial?.slot || null);
   const [filters, setFilters] = useState(() => ({ ...NO_FILTERS, ...(initial?.filters || {}) }));
   const [pages, setPages] = useState(1);
+  /* the list follows the search a beat behind the typing, so the field never waits on 300 cards */
+  const query = useDeferredValue(filters.query);
   const [editing, setEditing] = useState(initial?.edit || null);
   const [pending, setPending] = useState(null);
   const [errors, setErrors] = useState({});
@@ -426,7 +434,7 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
 
   const column = selected ? planColumns(plan)[selected.col] : null;
   const current = selected ? byId.get(column?.slots[selected.slot]) || null : null;
-  const groups = selected ? slotAlternatives(records, plan, selected) : bankView(records, filters);
+  const groups = selected ? slotAlternatives(records, plan, selected) : bankView(records, { ...filters, query:query });
   const shownGroups = groups.slice(0, pages * PAGE_SIZE);
   const counts = statusCounts(records);
   const editRecord = editing ? byId.get(editing) : null;

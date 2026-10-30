@@ -12,13 +12,17 @@
      &q=<search>&category=<id>&status=<status>   the bank filtered
      &fail=1                                     every write refused (the errors)
      &slow=<ms>                                  every write takes that long (the pending guard)
-     &load=fail                                  the bank does not load */
+     &load=fail                                  the bank does not load
+     &bank=<url>                                 another bank ({ records, recommended }: a
+                                                 content branch's files, its media served at
+                                                 /tq/) in place of the fixtures, from nothing picked */
 import React, { useCallback, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QBankDesk } from "../src/features/trivia/QBankDesk.jsx";
 import { Shell } from "../src/ui/Shell.jsx";
 import { Sheet } from "../src/ui/controls.jsx";
 import { deskWrite, qbankFixtureResponse, qbankFixtureState, useDeskBank } from "./fit/qbankDeskFixtures.js";
+import { useQBank } from "../worker/triviaQBank/index.js";
 import "../src/ui/shell.css";
 
 const params = new URLSearchParams(location.search);
@@ -34,8 +38,10 @@ const initial = {
 const SLOW = Number(params.get("slow")) || 0;
 const FAIL = !!params.get("fail");
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-useDeskBank();
-const first = qbankFixtureState(params.get("stage") || "worked");
+const BANK = params.get("bank");
+if (BANK) useQBank(await (await fetch(BANK)).json()); else useDeskBank();
+const first = BANK ? { triviaPlan:null, triviaBankEdits:{}, triviaBankMarks:{}, triviaFormat:"board" }
+  : qbankFixtureState(params.get("stage") || "worked");
 let latest = first;
 const load = async () => {
   await wait(120);

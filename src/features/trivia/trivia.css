@@ -332,3 +332,7 @@ button.fd-trivia-qtext { min-height:44px; cursor:pointer; }
    short phone scrolls the body as before. */
 .fd-trivia-body.is-play { padding-bottom:12px; }
 .fd-trivia-prompt { display:flex; flex-direction:column; justify-content:center; gap:16px; flex:1 0 auto; min-height:0; }
+
+/* the old set list, folded away while the question bank's board is what plays */
+.fd-trivia-oldlist { align-self:flex-start; min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:8px;
+  background:none; color:var(--muted2); font:600 13px/1 var(--fd-body); cursor:pointer; }

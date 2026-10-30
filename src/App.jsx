@@ -87,7 +87,10 @@ import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
 import { TriviaHome, TriviaPlaySheet } from "./features/trivia/TriviaPlay.jsx";
 import { KaraokeSheet } from "./features/karaoke/KaraokePlay.jsx";
 import { KaraokeHome } from "./features/karaoke/KaraokeHome.jsx";
-import { triviaQuestionTotal } from "../shared/trivia.js";
+import { FloatHome, FloatPlaySheet } from "./features/float/FloatPlay.jsx";
+import { FloatLocker } from "./features/float/FloatLocker.jsx";
+import { floatLooksPicked } from "./features/float/floatModel.js";
+import { triviaPlanCount, triviaPlanned, triviaQuestionTotal } from "../shared/trivia.js";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
@@ -124,7 +127,9 @@ const QABar = /* @__PURE__ */ lazyPart(() => import("./features/qa/QABar.jsx"), 
 const QASheet = /* @__PURE__ */ lazyPart(() => import("./features/qa/QASheet.jsx"), "QASheet");
 const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.jsx"), "GeoDesk");
 const TriviaDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/TriviaDesk.jsx"), "TriviaDesk");
+const QBankDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/QBankDesk.jsx"), "QBankDesk");
 const KaraokeDesk = /* @__PURE__ */ lazyPart(() => import("./features/karaoke/KaraokeDesk.jsx"), "KaraokeDesk");
+const FloatDesk = /* @__PURE__ */ lazyPart(() => import("./features/float/FloatDesk.jsx"), "FloatDesk");
 const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
 const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "PokerSetupSheet");
 const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
@@ -133,8 +138,8 @@ const SpeakerSheet = /* @__PURE__ */ lazyPart(() => import("./features/speaker/S
 const ReadyCheck = /* @__PURE__ */ lazyPart(() => import("./features/director/ReadyCheck.jsx"), "ReadyCheck");
 /* Scan the TV: the scanner (and its decoder, loaded inside it) only once a guest opens it */
 const ArriveScanner = /* @__PURE__ */ lazyPart(() => import("./features/arrivals/Scanner.jsx"), "ArriveScanner");
-const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
-  KaraokeDesk, ReadyCheck];
+const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, QBankDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
+  FloatDesk, KaraokeDesk, ReadyCheck];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -422,8 +427,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* the pill reads the director; the TV keeps reading weekendOperation so
      director copy never leaks to the room */
   const director = useMemo(
-    () => resolveDirector(state, events, { showControl:showControlAllowed, karaoke:capabilities.karaoke === true }),
-    [state, events, showControlAllowed, capabilities.karaoke],
+    () => resolveDirector(state, events, { showControl:showControlAllowed, karaoke:capabilities.karaoke === true,
+      float:capabilities.float === true }),
+    [state, events, showControlAllowed, capabilities.karaoke, capabilities.float],
   );
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
@@ -607,6 +613,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [triviaForce, setTriviaForce] = useState(0);
   /* Home's karaoke row (and its strip, and You're up next) reopens the game */
   const [karaokeForce, setKaraokeForce] = useState(0);
+  /* Home's Float row reopens the controller */
+  const [floatForce, setFloatForce] = useState(0);
   useEffect(() => { setFlightsAnswered(!!me && localGet(`si-flights-asked:${me}`) === "yes"); }, [me]);
   const openSince = route => {
     setSince(null);
@@ -982,6 +990,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
     if (options?.quiet && !r.ok) return r;
     return actionFeedback(r, notify, okMsg);
   };
+  /* a rider's Float look, from the Locker or from the room's own picker
+     (the controller's onLook): the same write, its failure shown where it was made */
+  const saveFloatLook = look => act("floatLook", { look }, null, { retry:true, quiet:true });
 
   const saveProfile = async (p, prof) => {
     const result = await savePlayerProfile({ player:p, profile:prof,
@@ -1507,7 +1518,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           ceremony={tvCeremonyHold ? null : { intro:shownIntro, handoff:introHasQueuedReveal, reveal,
             onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
           onSoundStatus={reportTvSound} arriveCode={tournament.arriveCode} onVideoStatus={reportTvVideo}
-          onExit={() => setTv(false)} /></Suspense>
+          float={capabilities.float === true} onExit={() => setTv(false)} /></Suspense>
         <Confetti burst={burst} />
       </Shell>
     );
@@ -1594,8 +1605,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
     lockerRoom:state.live && !state.frozen && lockerRoomAvailability(state).enabled,
     away:Object.keys(state.away || {}), out:Object.keys(state.out || {}), coming:rosterOf(state).length, geoPhotos:(state.geoRounds || []).length,
     arrivals:state.arrivals?.open ? { here:rosterOf(state).filter(p => state.arrivals.at?.[p]).length, total:rosterOf(state).length } : null,
-    triviaQuestions:triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
+    triviaQuestions:triviaPlanned(state) ? triviaPlanCount(state) : triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
     karaoke:capabilities.karaoke === true, karaokeSongs:karaokeSongCount(state),
+    float:capabilities.float === true, floaties:floatLooksPicked(state),
     onDeck:state.onDeck ? onDeckEv?.name || "Open" : null,
     takeBacks:events.filter(ev => announcementTakeBack(state, ev).enabled),
     frozen:state.live && state.frozen, snapshotExport:capabilities.snapshotExport === true,
@@ -1623,6 +1635,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       case "showControl": case "audioDirector": case "qa": case "crown": case "attendance": case "lockerRoom":
       case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": case "settings": case "readyCheck": return sheet(id);
       case "karaoke": return sheet("karaokeDesk");
+      case "float": return sheet("floatDesk");
       case "geo": return sheet("geoDesk");
       case "trivia": return sheet("triviaDesk");
       case "awards": return sheet("awards");
@@ -1684,7 +1697,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
             if (result?.ok) { setFlightsAnswered(true); saveMine(`si-flights-asked:${me}`, "yes"); }
             return result;
           }}
-          setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed, karaoke:capabilities.karaoke === true }) : []}
+          setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed, karaoke:capabilities.karaoke === true,
+            float:capabilities.float === true }) : []}
           onSetup={item => setModal({type:"profile", section:item.section})}
           songs={audioCatalogAllowed} onWinSong={() => setModal({type:"profile", section:"walkout"})}
           onScan={me ? () => setModal({ type:"scan" }) : null}
@@ -1701,6 +1715,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           gameContent={<>
             <GeoHome state={state} me={me} inCard onOpen={() => setGeoForce(n => n + 1)} />
             <TriviaHome state={state} me={me} inCard onOpen={() => setTriviaForce(n => n + 1)} />
+            <FloatHome state={state} me={me} inCard onOpen={() => setFloatForce(n => n + 1)} />
             <KaraokeHome state={state} me={me} inCard karaoke={capabilities.karaoke === true} onOpen={() => setKaraokeForce(n => n + 1)}
               onSong={() => setModal({type:"profile", section:"karaoke"})} />
           </>}
@@ -1774,12 +1789,15 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {me && <TriviaPlaySheet state={state} me={me} blocked={!!modal} force={triviaForce} />}
       {me && <KaraokeSheet state={state} me={me} blocked={!!modal} force={karaokeForce} gm={gmView}
         karaoke={capabilities.karaoke === true} />}
+      {me && <FloatPlaySheet state={state} me={me} blocked={!!modal} force={floatForce} onLook={saveFloatLook} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
         songSnippets={capabilities.songSnippets === true}
         karaoke={capabilities.karaoke === true}
         onKaraoke={track => act("karaokeSong", { track }, null, { retry:true, quiet:true })}
+        float={capabilities.float === true}
+        onFloatLook={saveFloatLook}
         save={async prof => {
           const saved = await saveProfile(me, prof);
           if (saved.ok) { setModal(null); notify(prof.confirmJersey ? "Jersey confirmed" : "Profile saved"); }
@@ -1798,10 +1816,16 @@ function TournamentApp({ tournament, onUpdateReload }) {
       </Sheet>}
       {gmView && modal?.type === "triviaDesk" && <Sheet title="Trivia" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><TriviaDesk state={state} me={me} events={events} notify={notify}
-          onAct={(type, payload) => act(type, payload)} /></Suspense>
+          onAct={(type, payload) => act(type, payload)} onOpenBank={() => pushModal({ type:"qbankDesk" })} /></Suspense>
+      </Sheet>}
+      {gmView && modal?.type === "qbankDesk" && <Sheet title="Your board" className="fd-qb-sheet" onClose={() => setModal(null)} onBack={modalBack}>
+        <Suspense fallback={null}><QBankDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload, null, { quiet:true })} /></Suspense>
       </Sheet>}
       {gmView && modal?.type === "karaokeDesk" && <Sheet title="Karaoke" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><KaraokeDesk state={state} /></Suspense>
+      </Sheet>}
+      {gmView && modal?.type === "floatDesk" && <Sheet title="Float" onClose={() => setModal(null)} onBack={modalBack}>
+        <Suspense fallback={null}><FloatDesk state={state} /></Suspense>
       </Sheet>}
       {gmView && modal?.type === "showControl" && <Suspense fallback={null}>
         <TvSheet state={state} events={events} scene={activeShowScene} operationEvent={weekendOperation.event}
@@ -1937,7 +1961,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {qaAllowed && modal?.type === "qa" && <Suspense fallback={null}><QASheet state={state} busy={!!sim}
         status={qaStatus} me={me} guestLens={guestLens} market={qaMarket}
         environment={environment} dispatch={dispatch} notify={notify}
-        qaOn={qa} onStrip={toggleQa} onBack={modalBack}
+        qaOn={qa} onStrip={toggleQa} onBack={modalBack} float={capabilities.float === true}
         onSwitch={player => switchPlayer(player, false)}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         pokerOn={pokerLive(state)}
@@ -3496,7 +3520,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
 }
 
 function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", save, onChip, spotifyCatalogEnabled,
-  songSnippets = false, karaoke = false, onKaraoke }) {
+  songSnippets = false, karaoke = false, onKaraoke, float = false, onFloatLook }) {
   const [section, setSection] = useState(initialSection);
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
@@ -3572,8 +3596,11 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   /* the karaoke song saves itself (karaokeSong), never with Save */
   const karaokeSaved = state.profiles?.[me]?.karaokeTrack || null;
   const karaokeTab = karaoke || !!karaokeSaved;
+  /* Float's Locker saves itself too (floatLook, FloatLocker.jsx) */
+  const lockerTab = (float || !!state.profiles?.[me]?.float) && !!onFloatLook;
+  const selfSaving = ["karaoke", "locker"].includes(section);
   const sections = [["card","Card"],["jersey","Jersey"],["travel","Trip"],...(walkoutTab ? [["walkout","Win song"]] : []),
-    ...(karaokeTab ? [["karaoke","Karaoke"]] : [])];
+    ...(karaokeTab ? [["karaoke","Karaoke"]] : []), ...(lockerTab ? [["locker","Locker"]] : [])];
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={close} onBack={onBack} busy={busy}>
@@ -3611,16 +3638,19 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         <KaraokeSongPicker value={karaokeSaved} enabled={karaoke && !!onKaraoke} active={section === "karaoke"}
           onChoose={track => submit(() => onKaraoke(track), { inline:true })} />
       </div>}
+      {lockerTab && <div hidden={section !== "locker"}>
+        <FloatLocker state={state} me={me} active={section === "locker"} onSave={onFloatLook} />
+      </div>}
       </fieldset>
-      {/* the Karaoke section's Use is its save: no second Save there */}
-      {(section !== "karaoke" || confirmDiscard || error) && <div className="fd-profile-save">
+      {/* the Karaoke section's Use is its save, the Locker saves itself: no second Save there */}
+      {(!selfSaving || confirmDiscard || error) && <div className="fd-profile-save">
       {confirmDiscard && <div className="fd-profile-discard" role="alert">
         <p>Your new photo is not saved.</p>
         <div><ActionButton compact variant="destructive" onClick={onClose}>Discard photo</ActionButton>
           <ActionButton compact variant="secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</ActionButton></div>
       </div>}
       {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay-text)", marginTop:14 }}>{error}</div>}
-      {section !== "karaoke" && <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
+      {!selfSaving && <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
         onClick={() => submit(() => save(confirming ? { ...changedFields(), confirmJersey:true } : changedFields()))}
         style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>}
       </div>}

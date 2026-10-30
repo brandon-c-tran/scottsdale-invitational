@@ -20,8 +20,10 @@ import { allEventsOf, rosterOf } from "../../../shared/core.js";
 import { checkInComplete } from "../../../shared/checkin.js";
 import { jerseyConfirmed } from "../../../shared/guestSetup.js";
 import { cleanWhen } from "../../../shared/geo.js";
-import { triviaQuestionTotal } from "../../../shared/trivia.js";
+import { triviaPlanCount, triviaPlanned, triviaQuestionTotal } from "../../../shared/trivia.js";
+import { QBANK_COLUMNS, QBANK_SLOTS } from "../../../shared/triviaQBank.js";
 import { hasKaraokeSong } from "../../../shared/karaoke.js";
+import { hasFloatLook } from "../../../shared/float.js";
 import { deskBallot } from "../awards/awardsModel.js";
 import { speakerValue } from "../speaker/speakerModel.js";
 import { liveTvs } from "./tvHealth.js";
@@ -59,6 +61,10 @@ function guestRows(state, capabilities) {
        the Karaoke desk shows whose video plays */
     capabilities.karaoke === true && ahead(state, allEventsOf(state), "karaoke")
       && guestRow(state, roster, "karaoke", "Karaoke songs", (profile, player) => hasKaraokeSong(state, player), "karaoke"),
+    /* only while Float is still to play with its room on; the Float desk
+       counts them too (a rider without one races their default) */
+    capabilities.float === true && ahead(state, allEventsOf(state), "float")
+      && guestRow(state, roster, "floaties", "Critters", profile => hasFloatLook(profile), "float"),
     guestRow(state, roster, "flights", "Flights", flightsDone, "travelSheet"),
     guestRow(state, roster, "venmo", "Venmo", profile => !!profile?.venmo, "travelSheet"),
     guestRow(state, roster, "drinks", "Drinks answered", profile => typeof profile?.drinking === "boolean", "travelSheet"),
@@ -75,8 +81,14 @@ function gameRows(state) {
   const events = allEventsOf(state);
   const rows = [];
   if (ahead(state, events, "trivia")) {
-    const questions = triviaQuestionTotal(state.triviaRounds);
-    rows.push(row("trivia", "Trivia", { have:questions, state:questions ? "ready" : "missing", opens:"trivia" }));
+    /* the question bank's board, once any slot is set, else the set list */
+    if (triviaPlanned(state)) {
+      const clues = triviaPlanCount(state);
+      rows.push(row("trivia", "Trivia", { have:clues, state:clues >= QBANK_COLUMNS * QBANK_SLOTS ? "ready" : "partial", opens:"trivia" }));
+    } else {
+      const questions = triviaQuestionTotal(state.triviaRounds);
+      rows.push(row("trivia", "Trivia", { have:questions, state:questions ? "ready" : "missing", opens:"trivia" }));
+    }
   }
   if (ahead(state, events, "where")) {
     const rounds = Array.isArray(state.geoRounds) ? state.geoRounds : [];

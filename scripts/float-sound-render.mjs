@@ -1,0 +1,330 @@
+/* The Groove's songs rendered offline, for listening and for checking the
+   timing: the real kit (src/lib/soundKit.js) and the real planner
+   (float/client/sound/groove.js) on an OfflineAudioContext in headless
+   Chrome, with the host's clips decoded the way the TV decodes them.
+
+     node scripts/float-sound-render.mjs [paddle rock spin drop lastcall-lights lastcall-slow lastcall-ticks
+       after moments] [--stems] [--out <dir>]
+
+   Each song: the round card, then all 32 bars as the TV lays them, to
+   <out>/<song>.mp3 (default .impeccable/review/float-sound/); --stems adds
+   the band, the calls and the answers alone. A Last Call is its countdown
+   from songAt. "after" renders the show after each song (the grades, the
+   awards, the drumroll, three out with the song's exits) and its chug-off
+   (the first with its rule); "moments" the lobby's loop, the Cup opening,
+   the podium's fanfare, a run of flubs, and the phone's own. The timing check plays
+   every call and answer alone, its cue laid GROOVE_PRE_MS early: exactly
+   (every clip's beat, soundKit clipMarks' first rise past 30% of its peak,
+   lands on the beat to the sample; every synthesized sound has a hit that
+   starts on it), and as heard (its rendered beat against an instant attack's
+   through the same engine, within 8 ms: the reading's own window and the
+   master's look-ahead move every sound a little). Exits 1 when one fails, or
+   a render is silent or clips. */
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { build } from "esbuild";
+import { launchChrome } from "./headless-chrome.mjs";
+
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const args = process.argv.slice(2);
+const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
+const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float-sound");
+const STEMS = args.includes("--stems");
+const asked = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--out");
+const SONGS = ["paddle", "rock", "spin", "drop", "fireworks", "lastcall-lights", "lastcall-slow", "lastcall-ticks", "lastcall-rush"];
+const jobs = asked.length ? asked : [...SONGS, "after", "moments"];
+
+const ENTRY = `
+import { makeEngine, playRecipe, clipMarks, GROOVE_PRE_S } from "./src/lib/soundKit.js";
+import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS, cutBeats, chugoffPlan, ROCKET_BURST_MS, BURST_SIZE } from "./float/client/sound/groove.js";
+import { chartOf, SONG_MS, CHUGOFF } from "./float/shared/chart.js";
+const SR = 44100;
+async function engine(ctx, listen = "tv") {
+  const E = makeEngine(ctx, { room:"san", listen, volume:listen === "tv" ? 0.7 : 0.6 });
+  E.clips = new Map();
+  /* the onset check reads the dry signal, and with the master's compressor flat (it still delays all alike):
+     a loud clip squashed by it would read its beat early by the reading alone */
+  if (window.__dry) { E.wetOut.gain.value = 0; E.comp.threshold.value = 0; E.comp.ratio.value = 1; }
+  for (const clip of window.__clips || []) {
+    const bytes = Uint8Array.from(atob(clip.base64), ch => ch.charCodeAt(0)).buffer;
+    const buffer = await ctx.decodeAudioData(bytes);
+    E.clips.set(clip.id, { buffer, ...clipMarks(buffer.getChannelData(0), buffer.sampleRate) });
+  }
+  return E;
+}
+const STEM = { band:id => id === "floatGroove" || id === "floatBar", calls:id => ["floatVoice", "floatWhirl", "floatEcho", "floatBarVoice", "floatTick"].includes(id), answers:id => id === "floatAnswer" };
+function wav(buffer) {
+  const n = buffer.length, ch = buffer.numberOfChannels, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const str = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF"); out.setUint32(4, 36 + n * ch * 2, true); str(8, "WAVE"); str(12, "fmt "); out.setUint32(16, 16, true);
+  out.setUint16(20, 1, true); out.setUint16(22, ch, true); out.setUint32(24, buffer.sampleRate, true); out.setUint32(28, buffer.sampleRate * ch * 2, true);
+  out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); str(36, "data"); out.setUint32(40, n * ch * 2, true);
+  const data = [...Array(ch)].map((_, c) => buffer.getChannelData(c));
+  let peak = 0, sum = 0;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) {
+    const v = data[c][i]; peak = Math.max(peak, Math.abs(v)); sum += v * v;
+    out.setInt16(44 + (i * ch + c) * 2, Math.max(-1, Math.min(1, v)) * 32767, true);
+  }
+  let bin = ""; const bytes = new Uint8Array(out.buffer);
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return { base64:btoa(bin), peak, rms:Math.sqrt(sum / (n * ch)), ms:Math.round(n / buffer.sampleRate * 1000) };
+}
+/* Lay slots as the TV does, a lead before each: the render suspends there,
+   the ended voices are let go (their onended runs on this thread, as live),
+   and the slot's recipes go in. Laid all at once, nothing would be let go
+   until the end, and every finished filter would run on to the last sample. */
+async function laid(ctx, slots, lead = 0.6) {
+  const q = 128 / SR;
+  const times = slots.map(slot => Math.max(0, Math.floor((slot.at - lead) / q) * q));
+  slots.forEach((slot, i) => {
+    if (times[i] <= 0) { slot.lay(); return; }
+    ctx.suspend(times[i]).then(async () => { await new Promise(r => setTimeout(r, 0)); slot.lay(); ctx.resume(); });
+  });
+  return ctx.startRendering();
+}
+/* a song as the TV plays it: the round card, then its bars from songAt (stem: one part alone) */
+window.__song = async (song, stem = null, room = false) => {
+  const lead = 3.5, seconds = lead + chartOf(song).ms / 1000 + 3;
+  const ctx = new OfflineAudioContext(2, Math.ceil(SR * seconds), SR);
+  const E = await engine(ctx);
+  const songAt = lead * 1000, keep = id => !stem || STEM[stem](id);
+  const slots = songSlots(chartOf(song)).map((events, bar) => ({ at:(songAt + bar * 2000 - GROOVE_PRE_MS) / 1000,
+    lay:() => events.forEach(ev => { if (keep(ev.id)) playRecipe(E, ev.id, eventAt(songAt, ev.beat) / 1000, ev.opts); }) }));
+  if (!stem && !chartOf(song).countdown) slots.unshift({ at:0.1, lay:() => {
+    playRecipe(E, "floatSting", (songAt + TITLE_BEATS.sting - GROOVE_PRE_MS) / 1000, { song });
+    playRecipe(E, "floatVoice", (songAt + TITLE_BEATS.title - GROOVE_PRE_MS) / 1000, { line:"title-" + song });
+  } });
+  /* the room (v3): three riders' fireworks on every rocket, a beat after its launch, as the TV plays them from their hits
+     (left, middle, right; mostly Perfect and Nice, now and then a late one or a fizzle) */
+  if (room) chartOf(song).cues.filter(c => c.kind === "rocket" && !c.demo).forEach((c, k) => {
+    const at = (songAt + c.beat * 500) / 1000;
+    slots.push({ at:at - 1, lay:() => [-0.6, 0, 0.6].forEach((pan, i) => {
+      const r = (k * 7 + i * 3) % 10, q = r < 4 ? "perfect" : r < 8 ? "nice" : r < 9 ? "late" : "miss";
+      if (q === "miss") playRecipe(E, "floatFizzle", at + 0.6, { pan });
+      else playRecipe(E, "floatBurst", at + ROCKET_BURST_MS / 1000, { pan, q, size:BURST_SIZE[q] });
+    }) });
+  });
+  /* the room at 13 (v4): every played cue missed by a few of thirteen riders now and then, through the TV's density rule
+     (up to three flubs inside 220 ms, the third one bigger), as the room calls them 550 ms after the cue */
+  if (room) chartOf(song).cues.filter(c => !c.demo && c.kind !== "rocket").forEach((c, k) => {
+    const misses = [0, 0, 1, 0, 2, 0, 0, 4, 0, 1, 0, 13][(k * 5 + 3) % 12];
+    if (!misses) return;
+    const at = (songAt + c.beat * 500 + 550) / 1000;
+    slots.push({ at:at - 1, lay:() => Array.from({ length:Math.min(3, misses) }, (_, j) => playRecipe(E, "floatFlub", at + j * 0.04, { pan:-0.6 + ((k + j * 5) % 13) * 0.1, n:j + 1 + (j === 2 ? misses - 3 : 0) })) });
+  });
+  slots.sort((a, b) => a.at - b.at);
+  const t0 = performance.now();
+  const buffer = await laid(ctx, slots);
+  const out = wav(buffer);
+  out.renderMs = Math.round(performance.now() - t0);
+  return out;
+};
+/* After each song but the final: the cut's show on the engine's beats (the
+   grades' stamp, three awards, the drumroll, three out each with the song's
+   exit), then the chug-off (the call, the first one's rule or the count,
+   Chug!, the chant until a Done at 6.5 s, the stamp, the loser's exit) */
+window.__after = async () => {
+  const per = 34, songs = ["paddle", "rock", "spin", "drop"];
+  const ctx = new OfflineAudioContext(2, SR * per * songs.length, SR);
+  const E = await engine(ctx);
+  const at = s => s - GROOVE_PRE_S, slots = [];
+  songs.forEach((song, r) => {
+    const cut = 0.5 + r * per, b = cutBeats(3, 3);
+    slots.push({ at:at(cut), lay:() => {
+      playRecipe(E, "floatGrades", at(cut + b.grades / 1000));
+      b.awards.forEach((ms, k) => playRecipe(E, "floatAward", at(cut + ms / 1000), { k, award:["perfects", "streak", "splashes"][k] }));
+      playRecipe(E, "floatRoll", at(cut + b.roll / 1000), { ms:b.line - b.roll });
+      b.outs.forEach((ms, k) => { playRecipe(E, "floatGone", at(cut + ms / 1000), { step:k }); playRecipe(E, "floatExit", at(cut + (ms + CUT_BEATS.exit) / 1000), { song, k }); });
+    } });
+    const start = cut + 15, plan = chugoffPlan(CHUGOFF.INTRO_MS, { first:r === 0 }), go = start + plan.chug / 1000;
+    slots.push({ at:at(start), lay:() => {
+      playRecipe(E, "floatVoice", at(start + plan.call / 1000), { line:"chugoff" });
+      if (plan.explain !== null) playRecipe(E, "floatVoice", at(start + plan.explain / 1000), { line:"chug-explain" });
+      plan.count.forEach((ms, k) => playRecipe(E, "floatVoice", at(start + ms / 1000), { line:["three", "two", "one"][k] }));
+      if (plan.roll !== null) playRecipe(E, "floatRoll", at(start + plan.roll / 1000), { ms:plan.chug - plan.roll });
+      playRecipe(E, "floatVoice", at(go), { line:"chug" });
+      playRecipe(E, "floatChugGo", at(go));
+    } });
+    for (let bar = 0; bar < 3; bar++) slots.push({ at:at(go + bar * 2), lay:() => playRecipe(E, "floatChant", at(go + bar * 2), { bar }) });
+    slots.push({ at:go + 6.5 - 0.2, lay:() => {
+      playRecipe(E, "floatDone", go + 6.5, { step:1 });
+      playRecipe(E, "floatKeep", go + 6.53);
+      playRecipe(E, "floatExit", at(go + 6.5 + CHUGOFF.REVEAL_MS / 1000), { song });
+    } });
+  });
+  return wav(await laid(ctx, slots.sort((x, y) => x.at - y.at)));
+};
+/* the moments between the songs, one after another */
+window.__moments = async () => {
+  const ctx = new OfflineAudioContext(2, SR * 30, SR);
+  const E = await engine(ctx);
+  const at = s => s - GROOVE_PRE_S;
+  for (let b = 0; b < 8; b++) playRecipe(E, "floatLobby", at(0.5 + b * 2), { bar:b });
+  [[1.2, "floatHello"], [3.4, "floatHello"], [5.1, "floatSet"], [7.3, "floatSet"]].forEach(([s, id]) => playRecipe(E, id, s));
+  playRecipe(E, "floatOpen", at(17));
+  const podium = 21;
+  playRecipe(E, "floatFanfare", at(podium + PODIUM_BEATS.roll / 1000));
+  [0, 0.04, 0.6, 1.4, 1.43, 1.46].forEach((x, i) => playRecipe(E, "floatFlub", 27 + x, { pan:-0.6 + i * 0.2, n:i % 3 + 1 }));
+  [[29, "floatCheer"], [29.5, "floatCheer"]].forEach(([s, id], i) => playRecipe(E, id, s, { step:i }));
+  return wav(await ctx.startRendering());
+};
+/* Fireworks' own (v3): the fuse and the launch, a burst at each judgement, a fizzle, the sky, Last Call's rush trick */
+window.__rockets = async () => {
+  const ctx = new OfflineAudioContext(2, SR * 16, SR);
+  const E = await engine(ctx);
+  const at = s => s - GROOVE_PRE_S;
+  playRecipe(E, "floatFuse", at(0.5), { after:0.95 }); playRecipe(E, "floatAnswer", at(1.5), { kind:"rocket", n:0 });
+  playRecipe(E, "floatBurst", 2, { size:1, q:"perfect", pan:-0.4 });
+  [["nice", 3.5, 0.3], ["ok", 4.7, -0.2], ["late", 5.8, 0.5]].forEach(([q, s, pan]) => playRecipe(E, "floatBurst", s, { q, size:BURST_SIZE[q], pan }));
+  playRecipe(E, "floatFizzle", 7, { pan:0 });
+  playRecipe(E, "floatSky", at(8.5));
+  playRecipe(E, "floatTrick", at(13), { trick:"rush" });
+  return wav(await ctx.startRendering());
+};
+/* the lobby's loop alone, its four sections (32 bars) */
+window.__lobby = async () => {
+  const ctx = new OfflineAudioContext(2, SR * 66, SR);
+  const E = await engine(ctx);
+  const slots = Array.from({ length:32 }, (_, b) => ({ at:0.5 + b * 2 - GROOVE_PRE_S, lay:() => playRecipe(E, "floatLobby", 0.5 + b * 2 - GROOVE_PRE_S, { bar:b % 8, section:Math.floor(b / 8) }) }));
+  return wav(await laid(ctx, slots));
+};
+/* the phone's own, on a phone's engine */
+window.__phone = async () => {
+  const ctx = new OfflineAudioContext(2, SR * 19, SR);
+  const E = await engine(ctx, "phone");
+  /* v4: a miss, a streak broken, the milestones at 10, 20, 30 */
+  [[14.2, "floatYouMiss", {}], [15, "floatYouBreak", { n:12 }], [16, "floatYouStreak", { n:10 }], [16.9, "floatYouStreak", { n:20 }], [17.8, "floatYouStreak", { n:30 }]]
+    .forEach(([s, id, opts]) => playRecipe(E, id, s, opts));
+  ["perfect", "nice", "ok", "early", "late", null].forEach((q, i) => ["paddle", "hey", "hop", "spin"].forEach((kind, j) =>
+    playRecipe(E, "floatYouTap", 0.3 + i * 0.9 + j * 0.2, { q, kind })));
+  [[6, "floatYouDone"], [6.8, "floatYouCheer"], [7.3, "floatYouSafe"], [8.0, "floatYouOut"]].forEach(([s, id]) => playRecipe(E, id, s));
+  playRecipe(E, "floatYouPlace", 8.6, { place:1 });
+  ["superb", "ok", "tryagain"].forEach((grade, i) => playRecipe(E, "floatYouGrade", 10 + i * 1.1, { grade }));
+  playRecipe(E, "floatYouTap", 13.3, { kind:"zero", q:"perfect" }); playRecipe(E, "floatYouGulp", 13.6);
+  return wav(await ctx.startRendering());
+};
+/* one recipe alone, its cue pre before a beat at 1 s (GROOVE_PRE_S: a Groove cue's): where does its beat land? */
+window.__onset = async (id, opts, pre = GROOVE_PRE_S) => {
+  const ctx = new OfflineAudioContext(1, SR * 3, SR);
+  window.__dry = true;
+  const E = await engine(ctx);
+  window.__dry = false;
+  playRecipe(E, id, 1 - pre, opts);
+  const buffer = await ctx.startRendering();
+  const m = clipMarks(buffer.getChannelData(0), SR);
+  let peak = 0; for (const v of buffer.getChannelData(0)) peak = Math.max(peak, Math.abs(v));
+  return { beat:m.beat, start:m.start, peak };
+};
+/* The exact check: the recipe built on a context that records every source's
+   start (its time, its offset into a clip, its rate). A clip lands its beat
+   at start + (beat - offset) / rate; a synthesized sound must have a source
+   that starts on the beat (its hit), anything earlier being its lead-in. */
+window.__sched = async (id, opts, pre = GROOVE_PRE_S) => {
+  const ctx = new OfflineAudioContext(1, SR * 2, SR);
+  const E = await engine(ctx);
+  const marks = new Map([...E.clips.values()].map(c => [c.buffer, c]));
+  const starts = [];
+  for (const make of ["createBufferSource", "createOscillator"]) {
+    const orig = ctx[make].bind(ctx);
+    ctx[make] = (...a) => { const node = orig(...a); const start = node.start.bind(node);
+      node.start = (t = 0, offset = 0, ...rest) => { starts.push({ t, offset, buffer:node.buffer || null, rate:node.playbackRate?.value ?? 1 }); return start(t, offset, ...rest); };
+      return node; };
+  }
+  playRecipe(E, id, 1 - pre, opts);
+  const clipLands = starts.filter(s => s.buffer && marks.has(s.buffer)).map(s => s.t + (marks.get(s.buffer).beat - s.offset) / s.rate - 1);
+  const others = starts.filter(s => !(s.buffer && marks.has(s.buffer))).map(s => s.t - 1);
+  return { clipLands, onBeat:others.filter(x => Math.abs(x) < 0.0005).length, lead:others.length ? Math.min(...others) : 0 };
+};
+window.__ready = true;
+`;
+
+const work = fs.mkdtempSync(path.join(os.tmpdir(), "float-render-"));
+const bundle = await build({ stdin:{ contents:ENTRY, resolveDir:ROOT, loader:"js" }, bundle:true, format:"iife", platform:"browser",
+  target:["chrome110"], write:false, logLevel:"silent", define:{ "process.env.NODE_ENV":"\"production\"", __FD_BUILD_ID__:"\"render\"" } });
+const page = path.join(work, "render.html");
+fs.writeFileSync(page, `<!doctype html><meta charset="utf-8"><title>render</title><script>${bundle.outputFiles[0].text}</script>`);
+const voiceDir = path.join(ROOT, "public/float/groove/voice");
+const clips = fs.existsSync(path.join(voiceDir, "manifest.json")) ? JSON.parse(fs.readFileSync(path.join(voiceDir, "manifest.json"), "utf8")).clips
+  .map(c => ({ id:c.id, base64:fs.readFileSync(path.join(voiceDir, c.file)).toString("base64") })) : [];
+
+const chrome = await launchChrome({ width:800, height:600 });
+let bad = false;
+const toMp3 = (wavB64, file) => {
+  const tmp = path.join(work, `${path.basename(file, ".mp3")}.wav`);
+  fs.writeFileSync(tmp, Buffer.from(wavB64, "base64"));
+  fs.mkdirSync(path.dirname(file), { recursive:true });
+  const r = spawnSync("ffmpeg", ["-hide_banner", "-v", "error", "-y", "-i", tmp, "-c:a", "libmp3lame", "-b:a", "192k", file]);
+  if (r.status !== 0) throw new Error(String(r.stderr));
+  return file;
+};
+try {
+  await chrome.load(pathToFileURL(page).href);
+  await chrome.until("window.__ready === true", { timeout:20000 });
+  await chrome.evaluate(`window.__clips = ${JSON.stringify(clips)}; true`);
+  for (const job of jobs.filter(j => j !== "onsets")) {
+    const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"], ["lobby", "window.__lobby()"], ["rockets", "window.__rockets()"]]
+      : job === "fireworks" ? [["fireworks", `window.__song("fireworks")`], ["fireworks-room", `window.__song("fireworks", null, true)`],
+        ...(STEMS ? ["band", "calls", "answers"].map(s => [`fireworks-${s}`, `window.__song("fireworks", ${JSON.stringify(s)})`]) : [])]
+      : job === "room" ? ["paddle", "rock", "spin", "drop"].map(id => [`${id}-room13`, `window.__song(${JSON.stringify(id)}, null, true)`])
+      : job === "after" ? [["after", "window.__after()"]]
+      : [[job, `window.__song(${JSON.stringify(job)})`], ...(STEMS ? ["band", "calls", "answers"].map(s => [`${job}-${s}`, `window.__song(${JSON.stringify(job)}, ${JSON.stringify(s)})`]) : [])];
+    for (const [name, expr] of renders) {
+      const t0 = Date.now();
+      const r = await chrome.evaluate(expr);
+      r.took = Date.now() - t0;
+      const file = toMp3(r.base64, path.join(OUT, `${name}.mp3`));
+      const ok = r.peak > 0.02 && r.peak <= 1;
+      if (!ok) bad = true;
+      console.log(`${ok ? "ok " : "BAD"} ${path.relative(ROOT, file).padEnd(46)} ${String(r.ms).padStart(6)} ms  peak ${r.peak.toFixed(3)}  rms ${r.rms.toFixed(4)}  (${(r.took / 1000).toFixed(1)} s${r.renderMs ? `, render ${(r.renderMs / 1000).toFixed(1)} s` : ""})`);
+    }
+  }
+  /* the onset check: every call and answer alone */
+  const checks = [
+    ...["ready", "hey", "ba", "spin", "one", "two", "three", "four", "chug"].map(line => ["floatVoice", { line, song:"rock", k:0, n:0, of:1 }, line]),
+    ...[0, 1, 2].map(n => ["floatVoice", { line:"ba", song:"rock", k:3, n, of:3, after:0.22 }, `ba ${n + 1} of 3`]),
+    ["floatWhirl", { song:"spin" }, "whirl"], ["floatWhirl", { song:"spin", say:true }, "whirl + Spin!"],
+    ["floatAnswer", { kind:"paddle", song:"paddle", k:0, b:0, n:0, of:2 }, "splash"], ["floatAnswer", { kind:"hey", song:"paddle", k:1, b:3 }, "crowd Hey!"],
+    ["floatAnswer", { kind:"hop", song:"rock", k:0, b:2, n:0, of:1 }, "boing"], ["floatAnswer", { kind:"spin", song:"spin", k:0, b:1 }, "whoosh"],
+    ["floatAnswer", { kind:"drop", song:"drop", k:0, b:0 }, "the drop"],
+    ["floatFuse", { after:0.9 }, "the fuse (rocket's call)"], ["floatAnswer", { kind:"rocket", song:"fireworks", k:0, b:2, n:0 }, "the launch"],
+    ["floatAnswer", { kind:"paddle", song:"rock", k:0, b:0, n:0, of:2, under:true }, "a stroke under a call"],
+    ["floatGroove", { song:"fireworks", bar:26, sec:"play", part:1, k:4, len:8, next:"play", dark:true }, "a blackout bar's downbeat"],
+    ["floatGroove", { song:"fireworks", bar:27, sec:"play", part:1, k:5, len:8, next:"play", back:true, only:["drums"] }, "back from the dark"],
+    ["floatGroove", { song:"fireworks", bar:6, sec:"play", part:0, k:0, len:8, next:"play", only:["drums"] }, "Fireworks' downbeat (drums)"],
+    ["floatGroove", { song:"paddle", bar:6, sec:"play", part:0, k:0, len:8, next:"play", only:["drums"] }, "a bar's downbeat (drums)"],
+    ["floatSting", { song:"paddle" }, "the round card's hit"],
+    ...["say-turn", "say-copy"].map(line => ["floatVoice", { line, narration:true }, "narration " + line]),
+    ...[10, 7, 4].map(n => ["floatBarVoice", { line:"bar-" + n }, "bartender " + n]),
+    ...[6, 4].map(n => ["floatBarVoice", { line:`bar-${n}q` }, `bartender ${n} (rush)`]),
+    ...["say-keephey", "say-bothnow", "title-fireworks"].map(line => ["floatVoice", { line, narration:true }, "v3 " + line]),
+    ["floatTick", { n:6 }, "the clock's tick"], ["floatEcho", { as:"paddle", n:0 }, "the host's paddle"], ["floatZero", {}, "the bell at zero"],
+  ];
+  /* the reference: a card's tick (an instant attack) at 1 s, read the same way: the engine's own delay
+     (the master's compressor looks a few ms ahead) and the reading's own, which every sound shares */
+  const ref = await chrome.evaluate(`window.__onset("S3", {}, 0)`);
+  console.log(`    reference: an instant attack at 1 s reads at +${((ref.beat - 1) * 1000).toFixed(1)} ms (the engine and the reading)`);
+  const rows = [];
+  for (const [id, opts, label] of checks) {
+    const r = await chrome.evaluate(`window.__onset(${JSON.stringify(id)}, ${JSON.stringify(opts)})`);
+    const x = await chrome.evaluate(`window.__sched(${JSON.stringify(id)}, ${JSON.stringify(opts)})`);
+    const err = Math.round((r.beat - ref.beat) * 10000) / 10;
+    /* exact: every clip lands its beat within 5 ms (a lone line on it to the sample; a crowd's takes a few ms apart on purpose),
+       and a synthesized sound has a hit starting on the beat */
+    const lands = x.clipLands.map(v => Math.round(v * 100000) / 100);
+    const exact = lands.length ? lands.every(v => Math.abs(v) <= 5) && lands.some(v => Math.abs(v) <= 0.5) : x.onBeat > 0;
+    const ok = exact && Math.abs(err) <= 8 && r.peak > 0.005;
+    if (!ok) bad = true;
+    rows.push({ label, id, exact:lands.length ? lands : `${x.onBeat} on the beat`, heard:err, lead:Math.round(-x.lead * 1000), peak:Math.round(r.peak * 1000) / 1000, ok });
+    console.log(`${ok ? "ok " : "BAD"} ${label.padEnd(28)} exact ${lands.length ? `clip beat ${lands.map(v => (v >= 0 ? "+" : "") + v.toFixed(2)).join(" ")} ms` : `${x.onBeat} source(s) start on the beat`}`
+      + `, heard ${err >= 0 ? "+" : ""}${err.toFixed(1)} ms vs an instant attack, lead-in ${Math.round(-x.lead * 1000)} ms`);
+  }
+  fs.mkdirSync(OUT, { recursive:true });
+  fs.writeFileSync(path.join(OUT, "onsets.json"), `${JSON.stringify({ at:new Date().toISOString(), clips:clips.length, rows }, null, 2)}\n`);
+} finally {
+  await chrome.close();
+  fs.rmSync(work, { recursive:true, force:true });
+}
+if (bad) process.exitCode = 1;

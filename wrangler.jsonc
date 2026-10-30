@@ -6,12 +6,12 @@
   "assets": {
     "not_found_handling": "single-page-application",
     "binding": "ASSETS",
-    "run_worker_first": ["/ws", "/api/*"]
+    "run_worker_first": ["/ws", "/api/*", "/float/ws"]
   },
   "durable_objects": {
-    "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
+    "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }, { "name": "FLOAT", "class_name": "FloatRoom" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Tournament"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Tournament"] }, { "tag": "v2", "new_sqlite_classes": ["FloatRoom"] }],
   "secrets": {
     "required": ["GM_PIN"]
   },
@@ -68,7 +68,7 @@
         "VAPID_SUBJECT": "https://fielddayseries.com"
       },
       "durable_objects": {
-        "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
+        "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }, { "name": "FLOAT", "class_name": "FloatRoom" }]
       }
     },
     "staging": {
@@ -89,7 +89,7 @@
         "VAPID_SUBJECT": "https://fielddayseries.com"
       },
       "durable_objects": {
-        "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
+        "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }, { "name": "FLOAT", "class_name": "FloatRoom" }]
       }
     }
   },

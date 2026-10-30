@@ -14,7 +14,7 @@ import {
   presentPlayers, stageFinalists, teamFit,
 } from "../../../shared/core.js";
 import { SHOW_SCENE_DEFINITIONS, autopilotHeld, contestName, draftsByDefault, resolveDirector, resolveShowScene } from "../../../shared/show.js";
-import { triviaFinalEntry, triviaQuestionTotal, triviaRoundCount } from "../../../shared/trivia.js";
+import { triviaFinalEntry, triviaPlanned, triviaQuestionTotal, triviaRoundCount } from "../../../shared/trivia.js";
 import { BOARD_FORMAT, FINAL_PHASES, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
 import { hasKaraokeSong, karaokeResultSlots } from "../../../shared/karaoke.js";
 import { namesOf } from "./directorPill.js";
@@ -99,7 +99,7 @@ function geoPlan(state, ev) {
    (shared/triviaBoard.js boardBeat runs each step). Null without a set list. */
 function boardPlan(state, ev) {
   const game = isBoardGame(state.trivia) && state.trivia.eventId === ev.id ? state.trivia : null;
-  if (!game && !triviaQuestionTotal(state.triviaRounds)) return null;
+  if (!game && !triviaQuestionTotal(state.triviaRounds) && !triviaPlanned(state)) return null;
   const out = game || !state.eventOps?.[ev.id]?.startedAt ? [] : [beat("trivia-start", "Start trivia", ev.name)];
   if (!game || !FINAL_PHASES.includes(game.phase)) out.push(beat("board-step", "The board", ev.name));
   if (!game || (game.final && game.phase !== "final-board"))
@@ -163,8 +163,19 @@ function karaokePlan(state, ev, karaoke = false) {
   return out;
 }
 
+/* Float while its Cup runs (shared/float.js floatBeat): the room posts the
+   result, so the one beat left is the result by hand; a Cup the room never
+   took is started again first. Null otherwise: the ordinary result entry. */
+function floatPlan(state, ev) {
+  if (ev?.game !== "float" || state.results?.[ev.id]) return null;
+  const cup = state.float?.evId === ev.id && !state.float.finishedAt ? state.float : null;
+  if (!cup) return null;
+  return [...(cup.error ? [beat("float-start", "Start Float again", ev.name)] : []), beat("float-live", "Enter result", ev.name)];
+}
+
 const decideBeats = (state, ev, contest, karaoke = false) => contest.kind === "ffa"
-  ? geoPlan(state, ev) || triviaPlan(state, ev) || karaokePlan(state, ev, karaoke) || [beat("enter-result", "Enter result", ev.name)]
+  ? geoPlan(state, ev) || triviaPlan(state, ev) || karaokePlan(state, ev, karaoke) || floatPlan(state, ev)
+    || [beat("enter-result", "Enter result", ev.name)]
   : [beat("record-contest-winner", "Record winner", contest.name)];
 
 /* After a result posts: the winner scene's standings step, when the TV

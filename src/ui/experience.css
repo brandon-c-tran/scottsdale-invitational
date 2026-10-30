@@ -206,6 +206,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(max-width:430px) { .fd-header-row:has(.fd-header-you) .fd-brand>span { display:none; }
   .fd-header-row:has(.fd-header-you) .fd-brand { flex:0 0 auto; margin-right:auto; } }
 @media(max-width:374px) { .fd-header-you~.fd-profile-link { display:none; } }
+/* the commissioner's row carries one more button: the mark never shrinks
+   under the reel, the words step aside on anything narrower than a tablet,
+   and the reel tightens on a phone so a five-digit stack still fits */
+.fd-brand > :first-child { flex-shrink:0; }
+@media(max-width:640px) { .fd-header-row:has(.fd-header-gm):has(.fd-header-you) .fd-brand>span { display:none; }
+  .fd-header-row:has(.fd-header-gm):has(.fd-header-you) .fd-brand { flex:0 0 auto; margin-right:auto; } }
+@media(max-width:430px) { .fd-header-row:has(.fd-header-gm) .fd-header-you { gap:5px; padding:6px 8px 5px; }
+  .fd-header-row:has(.fd-header-gm) .fd-header-you .fd-reel { font-size:19px; }
+  .fd-header-row:has(.fd-header-gm) .fd-header-rank { font-size:14px; } }
 .fd-profile-link { display:flex; align-items:center; justify-content:center; padding:0; background:none;
   border:0; border-radius:50%; cursor:pointer; min-width:44px; min-height:44px; }
 .fd-update-chip { display:flex; flex-shrink:0; align-items:center; gap:6px; min-height:44px; padding:0 4px; border:0;

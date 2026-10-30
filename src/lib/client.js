@@ -590,6 +590,10 @@ export function triviaUploadPhoto(photo) {
 }
 export const triviaBank = () => momentRequest("/api/trivia/bank", { headers:momentHeaders(), cache:"no-store" },
   { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't load the bank" });
+/* the question bank (docs/TRIVIA-QBANK.md): its records and the
+   recommended board, the commissioner's alone */
+export const triviaQBank = () => momentRequest("/api/trivia/qbank", { headers:momentHeaders(), cache:"no-store" },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't load the question bank. Try again." });
 export const triviaClip = questionId => momentRequest(`/api/trivia/clip/${encodeURIComponent(questionId)}`,
   { headers:momentHeaders(), cache:"no-store" }, { ms:MOMENT_EDIT_MS, timeout:"No clip", failed:"No clip" });
 export const triviaClipCheck = ({ title = "", artist = "", isrc = "" } = {}) =>
@@ -603,12 +607,10 @@ export async function triviaPhotoUrl(id) {
 }
 
 /* Karaoke songs on YouTube (worker/tournament.js handleKaraoke): a chosen
-   song's uploads and whether it has synced lyrics { videos, lyrics }, a
-   pasted link's check { video }, and the commissioner's check of every
-   saved video and how each song will play { results } (the GM token rides
-   momentHeaders). A lookup is up to two searches and two reads of up to
-   8 seconds each beside LRCLIB, so 20 seconds; the check reads LRCLIB and
-   may search for every song, so 40. A failure carries the server's line
+   song's karaoke uploads { videos }, a pasted link's check { video }, and
+   the commissioner's check of every saved video { results } (the GM token
+   rides momentHeaders). A lookup is one search and one read of up to 8
+   seconds each; the check one batched read. A failure carries the server's line
    and, for YouTube's own refusals, a `code` (none, quota, busy, key,
    embedding...). */
 const KARAOKE_LOOKUP_MS = 20000;

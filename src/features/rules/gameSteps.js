@@ -23,6 +23,7 @@ export const STEP_SETS = Object.freeze({
   pong:{ steps:4, win:4, notes:[["swat", "swat"], ["rerack", "rack"], ["redemption", "redemption"]] },
   trivia:{ steps:3, win:3, notes:[["groom", "ring"], ["family", "home"], ["group", "group"], ["photo", "photo"], ["sports", "sports"]] },
   ragecage:{ steps:4, win:4, notes:[["anywhere", "anywhere"], ["second", "second"], ["third", "third"], ["center", "center"]] },
+  float:{ steps:4, win:4, notes:[["drinking", "drink"], ["cheer", "group"]] },
   beerio:{ steps:4, win:4, notes:[["sip", "nosip"], ["wait", "wait"]] },
   poker:{ steps:4, win:4, notes:[["holdem", "cards"], ["count", "timer"], ["busts", "order"]] },
   spikeball:{ steps:4, win:4, notes:[["move", "move"], ["cap", "cap"]] },

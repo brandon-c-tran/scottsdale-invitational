@@ -10,8 +10,10 @@ import { createRoot } from "react-dom/client";
 import { createPortal, flushSync } from "react-dom";
 import { allEventsOf, computeStandings, disp, resolveCurrentContest, resolveWeekendOperation, rosterOf, wagerBoardEvent } from "../shared/core.js";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
-import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS, latestResultOf, nextUpEvent, tvLiveEvent }
-  from "../src/features/tv/tvModel.js";
+import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS, ambientIndex, latestResultOf, nextUpEvent,
+  tvLiveEvent } from "../src/features/tv/tvModel.js";
+import { FLOAT_ROSTER_CARD, floatRosterRiders, withFloatRoster } from "../src/features/float/floatRoster.js";
+import { failFloatArt } from "../src/features/float/floatParts.js";
 import { recordAt, recordCards, withRecordTurns } from "../src/features/tv/recordsModel.js";
 import { attractAt, attractRoom, withAttractTurns } from "../src/features/tv/attractModel.js";
 import { tvPhotoRotation, withPhotoTurns } from "../src/features/photos/photoModel.js";
@@ -40,6 +42,8 @@ import "../src/ui/shell.css";
 const params = new URLSearchParams(location.search);
 const scenario = buildScenario(TV_SCENARIOS, params.get("scenario") || "tv-locker");
 const at = scenario.at || {};
+/* `floatArt:"fail"`: a TV that cannot draw the riders (their photo chips stand in) */
+if (scenario.floatArt === "fail") failFloatArt("fit");
 /* a bit held "letter" (its name and fact landed) or at its "still" */
 const bitInstant = (bit, t) => t === "letter" ? (bit?.letter?.at || 0) + LETTER_LAND_MS + 120 : t === "still" ? bit?.still || 0 : Number(t) || 0;
 /* ?t=ms moves a moment's instant (frame timing) */
@@ -60,11 +64,23 @@ function gapAmbient(state, events) {
   if (nextUpEvent(state, events, { liveEv, operationEv })) base.push("next");
   if (latestResultOf(state, events)) base.push("latest");
   if (state.live) base.push("trophy");
+  /* Float's riders, with the room bound (features/float/floatRoster.js) */
+  const own = withFloatRoster(base, !!floatRosterRiders(state, events, { float:!!scenario.float }));
   const cards = recordCards(state, events);
   const reel = highlightReel(state, events);
   const room = attractRoom(state);
-  return { cards, reel, room, ambient:withAttractTurns(withPhotoTurns(withHighlightTurns(withRecordTurns(base, cards.length), reel.length),
+  return { cards, reel, room, ambient:withAttractTurns(withPhotoTurns(withHighlightTurns(withRecordTurns(own, cards.length), reel.length),
     tvPhotoRotation(state).length), room.length) };
+}
+/* `floatRoster`: the riders turn, `ms` into it (4 s: the riders standing) */
+function floatRosterNow(state, want) {
+  const { ambient } = gapAmbient(state, allEventsOf(state));
+  const start = Math.ceil(Date.now() / ROTATION) * ROTATION;
+  for (let turn = 0; turn < ambient.length; turn++) {
+    const now = start + turn * TV_AMBIENT_TURN_MS + (want.ms ?? 4000);
+    if (ambient[ambientIndex(ambient.length, now, TV_AMBIENT_TURN_MS)] === FLOAT_ROSTER_CARD) return now;
+  }
+  throw new Error(`fit: no riders turn (${ambient.join(", ")})`);
 }
 /* `record`: the records turn (features/tv/recordsModel.js) that shows the
    card of `kind` (and `players` on it, `worst` for the bettors), `ms` into
@@ -106,6 +122,7 @@ function highlightNow(state, want) {
 }
 function pickNow(state) {
   if (at.record) return recordNow(state, at.record);
+  if (at.floatRoster) return floatRosterNow(state, at.floatRoster);
   if (at.attract) return attractNow(state, at.attract);
   if (at.highlight) return highlightNow(state, at.highlight);
   /* a plate mid-engrave: the newest result posted just before this trophy
@@ -320,6 +337,9 @@ function Harness() {
         const bit = at.attract ? document.querySelector(".tv-attract [data-bit]")?.getAttribute("data-bit") || null : null;
         if (at.attract && bit !== at.attract.id)
           setTimeout(() => { throw new Error(`fit: the TV drew ${bit || "no vignette"}, not ${at.attract.id}`); });
+        /* a riders view draws the riders turn, or says so */
+        if (at.floatRoster && !document.querySelector("[data-float-roster]"))
+          setTimeout(() => { throw new Error("fit: the TV drew no riders turn"); });
         window.__FIT_READY__ = true;
       },
         moment ? 250 : scenario.wait || 900);
@@ -337,7 +357,7 @@ function Harness() {
         champion={state.frozen ? standings[0] : null} coChamps={state.frozen ? standings.filter(r => r.rank === 1) : []}
         showControlEnabled={false} rankDeltas={{}} connection={{ ready:true, connected:true, status:"open", version:1 }}
         EventSpotlight={() => null} ceremony={drawn || scenario.ceremony || null} onExit={() => {}} now={now}
-        arriveCode={FIT_ARRIVE_CODE} />
+        arriveCode={FIT_ARRIVE_CODE} float={!!scenario.float} />
       <TextFloor px={24}><MomentLayer state={state} events={events} /></TextFloor>
     </Shell></PlayerIdentityProvider>
   );

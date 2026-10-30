@@ -1,0 +1,3494 @@
+[
+  {
+    "id": "web-pewdiepie",
+    "category": "web",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which YouTuber is this?",
+    "subject": "PewDiePie",
+    "options": [
+      {
+        "id": "a",
+        "text": "Markiplier"
+      },
+      {
+        "id": "b",
+        "text": "PewDiePie"
+      },
+      {
+        "id": "c",
+        "text": "Jacksepticeye"
+      },
+      {
+        "id": "d",
+        "text": "VanossGaming"
+      }
+    ],
+    "answer": "b",
+    "reveal": "PewDiePie (Felix Kjellberg), whose gaming videos made him YouTube's most subscribed creator.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/14179c447cdd.webp",
+      "w": 1480,
+      "h": 1600,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/bea4b89ed8b9.webp",
+      "w": 1201,
+      "h": 1600
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/PewDiePie",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:PewDiePie_at_PAX_2015_crop.jpg",
+        "note": "Image source: Wikimedia Commons, CC0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-doge",
+    "category": "web",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which meme is this?",
+    "subject": "Doge",
+    "options": [
+      {
+        "id": "a",
+        "text": "Grumpy Cat"
+      },
+      {
+        "id": "b",
+        "text": "Bad Luck Brian"
+      },
+      {
+        "id": "c",
+        "text": "Scumbag Steve"
+      },
+      {
+        "id": "d",
+        "text": "Doge"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Doge, a Shiba Inu with broken-English Comic Sans captions. It took off in 2013 and often uses Kabosu's photo.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/465c9fbf370d.webp",
+      "w": 1358,
+      "h": 1600,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Doge_(meme)",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Doge_homemade_meme.jpg",
+        "note": "Image source: Wikimedia Commons, CC0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-road-work-ahead",
+    "category": "web",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Finish the Vine: \"Road work ahead? Uh yeah, I sure hope it ___.\"",
+    "subject": "Road Work Ahead",
+    "options": [
+      {
+        "id": "a",
+        "text": "does"
+      },
+      {
+        "id": "b",
+        "text": "will"
+      },
+      {
+        "id": "c",
+        "text": "can"
+      },
+      {
+        "id": "d",
+        "text": "should"
+      }
+    ],
+    "answer": "a",
+    "reveal": "The Vine reads \"Road work ahead? Uh, yeah. I sure hope it does.\"",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Road_work_ahead",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "vine",
+        "memes"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-vine-six",
+    "category": "web",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "How long could a Vine video be?",
+    "subject": "Vine",
+    "options": [
+      {
+        "id": "a",
+        "text": "10 seconds"
+      },
+      {
+        "id": "b",
+        "text": "15 seconds"
+      },
+      {
+        "id": "c",
+        "text": "6 seconds"
+      },
+      {
+        "id": "d",
+        "text": "30 seconds"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Vine loops were capped at six seconds. Twitter bought the app four months after its 2012 founding.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Vine_(service)",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "vine",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-mojang",
+    "category": "web",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Which company made Minecraft?",
+    "subject": "Minecraft",
+    "options": [
+      {
+        "id": "a",
+        "text": "Riot Games"
+      },
+      {
+        "id": "b",
+        "text": "Epic Games"
+      },
+      {
+        "id": "c",
+        "text": "Mojang"
+      },
+      {
+        "id": "d",
+        "text": "Roblox Corporation"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Minecraft is developed and published by Mojang Studios. Its public alpha started on 17 May 2009.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Minecraft",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-riot",
+    "category": "web",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Which company made League of Legends?",
+    "subject": "League of Legends",
+    "options": [
+      {
+        "id": "a",
+        "text": "Riot Games"
+      },
+      {
+        "id": "b",
+        "text": "Blizzard"
+      },
+      {
+        "id": "c",
+        "text": "Valve"
+      },
+      {
+        "id": "d",
+        "text": "Mojang Studios"
+      }
+    ],
+    "answer": "a",
+    "reveal": "League of Legends is developed and published by Riot Games and released in October 2009.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/League_of_Legends",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-nyan-body",
+    "category": "web",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Nyan Cat's body is a cartoon version of which food?",
+    "subject": "Nyan Cat",
+    "options": [
+      {
+        "id": "a",
+        "text": "Waffle"
+      },
+      {
+        "id": "b",
+        "text": "Donut"
+      },
+      {
+        "id": "c",
+        "text": "Pizza slice"
+      },
+      {
+        "id": "d",
+        "text": "Pop-Tart"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Nyan Cat is a cat with a Pop-Tart torso flying through space and leaving a rainbow trail (YouTube, April 2011).",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Nyan_Cat",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-mcalpha",
+    "category": "web",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which game's pause menu is this?",
+    "subject": "Minecraft",
+    "options": [
+      {
+        "id": "a",
+        "text": "Terraria"
+      },
+      {
+        "id": "b",
+        "text": "Minecraft"
+      },
+      {
+        "id": "c",
+        "text": "Roblox"
+      },
+      {
+        "id": "d",
+        "text": "Starbound"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Minecraft in an early Alpha build. The game's public alpha began on 17 May 2009.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/a8be8a73e1f4.webp",
+      "w": 1600,
+      "h": 698,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/53a60a43c8a5.webp",
+      "w": 1600,
+      "h": 886
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Minecraft",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/File:ALPHA_1.0.9_SCREENSHOT.png",
+        "note": "Image source: Fandom wiki screenshot",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-orange",
+    "category": "web",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which web series is this?",
+    "subject": "Annoying Orange",
+    "options": [
+      {
+        "id": "a",
+        "text": "Annoying Orange"
+      },
+      {
+        "id": "b",
+        "text": "Fred"
+      },
+      {
+        "id": "c",
+        "text": "Llamas with Hats"
+      },
+      {
+        "id": "d",
+        "text": "Charlie the Unicorn"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Annoying Orange, the web series created by Dane Boedigheimer.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/7fb61c500e6e.webp",
+      "w": 1000,
+      "h": 768,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/6d8e398b3509.webp",
+      "w": 1366,
+      "h": 768
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Annoying_Orange",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Annoying_Orange.png",
+        "note": "Image source: Wikimedia Commons, CC BY 3.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "memes"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-nyan",
+    "category": "web",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which meme is this costume?",
+    "subject": "Nyan Cat",
+    "options": [
+      {
+        "id": "a",
+        "text": "Doge"
+      },
+      {
+        "id": "b",
+        "text": "Grumpy Cat"
+      },
+      {
+        "id": "c",
+        "text": "Nyan Cat"
+      },
+      {
+        "id": "d",
+        "text": "Trollface"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Nyan Cat, a rainbow-trailing cat with a Pop-Tart body, from a YouTube video uploaded in April 2011.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/bb73c1c83362.webp",
+      "w": 1600,
+      "h": 1063,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Nyan_Cat",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:SDCC_2012_-_Nyan_Cat_(7626690530).jpg",
+        "note": "Image source: Wikimedia Commons, CC BY 2.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-smosh",
+    "category": "web",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which YouTube comedy duo is this?",
+    "subject": "Smosh",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rhett & Link"
+      },
+      {
+        "id": "b",
+        "text": "Smosh"
+      },
+      {
+        "id": "c",
+        "text": "The Fine Bros"
+      },
+      {
+        "id": "d",
+        "text": "Barats and Bereta"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Smosh, founded by Anthony Padilla and Ian Hecox. They began posting on YouTube in 2005.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/2eead3b47aca.webp",
+      "w": 1600,
+      "h": 1369,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Smosh",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Ian_Hecox_%26_Anthony_Padilla_by_Gage_Skidmore.jpg",
+        "note": "Image source: Wikimedia Commons, CC BY-SA 3.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-clubpenguin",
+    "category": "web",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which online game is this town from?",
+    "subject": "Club Penguin",
+    "options": [
+      {
+        "id": "a",
+        "text": "Poptropica"
+      },
+      {
+        "id": "b",
+        "text": "Webkinz"
+      },
+      {
+        "id": "c",
+        "text": "Neopets"
+      },
+      {
+        "id": "d",
+        "text": "Club Penguin"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Club Penguin's Town, with the Coffee Shop, Dance Club and Clothes Shop. The game ran from 2005 to 2017.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/657980c10982.webp",
+      "w": 1520,
+      "h": 960,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Club_Penguin",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://clubpenguin.fandom.com/wiki/File:Town_%28pre-party%29.png",
+        "note": "Image source: Fandom wiki screenshot",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "club-penguin",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-runescape",
+    "category": "web",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which online game is this screenshot from?",
+    "subject": "RuneScape",
+    "options": [
+      {
+        "id": "a",
+        "text": "Mabinogi"
+      },
+      {
+        "id": "b",
+        "text": "RuneScape"
+      },
+      {
+        "id": "c",
+        "text": "Flyff"
+      },
+      {
+        "id": "d",
+        "text": "Wizard101"
+      }
+    ],
+    "answer": "b",
+    "reveal": "RuneScape, developed by Jagex and first released on 4 January 2001 as a browser game.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/9ee062b136cc.webp",
+      "w": 1483,
+      "h": 884,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/12377c8c0836.webp",
+      "w": 1600,
+      "h": 743
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/RuneScape",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://runescape.fandom.com/wiki/File:Screenshots_21.jpg",
+        "note": "Image source: Fandom wiki screenshot",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "runescape",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-disney-cp",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Which company bought Club Penguin in 2007?",
+    "subject": "Club Penguin",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nickelodeon"
+      },
+      {
+        "id": "b",
+        "text": "Warner Bros."
+      },
+      {
+        "id": "c",
+        "text": "Cartoon Network"
+      },
+      {
+        "id": "d",
+        "text": "Disney"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The Walt Disney Company bought New Horizon, Club Penguin's maker, in August 2007 for 350 million dollars.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Club_Penguin",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "club-penguin",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-twitter-vine",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Which company bought Vine four months after it was founded?",
+    "subject": "Vine",
+    "options": [
+      {
+        "id": "a",
+        "text": "Twitter"
+      },
+      {
+        "id": "b",
+        "text": "Facebook"
+      },
+      {
+        "id": "c",
+        "text": "Google"
+      },
+      {
+        "id": "d",
+        "text": "Snapchat"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Twitter bought Vine for 30 million dollars in 2012, before its January 2013 launch.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Vine_(service)",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "vine",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-chocolate-rain",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Who sang the 2007 viral hit \"Chocolate Rain\"?",
+    "subject": "Chocolate Rain",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rick Astley"
+      },
+      {
+        "id": "b",
+        "text": "Rebecca Black"
+      },
+      {
+        "id": "c",
+        "text": "Tay Zonday"
+      },
+      {
+        "id": "d",
+        "text": "Psy"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Tay Zonday uploaded the video on 23 April 2007.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Chocolate_Rain",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "music"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-david-dentist",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Finish the line from David After Dentist: \"Is this real life? Is this going to be ___?\"",
+    "subject": "David After Dentist",
+    "options": [
+      {
+        "id": "a",
+        "text": "over soon"
+      },
+      {
+        "id": "b",
+        "text": "a dream"
+      },
+      {
+        "id": "c",
+        "text": "forever"
+      },
+      {
+        "id": "d",
+        "text": "my life"
+      }
+    ],
+    "answer": "c",
+    "reveal": "In the car after oral surgery, David asked \"Is this real life?\" and \"Is this going to be forever?\"",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/David_After_Dentist",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "memes"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-league-year",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "In which year was League of Legends released?",
+    "subject": "League of Legends",
+    "options": [
+      {
+        "id": "a",
+        "text": "2009"
+      },
+      {
+        "id": "b",
+        "text": "2007"
+      },
+      {
+        "id": "c",
+        "text": "2010"
+      },
+      {
+        "id": "d",
+        "text": "2011"
+      }
+    ],
+    "answer": "a",
+    "reveal": "League of Legends has been released since October 2009.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/League_of_Legends",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-nexon-maple",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Which company publishes MapleStory?",
+    "subject": "MapleStory",
+    "options": [
+      {
+        "id": "a",
+        "text": "NCsoft"
+      },
+      {
+        "id": "b",
+        "text": "Smilegate"
+      },
+      {
+        "id": "c",
+        "text": "Netmarble"
+      },
+      {
+        "id": "d",
+        "text": "Nexon"
+      }
+    ],
+    "answer": "d",
+    "reveal": "MapleStory is developed by Wizet and published by Nexon.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/MapleStory",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "maplestory",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-astley",
+    "category": "web",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which singer's song is behind the Rickroll prank?",
+    "subject": "Rick Astley",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rick Springfield"
+      },
+      {
+        "id": "b",
+        "text": "Rick Astley"
+      },
+      {
+        "id": "c",
+        "text": "Rick Ross"
+      },
+      {
+        "id": "d",
+        "text": "Rick James"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Rick Astley and \"Never Gonna Give You Up\" (1987), the video behind Rickrolling.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/d9ae0f4cd628.webp",
+      "w": 1600,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Rickroll",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Never_Gonna_Give_You_Up",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Rick_Astley_Dallas.jpg",
+        "note": "Image source: Wikimedia Commons, CC BY-SA 4.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "music"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-higa",
+    "category": "web",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which YouTuber is this?",
+    "subject": "nigahiga",
+    "options": [
+      {
+        "id": "a",
+        "text": "nigahiga"
+      },
+      {
+        "id": "b",
+        "text": "KevJumba"
+      },
+      {
+        "id": "c",
+        "text": "D-Trix"
+      },
+      {
+        "id": "d",
+        "text": "Timothy DeLaGhetto"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Ryan Higa (nigahiga), the most-subscribed YouTube channel for 675 straight days from 2009 to 2011.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/04612550e58c.webp",
+      "w": 1266,
+      "h": 1600,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Ryan_Higa",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Ryan_Higa_by_Gage_Skidmore.jpg",
+        "note": "Image source: Wikimedia Commons, CC BY-SA 3.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-tobuscus",
+    "category": "web",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which YouTuber is this?",
+    "subject": "Tobuscus",
+    "options": [
+      {
+        "id": "a",
+        "text": "SkyDoesMinecraft"
+      },
+      {
+        "id": "b",
+        "text": "CaptainSparklez"
+      },
+      {
+        "id": "c",
+        "text": "Tobuscus"
+      },
+      {
+        "id": "d",
+        "text": "Smosh"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Toby Turner, known as Tobuscus for his vlogs, Let's Plays and music.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/3c7b9229a2c5.webp",
+      "w": 1155,
+      "h": 1000,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/83145a42d5f5.webp",
+      "w": 1155,
+      "h": 1600
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Tobuscus",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Toby_Turner_(14331248029)_(cropped).jpg",
+        "note": "Image source: Wikimedia Commons, CC BY-SA 2.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-combatarms",
+    "category": "web",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which online shooter is this menu from?",
+    "subject": "Combat Arms",
+    "options": [
+      {
+        "id": "a",
+        "text": "CrossFire"
+      },
+      {
+        "id": "b",
+        "text": "Combat Arms"
+      },
+      {
+        "id": "c",
+        "text": "Soldier Front"
+      },
+      {
+        "id": "d",
+        "text": "Counter-Strike: Source"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Combat Arms, a free-to-play first-person shooter from Nexon.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/670435157363.webp",
+      "w": 1024,
+      "h": 718,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/f960de7b2960.webp",
+      "w": 1024,
+      "h": 768
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Combat_Arms",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://combatarms.fandom.com/wiki/File:Screenshot.png",
+        "note": "Image source: Fandom wiki screenshot",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "combat-arms",
+        "nostalgia"
+      ],
+      "likely": [
+        "Henry",
+        "Ben"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-happywheels",
+    "category": "web",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which browser game is this?",
+    "subject": "Happy Wheels",
+    "options": [
+      {
+        "id": "a",
+        "text": "Stick Arena"
+      },
+      {
+        "id": "b",
+        "text": "Sift Heads"
+      },
+      {
+        "id": "c",
+        "text": "Territory War"
+      },
+      {
+        "id": "d",
+        "text": "Happy Wheels"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Happy Wheels, a ragdoll physics game created in 2010 by Jim Bonacci.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/4456dcd8a733.webp",
+      "w": 899,
+      "h": 497,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Happy_Wheels",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://happywheels.fandom.com/wiki/File:A_screenshot.png",
+        "note": "Image source: Fandom wiki screenshot",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-poptropica",
+    "category": "web",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which kids' browser game's map is this?",
+    "subject": "Poptropica",
+    "options": [
+      {
+        "id": "a",
+        "text": "Club Penguin"
+      },
+      {
+        "id": "b",
+        "text": "Poptropica"
+      },
+      {
+        "id": "c",
+        "text": "Whyville"
+      },
+      {
+        "id": "d",
+        "text": "Webkinz"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Poptropica's island map. Poptropica launched in 2007.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/08b8832092a4.webp",
+      "w": 1040,
+      "h": 380,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a96535c9b6c2.webp",
+      "w": 1600,
+      "h": 900
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Poptropica",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://poptropica.fandom.com/wiki/File:Screenshot_%28134%29.png",
+        "note": "Image source: Fandom wiki screenshot",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-newgrounds",
+    "category": "web",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which site's front page is this?",
+    "subject": "Newgrounds",
+    "options": [
+      {
+        "id": "a",
+        "text": "Kongregate"
+      },
+      {
+        "id": "b",
+        "text": "Armor Games"
+      },
+      {
+        "id": "c",
+        "text": "Miniclip"
+      },
+      {
+        "id": "d",
+        "text": "Newgrounds"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Newgrounds, founded by Tom Fulp in 1995, hosts user-made games and movies.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/841641064fed.webp",
+      "w": 780,
+      "h": 540,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a7ff89520bcb.webp",
+      "w": 1280,
+      "h": 900
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Newgrounds",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://web.archive.org/web/20090530172943if_/http://www.newgrounds.com/",
+        "note": "Image source: Internet Archive Wayback Machine capture (20090530172943), rendered",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "portals",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-fulp",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Who founded Newgrounds in 1995?",
+    "subject": "Newgrounds",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tom Fulp"
+      },
+      {
+        "id": "b",
+        "text": "Jim Bonacci"
+      },
+      {
+        "id": "c",
+        "text": "Daniel McNeely"
+      },
+      {
+        "id": "d",
+        "text": "Brad Borne"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Tom Fulp founded Newgrounds in 1995. It is based in Glenside, Pennsylvania.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Newgrounds",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "portals",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-miniclip-year",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "In which year did Miniclip launch?",
+    "subject": "Miniclip",
+    "options": [
+      {
+        "id": "a",
+        "text": "1999"
+      },
+      {
+        "id": "b",
+        "text": "2004"
+      },
+      {
+        "id": "c",
+        "text": "2001"
+      },
+      {
+        "id": "d",
+        "text": "2006"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Miniclip launched on 30 March 2001, founded by Robert Small and Tihan Presbie.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Miniclip",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "portals",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-kinney",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which author is the primary creator of Poptropica?",
+    "subject": "Poptropica",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rick Riordan"
+      },
+      {
+        "id": "b",
+        "text": "Dav Pilkey"
+      },
+      {
+        "id": "c",
+        "text": "Jeff Kinney"
+      },
+      {
+        "id": "d",
+        "text": "Lemony Snicket"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Jeff Kinney, later author of Diary of a Wimpy Kid, was the main creator of Poptropica (2007).",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Poptropica",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-chipmunk",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "\"Dramatic Chipmunk\" is actually which animal?",
+    "subject": "Dramatic Chipmunk",
+    "options": [
+      {
+        "id": "a",
+        "text": "Prairie dog"
+      },
+      {
+        "id": "b",
+        "text": "Squirrel"
+      },
+      {
+        "id": "c",
+        "text": "Groundhog"
+      },
+      {
+        "id": "d",
+        "text": "Hamster"
+      }
+    ],
+    "answer": "a",
+    "reveal": "The five-second clip shows a prairie dog, erroneously called a chipmunk.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Dramatic_Chipmunk",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-scumbag-hat",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Scumbag Steve wears a backwards flat-brim hat of which MLB team?",
+    "subject": "Scumbag Steve",
+    "options": [
+      {
+        "id": "a",
+        "text": "Yankees"
+      },
+      {
+        "id": "b",
+        "text": "Cubs"
+      },
+      {
+        "id": "c",
+        "text": "Dodgers"
+      },
+      {
+        "id": "d",
+        "text": "Red Sox"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The photo of Blake Boston dates from 2006; the meme took off in January 2011.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Scumbag_Steve",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-brian-reddit",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which site was Bad Luck Brian's photo first posted to in 2012?",
+    "subject": "Bad Luck Brian",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tumblr"
+      },
+      {
+        "id": "b",
+        "text": "Reddit"
+      },
+      {
+        "id": "c",
+        "text": "4chan"
+      },
+      {
+        "id": "d",
+        "text": "Imgur"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Kyle Craven's yearbook photo was posted on Reddit in 2012 and became an image macro.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Bad_Luck_Brian",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-jason-steele",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Who created Charlie the Unicorn and Llamas with Hats?",
+    "subject": "FilmCow",
+    "options": [
+      {
+        "id": "a",
+        "text": "Jason Steele"
+      },
+      {
+        "id": "b",
+        "text": "Dane Boedigheimer"
+      },
+      {
+        "id": "c",
+        "text": "Lucas Cruikshank"
+      },
+      {
+        "id": "d",
+        "text": "Harley Morenstein"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Jason Steele made both through FilmCow: Charlie the Unicorn (2005) and Llamas with Hats (2009).",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Charlie_the_Unicorn",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Llamas_with_Hats",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "memes"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-minecraft-2009",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "In which year did Minecraft's public alpha begin?",
+    "subject": "Minecraft",
+    "options": [
+      {
+        "id": "a",
+        "text": "2007"
+      },
+      {
+        "id": "b",
+        "text": "2010"
+      },
+      {
+        "id": "c",
+        "text": "2009"
+      },
+      {
+        "id": "d",
+        "text": "2011"
+      }
+    ],
+    "answer": "c",
+    "reveal": "The public alpha started on 17 May 2009; the full release followed on 18 November 2011.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Minecraft",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-audition-genre",
+    "category": "web",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "What kind of game is Audition Online?",
+    "subject": "Audition Online",
+    "options": [
+      {
+        "id": "a",
+        "text": "Artillery"
+      },
+      {
+        "id": "b",
+        "text": "Rhythm and dance"
+      },
+      {
+        "id": "c",
+        "text": "Tower defense"
+      },
+      {
+        "id": "d",
+        "text": "Fighting"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Audition Online, from T3 Entertainment, is a free-to-play multiplayer rhythm game released in South Korea in 2004.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Audition_Online",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "audition",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-epic-meal",
+    "category": "web",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Epic Meal Time is a cooking show from which country?",
+    "subject": "Epic Meal Time",
+    "options": [
+      {
+        "id": "a",
+        "text": "United States"
+      },
+      {
+        "id": "b",
+        "text": "United Kingdom"
+      },
+      {
+        "id": "c",
+        "text": "Australia"
+      },
+      {
+        "id": "d",
+        "text": "Canada"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Epic Meal Time debuted in October 2010 and is hosted by Montreal's Harley Morenstein.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Epic_Meal_Time",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-kongregate",
+    "category": "web",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which game portal's front page is this?",
+    "subject": "Kongregate",
+    "options": [
+      {
+        "id": "a",
+        "text": "Armor Games"
+      },
+      {
+        "id": "b",
+        "text": "Kongregate"
+      },
+      {
+        "id": "c",
+        "text": "Newgrounds"
+      },
+      {
+        "id": "d",
+        "text": "Miniclip"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Kongregate, a web gaming portal bought by GameStop in 2010.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/8d59b80eddfc.webp",
+      "w": 600,
+      "h": 570,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/e30fa5078ad9.webp",
+      "w": 1280,
+      "h": 900
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Kongregate",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://web.archive.org/web/20100603035641if_/http://www.kongregate.com/",
+        "note": "Image source: Internet Archive Wayback Machine capture (20100603035641), rendered",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "portals",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-timothy",
+    "category": "web",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which YouTuber is this?",
+    "subject": "Timothy DeLaGhetto",
+    "options": [
+      {
+        "id": "a",
+        "text": "nigahiga"
+      },
+      {
+        "id": "b",
+        "text": "KevJumba"
+      },
+      {
+        "id": "c",
+        "text": "D-Trix"
+      },
+      {
+        "id": "d",
+        "text": "Timothy DeLaGhetto"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Tim Chantarangsu, formerly Timothy DeLaGhetto, later a cast member on Wild 'N Out.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/1210279d6017.webp",
+      "w": 468,
+      "h": 623,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Timothy_DeLaGhetto",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Timothy_DeLaGhetto_(cropped).jpg",
+        "note": "Image source: Wikimedia Commons, CC BY 3.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-sparklez",
+    "category": "web",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which Minecraft YouTuber is this?",
+    "subject": "CaptainSparklez",
+    "options": [
+      {
+        "id": "a",
+        "text": "CaptainSparklez"
+      },
+      {
+        "id": "b",
+        "text": "SkyDoesMinecraft"
+      },
+      {
+        "id": "c",
+        "text": "DanTDM"
+      },
+      {
+        "id": "d",
+        "text": "Stampy"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Jordan Maron, CaptainSparklez, known for Minecraft videos and parody songs like \"Revenge\".",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0bfc2bcc9ab5.webp",
+      "w": 831,
+      "h": 831,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/CaptainSparklez",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://commons.wikimedia.org/wiki/File:Jordan_Maron_headshot_2018.jpg",
+        "note": "Image source: Wikimedia Commons, CC BY-SA 4.0",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "minecraft"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-gamestop-kong",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which company bought Kongregate in 2010?",
+    "subject": "Kongregate",
+    "options": [
+      {
+        "id": "a",
+        "text": "Disney"
+      },
+      {
+        "id": "b",
+        "text": "Viacom"
+      },
+      {
+        "id": "c",
+        "text": "GameStop"
+      },
+      {
+        "id": "d",
+        "text": "Electronic Arts"
+      }
+    ],
+    "answer": "c",
+    "reveal": "GameStop bought Kongregate in 2010; Modern Times Group followed in 2017.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Kongregate",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "portals",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-bonacci",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Who created Happy Wheels in 2010?",
+    "subject": "Happy Wheels",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tom Fulp"
+      },
+      {
+        "id": "b",
+        "text": "Brad Borne"
+      },
+      {
+        "id": "c",
+        "text": "Jim Bonacci"
+      },
+      {
+        "id": "d",
+        "text": "Daniel McNeely"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Jim Bonacci made Happy Wheels, published by Fancy Force.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Happy_Wheels",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-borne",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Who created the Fancy Pants Adventures flash games?",
+    "subject": "Fancy Pants",
+    "options": [
+      {
+        "id": "a",
+        "text": "Brad Borne"
+      },
+      {
+        "id": "b",
+        "text": "Jim Bonacci"
+      },
+      {
+        "id": "c",
+        "text": "Tom Fulp"
+      },
+      {
+        "id": "d",
+        "text": "Daniel McNeely"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Brad Borne released World 1 on 14 March 2006 and World 2 in January 2008.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Fancy_Pants_Adventures",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-flipline",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which studio made Papa's Pizzeria?",
+    "subject": "Papa's Pizzeria",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ninja Kiwi"
+      },
+      {
+        "id": "b",
+        "text": "Fancy Force"
+      },
+      {
+        "id": "c",
+        "text": "Jagex"
+      },
+      {
+        "id": "d",
+        "text": "Flipline Studios"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Flipline Studios made the Papa Louie series, starting as a Flash game in 2006.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Papa's_Pizzeria",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-ninjakiwi",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which studio makes the Bloons Tower Defense series?",
+    "subject": "Bloons",
+    "options": [
+      {
+        "id": "a",
+        "text": "Flipline Studios"
+      },
+      {
+        "id": "b",
+        "text": "Ninja Kiwi"
+      },
+      {
+        "id": "c",
+        "text": "Fancy Force"
+      },
+      {
+        "id": "d",
+        "text": "Jagex"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Ninja Kiwi began Bloons Tower Defense as a browser game in mid 2007.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Bloons_Tower_Defense",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-revenge-usher",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "CaptainSparklez's Minecraft hit \"Revenge\" parodies a song by which singer?",
+    "subject": "Revenge",
+    "options": [
+      {
+        "id": "a",
+        "text": "Usher"
+      },
+      {
+        "id": "b",
+        "text": "Chris Brown"
+      },
+      {
+        "id": "c",
+        "text": "Justin Bieber"
+      },
+      {
+        "id": "d",
+        "text": "Pitbull"
+      }
+    ],
+    "answer": "a",
+    "reveal": "\"Revenge\" (2011) parodies Usher's \"DJ Got Us Fallin' in Love\".",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/CaptainSparklez",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "music"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-wild-n-out",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Timothy DeLaGhetto later joined the cast of which show?",
+    "subject": "Timothy DeLaGhetto",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ridiculousness"
+      },
+      {
+        "id": "b",
+        "text": "Catfish"
+      },
+      {
+        "id": "c",
+        "text": "Wild 'N Out"
+      },
+      {
+        "id": "d",
+        "text": "Jersey Shore"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Tim Chantarangsu was a Wild 'N Out cast member from 2013 to 2018 and 2020 to 2021.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Timothy_DeLaGhetto",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-bieber-oag",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Overly Attached Girlfriend began as a parody of a song by which singer?",
+    "subject": "Overly Attached Girlfriend",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bruno Mars"
+      },
+      {
+        "id": "b",
+        "text": "Justin Bieber"
+      },
+      {
+        "id": "c",
+        "text": "Taylor Swift"
+      },
+      {
+        "id": "d",
+        "text": "Rebecca Black"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Laina Morris's June 2012 video parodied Justin Bieber's \"Boyfriend\".",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Overly_Attached_Girlfriend",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "memes",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "web-deviantart-quiz",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "The Impossible Quiz's creator, Splapp-me-do, was a user of which site?",
+    "subject": "The Impossible Quiz",
+    "options": [
+      {
+        "id": "a",
+        "text": "Newgrounds"
+      },
+      {
+        "id": "b",
+        "text": "Kongregate"
+      },
+      {
+        "id": "c",
+        "text": "Armor Games"
+      },
+      {
+        "id": "d",
+        "text": "DeviantArt"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The Impossible Quiz (2007) was made by a British DeviantArt user known as Splapp-me-do.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/The_Impossible_Quiz",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-gunbound",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "What kind of game is GunBound?",
+    "subject": "GunBound",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rhythm and dance"
+      },
+      {
+        "id": "b",
+        "text": "Turn-based artillery"
+      },
+      {
+        "id": "c",
+        "text": "Tower defense"
+      },
+      {
+        "id": "d",
+        "text": "Racing"
+      }
+    ],
+    "answer": "b",
+    "reveal": "GunBound, from Softnyx, is compared to the Worms series.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/GunBound",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "gunbound",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-david-age",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "How old was David in David After Dentist?",
+    "subject": "David After Dentist",
+    "options": [
+      {
+        "id": "a",
+        "text": "5"
+      },
+      {
+        "id": "b",
+        "text": "9"
+      },
+      {
+        "id": "c",
+        "text": "11"
+      },
+      {
+        "id": "d",
+        "text": "7"
+      }
+    ],
+    "answer": "d",
+    "reveal": "David DeVore Jr. was seven when his father filmed his reaction to the anesthesia.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/David_After_Dentist",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "memes"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-grandchase",
+    "category": "web",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which online game is this missions screen from?",
+    "subject": "Grand Chase",
+    "options": [
+      {
+        "id": "a",
+        "text": "Grand Chase"
+      },
+      {
+        "id": "b",
+        "text": "MapleStory"
+      },
+      {
+        "id": "c",
+        "text": "Ragnarok Online"
+      },
+      {
+        "id": "d",
+        "text": "DragonFable"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Grand Chase, a 2D side-scrolling MMORPG from KOG Studios.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/546440c7041e.webp",
+      "w": 834,
+      "h": 526,
+      "mime": "image/webp"
+    },
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Grand_Chase",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://grandchase.fandom.com/wiki/File:Screenshot_7.jpg",
+        "note": "Image source: Fandom wiki screenshot",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "grand-chase",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-kog",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which studio developed Grand Chase?",
+    "subject": "Grand Chase",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nexon"
+      },
+      {
+        "id": "b",
+        "text": "Gala Lab"
+      },
+      {
+        "id": "c",
+        "text": "KOG Studios"
+      },
+      {
+        "id": "d",
+        "text": "Softnyx"
+      }
+    ],
+    "answer": "c",
+    "reveal": "KOG Studios, a South Korean company, developed Grand Chase.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Grand_Chase",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "grand-chase",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-t3",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which company produced Audition Online?",
+    "subject": "Audition Online",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nexon"
+      },
+      {
+        "id": "b",
+        "text": "Webzen"
+      },
+      {
+        "id": "c",
+        "text": "T3 Entertainment"
+      },
+      {
+        "id": "d",
+        "text": "Gravity"
+      }
+    ],
+    "answer": "c",
+    "reveal": "T3 Entertainment produced Audition Online, released in South Korea in 2004.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Audition_Online",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "audition",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-softnyx",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which South Korean developer made GunBound?",
+    "subject": "GunBound",
+    "options": [
+      {
+        "id": "a",
+        "text": "Softnyx"
+      },
+      {
+        "id": "b",
+        "text": "MAIET Entertainment"
+      },
+      {
+        "id": "c",
+        "text": "Gala Lab"
+      },
+      {
+        "id": "d",
+        "text": "Smilegate"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Softnyx developed GunBound. MAIET made GunZ and Gala Lab made Flyff.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/GunBound",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/GunZ:_The_Duel",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Flyff",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "gunbound",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-smilegate",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which studio developed CrossFire?",
+    "subject": "CrossFire",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nexon"
+      },
+      {
+        "id": "b",
+        "text": "Gala Lab"
+      },
+      {
+        "id": "c",
+        "text": "KOG Studios"
+      },
+      {
+        "id": "d",
+        "text": "Smilegate"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Smilegate Entertainment released CrossFire in South Korea on 3 May 2007.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/CrossFire_(2007_video_game)",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "crossfire",
+        "nostalgia"
+      ],
+      "likely": [
+        "Henry",
+        "Ben"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-nimonix",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which studio developed Rumble Fighter?",
+    "subject": "Rumble Fighter",
+    "options": [
+      {
+        "id": "a",
+        "text": "Smilegate"
+      },
+      {
+        "id": "b",
+        "text": "Nimonix"
+      },
+      {
+        "id": "c",
+        "text": "I.O. Entertainment"
+      },
+      {
+        "id": "d",
+        "text": "KOG Studios"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Nimonix, a South Korean studio, developed the free-to-play fighting MMO Rumble Fighter.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Rumble_Fighter",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "rumble-fighter",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-io-lost-saga",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which studio developed Lost Saga?",
+    "subject": "Lost Saga",
+    "options": [
+      {
+        "id": "a",
+        "text": "I.O. Entertainment"
+      },
+      {
+        "id": "b",
+        "text": "Nimonix"
+      },
+      {
+        "id": "c",
+        "text": "Smilegate"
+      },
+      {
+        "id": "d",
+        "text": "Softnyx"
+      }
+    ],
+    "answer": "a",
+    "reveal": "I.O. Entertainment developed Lost Saga, a free-to-play 3D fighting game.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Lost_Saga",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "lost-saga",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-mcneely",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Who founded Armor Games in 2004?",
+    "subject": "Armor Games",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tom Fulp"
+      },
+      {
+        "id": "b",
+        "text": "Robert Small"
+      },
+      {
+        "id": "c",
+        "text": "Daniel McNeely"
+      },
+      {
+        "id": "d",
+        "text": "Jim Bonacci"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Daniel McNeely founded Armor Games, now based in Irvine, California.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Armor_Games",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "portals",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-line-rider",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Line Rider's Boštjan Čadež was a student from which country?",
+    "subject": "Line Rider",
+    "options": [
+      {
+        "id": "a",
+        "text": "Slovakia"
+      },
+      {
+        "id": "b",
+        "text": "Slovenia"
+      },
+      {
+        "id": "c",
+        "text": "Croatia"
+      },
+      {
+        "id": "d",
+        "text": "Czechia"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Boštjan Čadež, a Slovenian student, created Line Rider in September 2006.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Line_Rider",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "browser-games",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-wong-fu",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Wong Fu Productions' founders met at which university?",
+    "subject": "Wong Fu Productions",
+    "options": [
+      {
+        "id": "a",
+        "text": "UCLA"
+      },
+      {
+        "id": "b",
+        "text": "UC Berkeley"
+      },
+      {
+        "id": "c",
+        "text": "UC Irvine"
+      },
+      {
+        "id": "d",
+        "text": "UC San Diego"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Wesley Chan, Ted Fu and Philip Wang met at UC San Diego in 2004.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Wong_Fu_Productions",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-quest-crew",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "D-Trix is a member of which dance crew?",
+    "subject": "D-Trix",
+    "options": [
+      {
+        "id": "a",
+        "text": "Jabbawockeez"
+      },
+      {
+        "id": "b",
+        "text": "Quest Crew"
+      },
+      {
+        "id": "c",
+        "text": "Poreotics"
+      },
+      {
+        "id": "d",
+        "text": "Kaba Modern"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Dominic Sandoval, D-Trix, is a member of Quest Crew.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/D-Trix",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-shoes",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which comedian's \"Shoes\" video as Kelly was one of YouTube's first viral hits?",
+    "subject": "Shoes",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tay Zonday"
+      },
+      {
+        "id": "b",
+        "text": "Lucas Cruikshank"
+      },
+      {
+        "id": "c",
+        "text": "Tobuscus"
+      },
+      {
+        "id": "d",
+        "text": "Liam Kyle Sullivan"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Liam Kyle Sullivan's \"Shoes\", performed as Kelly, was an early YouTube viral video.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Let_Me_Borrow_That_Top",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "web-fred",
+    "category": "web",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Who created and plays Fred Figglehorn?",
+    "subject": "Fred",
+    "options": [
+      {
+        "id": "a",
+        "text": "Lucas Cruikshank"
+      },
+      {
+        "id": "b",
+        "text": "Dane Boedigheimer"
+      },
+      {
+        "id": "c",
+        "text": "Liam Kyle Sullivan"
+      },
+      {
+        "id": "d",
+        "text": "Tobuscus"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Lucas Cruikshank made the Fred web series from 2006 to 2014 and again in 2020 and 2021.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Fred_Figglehorn",
+        "note": "Wikipedia article, checked for the facts in the reveal",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "youtube",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "web-chickens",
+    "category": "web",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Finish the Vine: \"Look at all those ___!\"",
+    "subject": "Look at all those chickens",
+    "options": [
+      {
+        "id": "a",
+        "text": "turkeys"
+      },
+      {
+        "id": "b",
+        "text": "ducks"
+      },
+      {
+        "id": "c",
+        "text": "chickens"
+      },
+      {
+        "id": "d",
+        "text": "geese"
+      }
+    ],
+    "answer": "c",
+    "reveal": "The Vine's line is \"Look at all those chickens!\"",
+    "sources": [],
+    "verified": {
+      "by": "suggested",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "tags": {
+      "topics": [
+        "vine",
+        "memes"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Quote written from memory; not checked against a dated source. Confirm before using."
+  }
+]

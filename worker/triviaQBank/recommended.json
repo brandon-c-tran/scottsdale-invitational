@@ -1,0 +1,81 @@
+{
+  "columns": [
+    {
+      "category": "nba",
+      "name": "Who He Play For?",
+      "slots": [
+        "nba-giannis-antetokounmpo",
+        "nba-dillon-brooks",
+        "nba-luke-kornet",
+        "nba-svi-mykhailiuk",
+        "nba-james-wiseman"
+      ]
+    },
+    {
+      "category": "kim",
+      "name": "Kim & Winnie",
+      "slots": [
+        "kim-winnie-breed",
+        "kim-mirror",
+        "kim-doorbell",
+        "kim-ritz",
+        "kim-pillowcase"
+      ]
+    },
+    {
+      "category": "lore",
+      "name": "Brandon Lore",
+      "slots": [
+        "lore-nba2k",
+        "lore-sisters",
+        "lore-roommate",
+        "lore-league-pro",
+        "lore-concert-venue"
+      ]
+    },
+    {
+      "category": "aux",
+      "name": "Pass the Aux",
+      "slots": [
+        "aux-mr-brightside",
+        "aux-get-lucky",
+        "aux-bubblin",
+        "aux-scary-monsters",
+        "aux-cliffs-of-dover"
+      ]
+    },
+    {
+      "category": "web",
+      "name": "Internet Archaeology",
+      "slots": [
+        "web-pewdiepie",
+        "web-clubpenguin",
+        "web-combatarms",
+        "web-kongregate",
+        "web-grandchase"
+      ]
+    },
+    {
+      "category": "sound",
+      "name": "You Know This Sound",
+      "slots": [
+        "sound-os-xp-startup",
+        "sound-lol-ignite",
+        "sound-mc-totem",
+        "sound-app-discord-leave",
+        "sound-game-maplestory-login"
+      ]
+    },
+    {
+      "category": "sil",
+      "name": "Silhouette Showdown",
+      "slots": [
+        "sil-pikachu",
+        "sil-goku",
+        "sil-skyrim",
+        "sil-nautilus",
+        "sil-mimikyu"
+      ]
+    }
+  ]
+}

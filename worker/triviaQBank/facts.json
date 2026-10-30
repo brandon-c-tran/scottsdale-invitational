@@ -1,0 +1,161 @@
+{
+  "facts": [
+    {
+      "id": "b-hometown",
+      "text": "Grew up in Garland, Texas.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-highschool",
+      "text": "Garland High School; International Baccalaureate; class rank third.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-ut",
+      "text": "UT Austin, attended 2018-2022; Business Honors, Management Information Systems, Electrical and Computer Engineering; Alpha Kappa Psi.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-birthday",
+      "text": "Born March 9, 2000.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-sisters",
+      "text": "Younger sisters Britney and Bethany.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-roblox",
+      "text": "Roblox product manager, Avatar Marketplace; intern in 2021; converted to Associate Product Manager in 2022.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-frontier",
+      "text": "Previously interned at Frontier Energy. (Oracle was a rescinded internship, never completed; never a correct answer.)",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-car",
+      "text": "Drives a Genesis G70 3.3T Sport Prestige.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-site",
+      "text": "Personal website brandonctran.com; favorite and proudest page is Playground (I Spy-like diorama feel); personal logo features tortoiseshell glasses.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-mirror",
+      "text": "Built a smart mirror for Kim.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-projects",
+      "text": "Side projects and ideas: Field Day, Self Atlas, Nouri, Clarity, Stacky. Where & When is his photo, location and time guessing game.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-concert",
+      "text": "First concert: Chance the Rapper, The Bomb Factory, 2016.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-2k",
+      "text": "Likes NBA 2K; it helped get him into basketball in high school. Has discussed MyTEAM and historically playing it solo; current play style not assumed.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-mods",
+      "text": "Extensively mods Skyrim, Fallout, The Sims, Assetto Corsa, BeamNG.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-league",
+      "text": "Favorite old League pro: Dyrus (corrected Oct 29; the brief said Chaox). Also liked The Rain Man. Stopped playing League regularly after Season 4. Mainly Mid/ADC. Champions: Fizz, Orianna, Ahri, Cassiopeia, Jinx, Caitlyn, Graves, Vayne; his mains were Orianna, Fizz and Ahri (Oct 29). Watched PhantomL0rd and old League-era Sykkuno.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "b-gear",
+      "text": "Guitar gear: PRS Silver Sky, Taylor acoustic. Photography: Fujifilm, Peak Design. VR: Meta Quest 3, Valve Index.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-run",
+      "text": "Called boredom the hardest part of a 12-mile run.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-cook",
+      "text": "Has cooked and experimented with Vietnamese/fusion dishes; people call him a great chef while he credits following recipes.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-sitefilms",
+      "text": "Wants his website to represent his whole identity; compares its different worlds to different films by the same director.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-friends",
+      "text": "Evan: best friend since 7th grade, best man, same middle/high school/college, college roommate. Sahil: freshman-year roommate. Henry and Ben: cousins (dad side). Richard, Allan, Jeremy: cousins (mom side). Chinh and Khoa: longtime precollege friends. Adi and Chiang: college friends.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "b-tsm",
+      "text": "Watched all the old League pros and liked TSM a lot, specifically the Reginald, OddOne, Chaox, Xpecial and Dyrus lineup, which he watched quite a bit. Also watched Imaqtpie, Scarra and Voyboy.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "b-roadtrip",
+      "text": "Dallas-to-Bay-Area road trip with his sister Bethany.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "b-met",
+      "text": "Brandon and Kim first met in high school Spanish class.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "b-firstdate",
+      "text": "Their first date was at the Dallas Arboretum, in Dallas.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "k-corgis",
+      "text": "There were actually corgis at the proposal.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "k-ring",
+      "text": "The ring was revealed from a corgi flower backpack: it came out of a corgi flower backpack.",
+      "provenance": "provided, Brandon's answer Oct 29 2026"
+    },
+    {
+      "id": "k-kim",
+      "text": "Fiancee Kimberly (\"Kim\"). Dating anniversary May 4, 2018. Wedding planned February 6, 2027, in Austin.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "k-proposal",
+      "text": "Proposal location: Ritz-Carlton Half Moon Bay. The staged meetup is still unconfirmed (needs Brandon).",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "k-dance",
+      "text": "First-dance song selected: Dancing in the Kitchen by LANY (possible wedding surprise). Cha-cha felt right for the song. Fred Astaire dance lessons. Instructor: Maksym.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "k-winnie",
+      "text": "Dog: Winnie Bernard. Male F1b Cavapoo. Apricot coat. Brought home October 4, 2025. Ten weeks old at pickup.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    },
+    {
+      "id": "k-winnie-habits",
+      "text": "Hides stolen objects under the couch. Once fetched an already-destroyed pillowcase to restart a chase. Trained to press a doorbell button to go outside. Brandon wants to groom him himself.",
+      "provenance": "provided, Brandon's brief Oct 29 2026"
+    }
+  ],
+  "needsBrandon": [],
+  "decoyChecks": []
+}

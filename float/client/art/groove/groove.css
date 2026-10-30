@@ -1,0 +1,105 @@
+/* Float Groove's own face and the art's two components (RiderSprite,
+   Popup). The face is Pixelify Sans (SIL Open Font License 1.1, the licence
+   is public/fonts/pixelify-sans-OFL.txt), declared once as "Float Pixel". */
+@font-face {
+  font-family: "Float Pixel";
+  src: url("/fonts/pixelify-sans-latin.woff2") format("woff2");
+  font-weight: 400 650;
+  font-style: normal;
+  font-display: block;
+}
+/* the bold, the one nearly every lettering uses: a static copy of Pixelify
+   Sans at 700 with its 3 and C opened (the variable bold closes their gaps
+   to 35 units, so "3rd" and "+0.03" read as 8s and "Chug" as "Ohug" under
+   an outline; scripts/float-pixel-bold.py rebuilds it) */
+@font-face {
+  font-family: "Float Pixel";
+  src: url("/fonts/float-pixel-bold.woff2") format("woff2");
+  font-weight: 651 900;
+  font-style: normal;
+  font-display: block;
+}
+
+/* ---- a rider ---- */
+.fg-rider { display: inline-block; position: relative; flex: none; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.fg-rider--css { isolation: isolate; }
+.fg-rider--css > .fg-rider-src { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fg-rider--css > .fg-rider-tube {
+  position: absolute; inset: 0; mix-blend-mode: multiply;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+.fg-rider--css > .fg-rider-crown { position: absolute; height: auto; }
+
+/* ---- a judgement ---- */
+.fg-popup {
+  --fg-size: 48px;
+  --fg-ink: #2a1f2d;
+  --fg-o: calc(var(--fg-size) * 0.085);
+  --fg-salmon: #ff8f80;
+  --fg-yellow: #ffe24d;
+  --fg-white: #ffffff;
+  --fg-grey: #c3c1cc;
+  --fg-gold: #f5b82e;
+  --fg-gold-edge: #b07a12;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: "Float Pixel", ui-monospace, monospace; font-weight: 700;
+  line-height: 0.92; letter-spacing: 0.02em; white-space: nowrap;
+  font-size: var(--fg-size);
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+  transform-origin: 50% 85%;
+  animation: fg-popup-in 240ms cubic-bezier(0.2, 0.9, 0.25, 1.25) both;
+}
+.fg-popup-num, .fg-popup-word {
+  display: block;
+  text-shadow:
+    var(--fg-o) 0 0 var(--fg-ink), calc(var(--fg-o) * -1) 0 0 var(--fg-ink),
+    0 var(--fg-o) 0 var(--fg-ink), 0 calc(var(--fg-o) * -1) 0 var(--fg-ink),
+    var(--fg-o) var(--fg-o) 0 var(--fg-ink), calc(var(--fg-o) * -1) var(--fg-o) 0 var(--fg-ink),
+    var(--fg-o) calc(var(--fg-o) * -1) 0 var(--fg-ink), calc(var(--fg-o) * -1) calc(var(--fg-o) * -1) 0 var(--fg-ink),
+    0 calc(var(--fg-o) * 2) 0 var(--fg-ink);
+}
+.fg-popup-num { color: var(--fg-salmon); }
+.fg-popup-word { font-size: 0.8em; margin-top: 0.08em; }
+.fg-popup--word .fg-popup-word { font-size: 1em; margin-top: 0; }
+.fg-tone-yellow .fg-popup-word { color: var(--fg-yellow); }
+.fg-tone-white .fg-popup-word { color: var(--fg-white); }
+.fg-tone-salmon .fg-popup-word { color: var(--fg-salmon); }
+.fg-tone-grey .fg-popup-word { color: var(--fg-grey); }
+/* Perfect: white on a gold plate with a pixel edge */
+.fg-popup--plate .fg-popup-word {
+  color: var(--fg-white);
+  background: var(--fg-gold);
+  padding: 0.12em 0.32em 0.16em;
+  box-shadow:
+    0 0 0 calc(var(--fg-o) * 0.9) var(--fg-gold-edge),
+    0 0 0 calc(var(--fg-o) * 1.8) var(--fg-ink),
+    0 calc(var(--fg-o) * 2.4) 0 calc(var(--fg-o) * 0.9) var(--fg-ink);
+  margin-top: 0.22em;
+}
+.fg-popup--plate.fg-popup--word .fg-popup-word { margin-top: 0; }
+.fg-popup--life { animation: fg-popup-in 240ms cubic-bezier(0.2, 0.9, 0.25, 1.25) both, fg-popup-out 180ms ease-in calc(var(--fg-life, 700ms) - 180ms) forwards; }
+.fg-q-miss { animation-name: fg-popup-miss; animation-duration: 320ms; animation-timing-function: ease-out; }
+.fg-q-miss.fg-popup--life { animation: fg-popup-miss 320ms ease-out both, fg-popup-out 180ms ease-in calc(var(--fg-life, 700ms) - 180ms) forwards; }
+
+@keyframes fg-popup-in {
+  0% { opacity: 0; transform: translateY(30%) scale(0.35); }
+  45% { opacity: 1; transform: translateY(-6%) scale(1.14); }
+  72% { transform: translateY(0) scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+/* a miss drops in and wobbles: deadpan */
+@keyframes fg-popup-miss {
+  0% { opacity: 0; transform: translateY(-25%); }
+  35% { opacity: 1; transform: translateY(6%) rotate(-5deg); }
+  60% { transform: translateY(0) rotate(4deg); }
+  80% { transform: rotate(-2deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes fg-popup-out {
+  to { opacity: 0; transform: translateY(-18%) scale(0.92); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fg-popup, .fg-q-miss { animation: none; }
+  .fg-popup--life { animation: fg-popup-out 1ms linear calc(var(--fg-life, 700ms) - 1ms) forwards; }
+}

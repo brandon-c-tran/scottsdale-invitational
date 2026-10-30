@@ -1,0 +1,225 @@
+/* Every physics and timing constant Float uses (float/PROTOCOL.md "Floaties",
+   "The Cup", "Clock"). Pure: shared by the room, the screen, the controller,
+   the tests and scripts/float-sim.mjs, which is how these numbers were tuned.
+
+   Units: metres, seconds, kilograms, radians, unless a name says _MS. */
+import { floatieOf } from "./floaties.js";
+
+/* the clock: screens draw at serverNow() - INTERP_MS */
+export const INTERP_MS = 100;
+/* the music's bar: in `countdown`, room.startAt is the gun, and the gun
+   lands on a bar line of the screen's music */
+export const BAR_MS = 2000;
+/* the beat strokes are judged on (float/shared/beat.js): 120 bpm */
+export const BEAT_MS = BAR_MS / 4;
+/* the room's beat: a stroke stamped more than STALE beats from the room's
+   own clock is off; a beat is judged missed MISS_GRACE_MS after it (a late
+   stroke and the network have had their time) */
+export const BEAT = Object.freeze({ STALE:2, MISS_GRACE_MS:700 });
+
+/* the simulation: a fixed 30 Hz step */
+export const SIM_HZ = 30;
+export const DT = 1 / SIM_HZ;
+/* what the room sends while a race runs */
+export const SNAP_HZ = 20;
+export const ME_HZ = 10;
+/* the race checkpoint (written without holding the room's messages) */
+export const PERSIST_MS = 2000;
+export const DEBUG_MS = 2000;
+/* the most ticks one timer callback may catch up before the race clock slips */
+export const MAX_CATCHUP_TICKS = 10;
+
+/* the field */
+export const MAX_RIDERS = 16;
+export const RADIUS = 0.8;
+
+/* ---- the Cup's clock ---- */
+export const TIMING = Object.freeze({
+  INTRO_MS:8000,
+  GRID_MS:4000,
+  COUNTDOWN_MS:3000,
+  /* a room that restarts mid-race counts down again from its last save */
+  RESUME_MS:3000,
+  CUT_MS:20000,
+  /* survivors may change floaties for the first SWAP_MS of a cut */
+  SWAP_MS:15000,
+  /* after the final race there is nothing to swap: a short results beat */
+  CUT_LAST_MS:7000,
+  PODIUM_MS:15000,
+  FEEDBACK_MS:45000,
+  /* a round ends CAP_MS after its first finisher, the rest placed by distance */
+  CAP_MS:30000,
+  /* and never runs longer than this from the gun, finished or not (a phone
+     that never taps "Finished my drink" cannot hold a round open) */
+  HARD_CAP_MS:180000,
+  /* a Field Day cup whose startAt has passed starts this soon */
+  START_SOON_MS:1500,
+});
+
+/* ---- balloons (PROTOCOL.md "Out") ---- */
+export const BALLOON = Object.freeze({
+  EVERY_MS:12000,
+  FLIGHT_MS:1200,
+  /* a racer is hit at most once in this long */
+  IMMUNE_MS:6000,
+  /* the spin a hit gives (rad/s) and a small shove (m/s), never a flip */
+  SPIN:4.2,
+  SHOVE:0.9,
+});
+
+/* flags stay lit this long after what set them */
+export const FLAG_MS = Object.freeze({ STROKE:250, BUMP:250, SPLASH:600 });
+
+/* ---- the water ---- */
+export const WATER = Object.freeze({
+  /* drag toward the local current, as a force per unit relative speed (kg/s):
+     k = DRAG / mass, so a heavy floatie is pushed less by the current and keeps
+     its own speed longer */
+  DRAG:78,
+  /* rotation: water damps spin (1/s) and drags it toward the water's own
+     rotation (half the flow's curl) */
+  SPIN_DAMP:2.6,
+  SPIN_COUPLE:1.4,
+  /* the keel: sideways slip through the water decays at this rate (1/s) */
+  KEEL:1.2,
+  /* the current's speed across the river: 1 in the middle, 1 - BANK at a bank */
+  BANK:0.6,
+  /* riffles: random shoves while in one (per second, and their size) */
+  RIFFLE_RATE:2.6,
+  RIFFLE_PUSH:0.55,
+  RIFFLE_SPIN:1.1,
+  /* the whirlpool lets go of anyone it has held this long, for RELEASE_S */
+  WHIRL_HOLD_S:4.5,
+  WHIRL_RELEASE_S:4,
+});
+
+/* ---- paddling ---- */
+export const PADDLE = Object.freeze({
+  /* one full-power stroke's forward impulse (N s) at Speed 3 */
+  IMPULSE:90,
+  /* one full-power stroke's yaw (rad/s added) at Turn 3; a left stroke yaws
+     right (clockwise, negative), a right stroke yaws left */
+  YAW:0.95,
+  /* a stroke's push is released over time (1/s): 14 lands most of it in a
+     tenth of a second (7 felt like a slow surge, Brandon's second playtest) */
+  RELEASE:14,
+  /* the phone's old cadence feedback (float/client/controller/cadence.js)
+     reads these until it judges the beat; the room no longer does: the beat
+     governs cadence now, and FLOOD (below) only stops a flood */
+  SUSTAIN:3,
+  FREE:1.6,
+  CAP:4.5,
+  RUSH_FLOOR:0.2,
+});
+
+/* the flood cap, a leaky bucket: strokes drain out at SUSTAIN a second, and
+   past CAP a stroke is still judged (so it breaks a streak) but pushes
+   nothing. One stroke a beat (2 a second) never reaches it */
+export const FLOOD = Object.freeze({ SUSTAIN:3, CAP:2.5 });
+
+/* ---- contact ---- */
+export const CONTACT = Object.freeze({
+  /* floatie on floatie, floatie on rock: vinyl is bouncy, water soaks it up */
+  RESTITUTION:0.45,
+  ROCK_RESTITUTION:0.35,
+  BANK_RESTITUTION:0.15,
+  /* a glancing hit turns tangential speed into spin (rad/s per m/s) */
+  SPIN:0.9,
+  /* scraping a bank or a rock keeps this much of the speed along it */
+  SCRAPE:0.86,
+  /* an impact this fast (m/s along the normal) is a bump */
+  BUMP_MIN:0.7,
+});
+
+/* ---- flips ---- */
+export const FLIP = Object.freeze({
+  SWIM_MS:2500,
+  /* a swimmer, hanging on, drifts at this share of the current */
+  SWIM_DRIFT:0.5,
+  /* after climbing back in, no flip for this long */
+  IMMUNE_S:2,
+  /* The Drop: crossing the lip more than this far off the current flips you
+     (degrees, by Grip 1..5), or spinning faster than SPIN_MAX */
+  DROP_ANGLE:[0, 24, 32, 40, 48, 56],
+  DROP_SPIN:[0, 1.6, 1.9, 2.2, 2.5, 2.8],
+  /* a riffle: each wave that hits you (WATER.RIFFLE_RATE a second) checks
+     you. Sideways past RIFFLE_ANGLE (degrees off the current, by Grip), or
+     faster than RIFFLE_FAST through the water (m/s, by Grip), it may flip
+     you: CHANCE plus CHANCE_GAIN for each whole step over (a right angle
+     past the threshold, or a further 1.5 m/s) */
+  RIFFLE_ANGLE:[0, 36, 46, 56, 66, 76],
+  RIFFLE_FAST:[0, 3.3, 3.6, 3.9, 4.2, 4.5],
+  CHANCE:0.08,
+  CHANCE_GAIN:0.5,
+});
+
+/* ---- the four stats, mapped to physics (PROTOCOL.md "Floaties") ----
+   Each point from the middle (3) moves a number by this fraction. Speed is
+   kept narrow: with equal paddlers it decides races fastest of the four. */
+export const STAT = Object.freeze({ SPEED:0.012, TURN:0.15, WEIGHT:0.1, RIDE:0.012, ROUGH:0.12, KEEL:0.2 });
+
+const statOf = (stat, value) => Math.max(1, Math.min(5, Number(value) || 3)) - 3;
+
+/* every number a floatie's physics needs, from its stats and twist */
+export function physicsOf(floatieId) {
+  const floatie = floatieOf(floatieId);
+  const speed = statOf("speed", floatie.speed);
+  const turn = statOf("turn", floatie.turn);
+  const weight = statOf("weight", floatie.weight);
+  const grip = Math.max(1, Math.min(5, floatie.grip | 0 || 3));
+  const id = floatie.id;
+  const p = {
+    id,
+    /* Weight: who wins a bump, and how hard the current pushes you */
+    mass:80 * (1 + STAT.WEIGHT * weight),
+    /* ...and the current pushes it harder: it rides the current this much faster */
+    ride:1 + STAT.RIDE * weight,
+    /* Speed: paddle thrust (and so top speed over the water) */
+    thrust:PADDLE.IMPULSE * (1 + STAT.SPEED * speed),
+    /* Turn: how far a one-sided stroke turns you */
+    yaw:PADDLE.YAW * (1 + STAT.TURN * turn),
+    spinDamp:WATER.SPIN_DAMP * (1 - 0.06 * turn),
+    keel:WATER.KEEL * (1 + STAT.KEEL * turn),
+    /* Grip: flip resistance in rapids and the Drop */
+    grip,
+    /* rough water shoves a low-grip floatie about more */
+    rough:1 - STAT.ROUGH * (grip - 3),
+    dropAngle:FLIP.DROP_ANGLE[grip] * Math.PI / 180,
+    dropSpin:FLIP.DROP_SPIN[grip],
+    riffleAngle:FLIP.RIFFLE_ANGLE[grip] * Math.PI / 180,
+    riffleFast:FLIP.RIFFLE_FAST[grip],
+    /* twists (floaties.js) */
+    launch:0,          // donut: extra thrust when slow
+    tippy:1,           // unicorn: flip thresholds scaled down
+    bumpOut:1,         // shark: impulse given to whoever it hits
+    neverFlips:false,  // lounger
+    steadyHandsOff:false, // cooler
+  };
+  if (id === "donut") p.launch = 0.1;
+  if (id === "unicorn") p.tippy = 0.9;
+  /* the flamingo turns on a dime: crisp, and it goes where it points */
+  if (id === "flamingo") { p.yaw *= 1.08; p.spinDamp *= 1.12; p.keel *= 1.5; }
+  if (id === "shark") p.bumpOut = 1.7;
+  /* the flat rafts ride rough water: waves shove them about less */
+  if (id === "pizza") { p.tippy = 1.3; p.rough *= 0.8; }
+  if (id === "lounge") { p.neverFlips = true; p.rough *= 0.4; p.keel *= 1.4; }
+  if (id === "cooler") p.steadyHandsOff = true;
+  p.dropAngle *= p.tippy;
+  p.dropSpin *= p.tippy;
+  p.riffleAngle *= p.tippy;
+  p.riffleFast *= p.tippy;
+  return p;
+}
+
+/* the donut's launch: extra thrust for LAUNCH_S off the grid and after
+   climbing back in from a flip, full below LAUNCH_V over the water, gone by
+   twice that */
+export const LAUNCH_V = 1.0;
+export const LAUNCH_S = 4;
+/* the cooler, hands off: its own strokes yaw this much, the water's spin this */
+export const COOLER = Object.freeze({ STROKE_YAW:0.35, WATER_SPIN:0.15, DAMP:4 });
+
+/* the grid: rows across the river, pole first */
+export const GRID = Object.freeze({ ACROSS:2.7, ROW:3.6, MAX_PER_ROW:5, MARGIN:2.2 });
+/* where arrived riders park: past the finish, along the bar's bank */
+export const BEACH = Object.freeze({ PAST:6, ALONG:2.4, IN:1.3, COLUMNS:2, PULL:2.2 });

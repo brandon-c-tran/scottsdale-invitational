@@ -60,17 +60,19 @@ import { SIM_WRITES_PER_ALARM, qaSimOf, simContext, simDue, simNext } from "../s
 import { findPreview, previewCache } from "./previews.js";
 import { YOUTUBE_KEEP_MS, findAlbumUpload } from "./youtube.js";
 import {
-  checkKaraokeVideos, findBackingVideos, isYouTubeId, karaokeCheckList, karaokeCheckReport, karaokeLookupFresh,
+  checkKaraokeVideos, findKaraokeVideos, isYouTubeId, karaokeCheckList, karaokeCheckReport, karaokeLookupFresh,
   karaokePreflight, karaokeProblemText, karaokeWindowOpened, youtubeFailure,
 } from "./karaokeVideos.js";
-import { findLyrics, lyricsFresh, lyricsKey } from "./lyrics.js";
-import { karaokeLyricsWanted, karaokeSongWay, karaokeVideoKind } from "../shared/karaoke.js";
+import { karaokeLyricsWanted, karaokeVideoKind } from "../shared/karaoke.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moments.js";
 import { geoPhotoId, geoShownIds } from "../shared/geo.js";
 import { triviaPhotoId } from "../shared/trivia.js";
 import { bankForDesk } from "./trivia.js";
 import { boardShown } from "./triviaBoard.js";
+import { qbankDesk } from "./qbank.js";
+import { FLOAT_INTERNAL } from "./float.js";
+import { cleanFloatFeedback, floatCup, floatCupBody, floatLive } from "../shared/float.js";
 
 /* Where and When photos ride the photo desk's prefix, so every snapshot,
    restore and reset leaves them alone exactly as it does the desk's */
@@ -179,12 +181,33 @@ const SNIPPET_LIMIT = 10;
    30 days, a miss asked again after a day. A pasted link and the
    commissioner's check each read one videos.list (1 unit). */
 const KARAOKE_KEY_PREFIX = "private:karaoke:";
-/* a lookup kept before instrumentals were looked for (Oct 15) is asked again */
-const KARAOKE_LOOKUP_V = 2;
-/* a song whose lyrics or instrumental could not be looked up is asked again after this */
+/* a lookup's shape: 3 since Oct 28 (karaoke uploads only); an older kept
+   lookup still answers with its uploads that have words on them */
+const KARAOKE_LOOKUP_V = 3;
+/* a song whose karaoke upload could not be looked up is asked again after this */
 const KARAOKE_LYRICS_RETRY_MS = 60 * 1000;
 const KARAOKE_LINK_LIMIT = 20;
 const KARAOKE_CHECK_LIMIT = 6;
+/* Float (float/PROTOCOL.md "Field Day"): a Cup the room took
+   (private:float:cup:<cupId>, so a woken object never posts it twice), the
+   race's stats the room reports with its result, and the riders' feedback.
+   All private: never in a snapshot, a backup or a frame. */
+const FLOAT_CUP_PREFIX = "private:float:cup:";
+const FLOAT_STATS_PREFIX = "private:float:stats:";
+const FLOAT_STATS_INDEX_KEY = "private:float:statsIndex";
+/* a cup's stats can run to hundreds of KB: the newest this many are kept */
+const FLOAT_STATS_LIMIT = 20;
+const FLOAT_FEEDBACK_KEY = "private:float:feedback";
+const FLOAT_FEEDBACK_LIMIT = 500;
+/* the room's result body: thirteen riders' rounds and stats fit well under
+   this; it is the most a Durable Object keeps in one value, so no result the
+   room could keep in its own outbox is ever refused for its size */
+const FLOAT_BODY_MAX = 2 * 1024 * 1024;
+const FLOAT_FEEDBACK_BODY_MAX = 16 * 1024;
+/* a Cup the room did not take is posted again after each of these, then the pill says so */
+const FLOAT_RETRY_MS = Object.freeze([2000, 5000, 15000, 30000]);
+/* the room's own name rides along, so its code is the Cup's room exactly */
+const floatCupUrl = room => `https://float.internal/internal/cup?room=${encodeURIComponent(room)}`;
 /* eight characters, 40 bits; 256 is a multiple of the 32-letter alphabet, so no bias */
 function newArriveCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -277,6 +300,10 @@ export class Tournament {
          (a browser key restricted by referrer, docs/GOOGLE-MAPS.md), else
          the MapLibre map */
       googleMaps:configured && !!mapsKeyOf(this.env),
+      /* Float (float/PROTOCOL.md): the river's rooms, the FLOAT Durable
+         Object binding. Listed only when bound, so a Worker without Float
+         reports exactly the capabilities it always has. */
+      ...(configured && this.env.FLOAT ? { float:true } : {}),
     };
   }
 
@@ -293,6 +320,10 @@ export class Tournament {
     const arriveCode = await this.ctx.storage.get(ARRIVE_CODE_KEY);
     this.arriveCode = isArriveCode(arriveCode) ? arriveCode : null;
     await this.momentDesk.load();
+    /* a Float Cup the room may never have taken (this object was evicted
+       between the write and its post) is posted now; one it took is kept
+       in storage and left alone */
+    this.queueFloatCup();
   }
 
   /* every frame's state: the tournament projection plus the photo desk's
@@ -355,6 +386,12 @@ export class Tournament {
       this.ctx.acceptWebSocket(pair[1]);
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
+
+    /* Float's room, server to server (float/PROTOCOL.md "Field Day"): the
+       public router forwards only /ws, /api/* and /float/ws (worker/index.js),
+       so nothing but the room's own Durable Object reaches these */
+    if (url.pathname === "/internal/float/result") return this.handleFloatResult(req);
+    if (url.pathname === "/internal/float/feedback") return this.handleFloatFeedback(req);
 
     /* D6 ballots: the GM token authors, a device claim answers (ahead of
        /api/admin/, whose production auth is the snapshot token) */
@@ -464,6 +501,10 @@ export class Tournament {
      GET  /api/trivia/photo/<id>     the commissioner always; anyone once its
                                      question has been shown
      GET  /api/trivia/bank           the built-in bank, answers and all (GM)
+     GET  /api/trivia/qbank          the question bank desk (GM): every record
+                                     with its edit merged and its mark, the
+                                     board, its status and warnings
+                                     (worker/qbank.js qbankDesk)
      GET  /api/trivia/clip/<qid>     a tune's 30-second clip address (Deezer,
                                      worker/previews.js): anyone once shown
      GET  /api/trivia/clip?title=&artist=&isrc=   the desk's clip check (GM)
@@ -501,6 +542,10 @@ export class Tournament {
       if (!bytes) return new Response("Not found", { status:404 });
       return new Response(bytes, { headers:{ "Content-Type":"image/jpeg",
         "Cache-Control":visible ? "public, max-age=86400" : "no-store" } });
+    }
+    if (parts[2] === "qbank" && parts.length === 3 && req.method === "GET") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      return json(qbankDesk(this.state));
     }
     if (parts[2] === "bank" && parts.length === 3 && req.method === "GET") {
       if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
@@ -572,20 +617,6 @@ export class Tournament {
         catch (error) { return failed("karaoke-check-failed", error); }
       }
       const report = karaokeCheckReport(roster, list, results);
-      /* how each song will play: its lyrics (LRCLIB, free) and, for a song
-         saved before instrumentals were offered, the instrumental the
-         window would put first (a kept lookup, else one search) */
-      const songs = roster.map(player => [player, this.state.profiles?.[player]?.karaokeTrack])
-        .filter(([player, track]) => track?.video && report[player]);
-      /* four at a time: LRCLIB is a free service */
-      for (let at = 0; at < songs.length; at += 4) {
-        await Promise.all(songs.slice(at, at + 4).map(async ([player, track]) => {
-          try {
-            const plan = await this.karaokePlan(track);
-            report[player].way = karaokeSongWay(track, plan.lines || false, plan.upgrade);
-          } catch { /* LRCLIB or YouTube did not answer: the desk reads the profile */ }
-        }));
-      }
       return spotifyJson({ ok:true, results:report });
     }
     const authorized = await this.spotifySearchAuthorized(req);
@@ -598,32 +629,23 @@ export class Tournament {
       if (!/^[A-Za-z0-9]{22}$/.test(trackId) || !name.trim() || durationMs < 1000)
         return spotifyJson({ ok:false, error:"Pick a song first" }, 400);
       const storeKey = `${KARAOKE_KEY_PREFIX}${trackId}`;
-      let saved = await this.ctx.storage.get(storeKey);
-      /* a lookup LRCLIB could not answer is not kept, but one from the last
-         few minutes answers again instead of spending another search */
-      const recent = this.karaokeLookupKept(saved) ? null : this.karaokeUnkept?.get(trackId);
-      if (recent) saved = recent;
-      else if (!this.karaokeLookupKept(saved)) {
+      const stored = await this.ctx.storage.get(storeKey);
+      let saved = this.karaokeLookupKept(stored, name);
+      if (!saved) {
         if (!this.spotifyRateLimit(`karaoke:${authorized.key}`, SNIPPET_LIMIT))
           return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
         try {
           saved = await this.karaokeLookup({ trackId, name, artists:[artist], durationMs });
         } catch (error) {
-          /* a lookup kept before instrumentals were looked for still answers
-             inside its 30 days when the new one cannot be had (YouTube's
-             daily limit); an answer past its 30 days goes */
-          if (!karaokeLookupFresh(saved)) {
-            if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
-              try { await this.ctx.storage.delete(storeKey); } catch {}
-            }
-            return failed("karaoke-lookup-failed", error);
+          /* an answer past its 30 days goes */
+          if (stored && Date.now() - Number(stored.at) > YOUTUBE_KEEP_MS) {
+            try { await this.ctx.storage.delete(storeKey); } catch {}
           }
-          logFailure("karaoke-lookup-failed", error);
+          return failed("karaoke-lookup-failed", error);
         }
       }
-      const lyrics = saved.lyrics === true;
-      return saved.videos.length ? spotifyJson({ ok:true, videos:saved.videos, lyrics })
-        : spotifyJson({ ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[], lyrics }, 404);
+      return saved.videos.length ? spotifyJson({ ok:true, videos:saved.videos })
+        : spotifyJson({ ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[] }, 404);
     }
     if (url.pathname === "/api/karaoke/video") {
       const id = url.searchParams.get("id") || "";
@@ -653,7 +675,7 @@ export class Tournament {
     const result = applyAction(nextState, type, payload, {
       isGm, player, deviceId, actionId:null, environment:this.environment,
       progressReset:this.capabilities.progressReset, showControl:this.capabilities.showControl, qa:this.capabilities.qa,
-      karaoke:this.capabilities.karaoke,
+      karaoke:this.capabilities.karaoke, float:this.capabilities.float === true,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -664,6 +686,33 @@ export class Tournament {
       return { ok:false, error:"The server didn't save it. Tap again." };
     }
     await this.scheduleAlarm();
+    this.queueFloatCup();
+    return result;
+  }
+
+  /* A write the server makes for itself (the autopilot's, the room's
+     result), on the ordinary reducer with a commissioner context, then
+     everything a tapped write sets off after it persists: the alarm,
+     pocket alerts, the win song, karaoke's checks and a Float Cup's post.
+     Resolves the reducer's result; a failed save is { ok:false, saved:false }. */
+  async applyAutoWrite(type, payload, ctx) {
+    const before = this.state;
+    const nextState = structuredClone(this.state);
+    const result = applyAction(nextState, type, payload, { environment:this.environment, showControl:this.capabilities.showControl,
+      karaoke:this.capabilities.karaoke, float:this.capabilities.float === true, isGm:true, auto:true, player:null, ...ctx });
+    if (!result.ok || result.extra?.unchanged) return result;
+    this.carryWalkout(nextState);
+    try { await this.persistAndBroadcast(type, nextState); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"auto-write-failed", action:type, error:String(error?.message || error).slice(0, 300) }));
+      return { ok:false, saved:false, error:"The server didn't save it" };
+    }
+    await this.scheduleAlarm();
+    this.queueAlerts(before, this.state, null);
+    this.queueWinSong(before, this.state, type);
+    this.queueKaraokeCheck(before, this.state);
+    this.queueKaraokeLyrics();
+    this.queueFloatCup();
     return result;
   }
 
@@ -940,6 +989,8 @@ export class Tournament {
     /* a win song starts fading out before its end */
     if (walkout) times.push(walkout.auto ? Math.max(walkout.startedAt + WIN_FADE_IN_MS, walkout.until - WIN_FADE_OUT_MS)
       : walkout.until + 250);
+    /* a Float Cup the room has not taken yet tries again */
+    if (this.floatRetryAt) times.push(this.floatRetryAt);
     if (!times.length) return;
     try { await this.ctx.storage.setAlarm?.(Math.min(...times)); } catch {}
   }
@@ -1000,9 +1051,12 @@ export class Tournament {
       if (!write) return;
       const before = this.state;
       const nextState = structuredClone(this.state);
-      const shared = { environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke };
+      const shared = { environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+        float:this.capabilities.float === true };
+      /* a simulated room never opens a river: Run the night plays Float as
+         a free-for-all entered by hand */
       const result = applyAction(nextState, write.type, write.payload, sim
-        ? { ...shared, ...simContext(write), qa:this.capabilities.qa }
+        ? { ...shared, float:false, ...simContext(write), qa:this.capabilities.qa }
         : { ...shared, isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:write.key });
       if (!result.ok || result.extra?.unchanged) {
         if (sim) this.simSpent.add(write.key);
@@ -1027,6 +1081,7 @@ export class Tournament {
       this.queueWinSong(before, this.state, write.type);
       this.queueKaraokeCheck(before, this.state);
       this.queueKaraokeLyrics();
+      this.queueFloatCup();
     }
   }
 
@@ -1056,6 +1111,14 @@ export class Tournament {
       if (walkout.auto) await this.songQueue(() => this.stopWinSong(walkout, WIN_FADE_OUT_MS));
       /* a newer song may have replaced this one while it faded */
       if (walkoutOf(this.state)?.startedAt === walkout.startedAt) await this.setWalkout(null, "walkoutEnded");
+    }
+    /* a Float Cup's post that is due again (never takes the alarm with it) */
+    if (this.floatRetryAt && Date.now() >= this.floatRetryAt - 25) {
+      this.floatRetryAt = 0;
+      try { await this.queueFloatCup(); }
+      catch (error) {
+        console.error(JSON.stringify({ event:"float-cup-retry-failed", error:String(error?.message || error).slice(0, 200) }));
+      }
     }
     await this.scheduleAlarm();
   }
@@ -2050,6 +2113,7 @@ export class Tournament {
       const result = applyAction(nextState, type, payload, {
         isGm:true, auto:true, player:null, deviceId:"tv", actionId:`tv:${id}`,
         environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+        float:this.capabilities.float === true,
       });
       if (!result.ok || result.extra?.unchanged) return;
       await this.persistAndBroadcast(type, nextState);
@@ -2284,11 +2348,13 @@ export class Tournament {
       if (viewChanged) this.sendState(ws);
       return reply(await this.qaCheckpointCommand(type, payload, isGm));
     }
+    /* the riders' Float feedback, for the commissioner's desk */
+    if (type === "floatFeedback") {
+      if (viewChanged) this.sendState(ws);
+      return reply(await this.floatFeedbackCommand(isGm));
+    }
     const qaCheckpoint = type === "qaRestore" && isGm && this.capabilities.qa
       ? await this.qaCheckpointBody(payload?.id) : null;
-    /* a karaoke song's lyrics are the server's word: LRCLIB's kept answer
-       for that track, read before the write (never a lookup here) */
-    const karaokeLyrics = type === "karaokeSong" ? await this.keptLyrics(payload?.track?.trackId) : null;
     const claimed = this.claims[deviceId];
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, type, payload, {
@@ -2296,16 +2362,19 @@ export class Tournament {
       player: isActivePlayer(claimed, this.state) ? claimed : null,
       deviceId,
       actionId,
+      /* a TV's own report (the board's media ready) */
+      tv:meta?.tv === true,
       environment:this.environment,
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,
       qa:this.capabilities.qa,
       /* Lock and start opens karaoke's pick window only with the capability */
       karaoke:this.capabilities.karaoke,
+      /* and Float's Cup only with the room's binding */
+      float:this.capabilities.float === true,
       /* a guest's check-in must carry the TV's current code */
       ...(type === "setArrived" ? { arriveCode:this.arriveCode } : {}),
       ...(qaCheckpoint ? { qaCheckpoint } : {}),
-      ...(karaokeLyrics ? { karaokeLyrics } : {}),
     });
     if (!result.ok) {
       if (viewChanged) this.sendState(ws);
@@ -2362,6 +2431,9 @@ export class Tournament {
     } else if (type === "qaAdvance" && QA_SONG_TARGETS.has(payload?.target) && !result.extra?.rewound) {
       this.queueWinSong(before, this.state, type);
     }
+    /* a Float Cup this write opened goes to its room (QA's solo Float
+       included, which is a quiet write) */
+    this.queueFloatCup();
   }
 
   /* ── pocket alerts (worker/push.js) ──
@@ -2411,70 +2483,40 @@ export class Tournament {
     return work;
   }
 
-  /* ── karaoke: lyrics and the backing track (docs/KARAOKE.md "Lyrics") ──
-     A song's synced lyrics (LRCLIB, worker/lyrics.js) are kept in
-     private:lyrics:<trackId> (30 days, a miss a day; a failure never); a
-     song's lookup (an instrumental search, karaoke uploads as the second
-     tier, worker/karaokeVideos.js findBackingVideos) in
-     private:karaoke:<trackId> with `v` and whether it had lyrics. */
-  /* { [trackId]: whether it has lyrics } from the kept answer, or null */
-  async keptLyrics(trackId) {
-    if (typeof trackId !== "string" || !/^[A-Za-z0-9]{22}$/.test(trackId)) return null;
-    const saved = await this.ctx.storage.get(lyricsKey(trackId));
-    return saved && Number.isFinite(Number(saved.at)) ? { [trackId]:Array.isArray(saved.lines) && saved.lines.length > 0 } : null;
+  /* ── karaoke: a song's karaoke uploads (docs/KARAOKE.md "YouTube") ──
+     A song's lookup (worker/karaokeVideos.js findKaraokeVideos: one search,
+     one read) is kept in private:karaoke:<trackId> with `v`. Our own lyrics
+     are off since Oct 28: LRCLIB is never asked, and private:lyrics:* keys
+     an older build kept stay unread. */
+  /* A kept lookup that still answers, its uploads with words on them only
+     (a lookup kept between Oct 15 and Oct 28 may lead with instrumentals),
+     or null: past its time, or nothing left but instrumentals. */
+  karaokeLookupKept(saved, name = "", now = Date.now()) {
+    if (!karaokeLookupFresh(saved, now)) return null;
+    const videos = saved.videos.filter(video => karaokeVideoKind(video, name) !== "instrumental");
+    return saved.videos.length && !videos.length ? null : { ...saved, videos };
   }
-  karaokeLookupKept(saved, now = Date.now()) {
-    return karaokeLookupFresh(saved, now) && saved.v === KARAOKE_LOOKUP_V;
-  }
-  /* the song's lines, kept or looked up now (null: none); throws when LRCLIB did not answer */
-  async songLyrics(song) {
-    const key = lyricsKey(song.trackId);
-    const saved = await this.ctx.storage.get(key);
-    if (lyricsFresh(saved)) return Array.isArray(saved.lines) && saved.lines.length ? saved.lines : null;
-    const found = await findLyrics({ name:song.name, artists:song.artists, durationMs:song.durationMs }, this.lyricsFetch || fetch);
-    const record = { lines:found?.lines || null, id:found?.id || null, at:Date.now() };
-    await this.ctx.storage.put(key, record);
-    return record.lines;
-  }
-  /* A song's lookup, run now: LRCLIB beside the instrumental search (a
-     second search for karaoke uploads only when it is needed), kept 30
-     days unless LRCLIB failed (a lookup that could not know the lyrics is
-     not kept). Throws a YouTubeError. */
+  /* A song's lookup, run now and kept 30 days (a miss a day). Throws a YouTubeError. */
   async karaokeLookup(song) {
-    let lyricsFailed = false;
-    const lyrics = this.songLyrics(song).then(lines => !!lines?.length, error => {
-      lyricsFailed = true;
-      console.error(JSON.stringify({ event:"karaoke-lyrics-failed", error:String(error?.message || error).slice(0, 200) }));
-      return false;
-    });
-    const { videos } = await findBackingVideos(song, this.env.YOUTUBE_API_KEY, this.youtubeFetch || fetch, { lyrics });
-    const saved = { videos, lyrics:await lyrics, at:Date.now(), v:KARAOKE_LOOKUP_V };
-    if (!lyricsFailed) await this.ctx.storage.put(`${KARAOKE_KEY_PREFIX}${song.trackId}`, saved);
-    /* not kept, but held in memory a few minutes (the route's next ask for
-       this song spends no search); a song's plan never reads it */
-    else (this.karaokeUnkept ||= previewCache()).set(song.trackId, saved);
+    const videos = await findKaraokeVideos(song, this.env.YOUTUBE_API_KEY, this.youtubeFetch || fetch);
+    const saved = { videos, at:Date.now(), v:KARAOKE_LOOKUP_V };
+    await this.ctx.storage.put(`${KARAOKE_KEY_PREFIX}${song.trackId}`, saved);
     return saved;
   }
-  /* What the room would play for a saved song: { lines, upgrade } (an
-     instrumental for a song saved before they were offered, found once
-     the song has lyrics). Throws when LRCLIB or YouTube did not answer. */
-  async karaokePlan(song, { lines: known } = {}) {
-    const lines = known !== undefined ? known : await this.songLyrics(song);
-    const legacy = song.lyrics === undefined
-      && ![song.video, ...(song.alts || [])].some(video => karaokeVideoKind(video, song.name) === "instrumental");
-    if (!lines || !legacy) return { lines, upgrade:null };
-    let saved = await this.ctx.storage.get(`${KARAOKE_KEY_PREFIX}${song.trackId}`);
-    if (!this.karaokeLookupKept(saved)) saved = await this.karaokeLookup(song);
-    const video = (saved.videos || []).find(item => karaokeVideoKind(item, song.name) === "instrumental") || null;
-    return { lines, upgrade:video ? { trackId:song.trackId, video } : null };
+  /* the first karaoke upload for a song, kept or looked up now (null: none) */
+  async karaokeUpgrade(song) {
+    let saved = this.karaokeLookupKept(await this.ctx.storage.get(`${KARAOKE_KEY_PREFIX}${song.trackId}`), song.name);
+    if (!saved) saved = this.karaokeLookupKept(await this.karaokeLookup(song), song.name);
+    return saved?.videos?.[0] || null;
   }
 
-  /* After a write persisted: the game's songs whose lyrics (or whose
-     instrumental, for a song saved before they were offered) the game
-     still lacks are looked up, one song after another, and written in one
-     karaokeLyrics write (an autopilot context). Best effort, like the
-     window's video check: it never holds up or fails a write; a song whose
-     lookup failed is asked again a minute later, on a later write. */
+  /* After a write persisted: a song in the game whose every upload is an
+     instrumental (a song saved while instrumentals were offered, Oct 15 to
+     Oct 28) gets a karaoke upload looked up, one song after another, all
+     written in one karaokeLyrics write (an autopilot context; the name is
+     older than its job). Best effort, like the window's video check: it
+     never holds up or fails a write; a song whose lookup failed is asked
+     again a minute later, on a later write. */
   queueKaraokeLyrics() {
     if (!this.capabilities.karaoke || !Object.hasOwn(ACTIONS, "karaokeLyrics")) return null;
     if (this.lyricsWork) { this.lyricsAgain = true; return this.lyricsWork; }
@@ -2483,7 +2525,7 @@ export class Tournament {
     const wanted = karaokeLyricsWanted(this.state).filter(item => !((retry.get(item.trackId) || 0) > now));
     if (!wanted.length) return null;
     const work = this.fillKaraokeLyrics(wanted).catch(error => {
-      console.error(JSON.stringify({ event:"karaoke-lyrics-write-failed", error:String(error?.message || error).slice(0, 300) }));
+      console.error(JSON.stringify({ event:"karaoke-upgrade-write-failed", error:String(error?.message || error).slice(0, 300) }));
       return null;
     }).finally(() => {
       this.lyricsWork = null;
@@ -2499,32 +2541,20 @@ export class Tournament {
     const retry = this.lyricsRetryAt ||= new Map();
     const songs = {};
     for (const item of wanted) {
-      const later = error => {
+      try {
+        songs[item.player] = { trackId:item.trackId, upgrade:await this.karaokeUpgrade(item) };
+      } catch (error) {
         retry.set(item.trackId, Date.now() + KARAOKE_LYRICS_RETRY_MS);
-        console.error(JSON.stringify({ event:"karaoke-lyrics-lookup-failed", reason:error?.reason || null,
+        console.error(JSON.stringify({ event:"karaoke-upgrade-lookup-failed", reason:error?.reason || null,
           error:String(error?.message || error).slice(0, 200) }));
-      };
-      let lines;
-      try { lines = await this.songLyrics(item); } catch (error) { later(error); continue; }
-      const entry = { trackId:item.trackId };
-      if (item.lyrics) entry.lines = lines;
-      if (item.upgrade) {
-        try {
-          const song = item.player && this.state.karaoke?.phase === "pick"
-            ? this.state.profiles?.[item.player]?.karaokeTrack : this.state.karaoke?.songs?.[item.player];
-          entry.upgrade = song?.trackId === item.trackId ? (await this.karaokePlan(song, { lines })).upgrade?.video || null : null;
-        } catch (error) {
-          later(error);
-          if (!item.lyrics) continue;
-        }
       }
-      songs[item.player] = entry;
     }
     if (!Object.keys(songs).length || this.state.karaoke?.id !== gameId) return null;
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, "karaokeLyrics", { gameId, songs }, {
-      isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:lyrics:${Date.now()}`,
+      isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:upgrade:${Date.now()}`,
       environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+      float:this.capabilities.float === true,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -2573,6 +2603,7 @@ export class Tournament {
     const result = applyAction(nextState, "karaokePreflight", { gameId, ...karaokePreflight(list, results) }, {
       isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:${opened}:preflight`,
       environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+      float:this.capabilities.float === true,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -2583,6 +2614,156 @@ export class Tournament {
     }
     await this.scheduleAlarm();
     return result;
+  }
+
+  /* ── Float (shared/float.js, worker/float.js, float/PROTOCOL.md) ──
+     Lock and start writes the Cup (state.float); after any write persists,
+     a Cup the room has not taken is posted to the room's own Durable Object
+     (fd-<evId>), server to server, never holding up or failing the write.
+     A failure is tried again on the alarm (FLOAT_RETRY_MS); after the last,
+     or at once when the room refuses the Cup, floatCupFailed tells the
+     commissioner, whose pill then offers Start Float again. */
+  /* Never awaited by a write (or by hydrateFromStorage, inside
+     blockConcurrencyWhile): it is fire and forget, kept alive by waitUntil.
+     Posts run one at a time in one lane, so a Cup restarted while its
+     predecessor is still on its way reaches the room after it, and a Cup
+     the board has moved past by its turn is never sent. */
+  queueFloatCup() {
+    if (!this.capabilities.float) return null;
+    const cup = floatCup(this.state);
+    if (!cup || cup.error || !floatLive(this.state)) return null;
+    if ((this.floatSent ||= new Set()).has(cup.cupId)) return null;
+    if (this.floatPosting?.cupId === cup.cupId) return this.floatPosting.work;
+    const work = (this.floatLane || Promise.resolve()).then(() => this.postFloatCup(cup.cupId)).catch(error => {
+      console.error(JSON.stringify({ event:"float-cup-failed", error:String(error?.message || error).slice(0, 300) }));
+      return null;
+    }).finally(() => { if (this.floatPosting?.work === work) this.floatPosting = null; });
+    this.floatLane = work;
+    this.floatPosting = { cupId:cup.cupId, work };
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  async postFloatCup(cupId) {
+    const key = `${FLOAT_CUP_PREFIX}${cupId}`;
+    if ((await this.ctx.storage.get(key))?.sentAt) { this.floatSent.add(cupId); return { ok:true, kept:true }; }
+    /* the board may have moved on while storage answered */
+    const cup = floatCup(this.state);
+    if (!cup || cup.cupId !== cupId || cup.error || !floatLive(this.state)) return null;
+    /* the room answers { ok, cupId, room, startAt, entrants }, or { ok, cupId,
+       room, phase, already:true } for a Cup it already holds */
+    let answer;
+    try {
+      const room = this.env.FLOAT.get(this.env.FLOAT.idFromName(cup.room));
+      const res = await room.fetch(floatCupUrl(cup.room), { method:"POST", headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify(floatCupBody(this.state)) });
+      let reply = null;
+      try { reply = await res.json(); } catch {}
+      answer = { ok:res.ok && reply?.ok !== false, status:res.status, error:reply?.error || null,
+        startAt:Number(reply?.startAt) || null, entrants:Number(reply?.entrants) || null, already:reply?.already === true };
+    } catch (error) {
+      answer = { ok:false, status:0, error:String(error?.message || error) };
+    }
+    if (answer.ok) {
+      await this.ctx.storage.put(key, { sentAt:Date.now(), evId:cup.evId, room:cup.room,
+        ...(answer.startAt ? { startAt:answer.startAt } : {}), ...(answer.entrants ? { entrants:answer.entrants } : {}),
+        ...(answer.already ? { already:true } : {}) });
+      this.floatSent.add(cupId);
+      this.floatTries?.delete(cupId);
+      return answer;
+    }
+    console.error(JSON.stringify({ event:"float-cup-post-failed", cupId, status:answer.status,
+      error:String(answer.error || "").slice(0, 200) }));
+    const tries = ((this.floatTries ||= new Map()).get(cupId) || 0) + 1;
+    this.floatTries.set(cupId, tries);
+    /* a room that refused this Cup will refuse it again; silence is tried again */
+    const refused = answer.status >= 400 && answer.status < 500;
+    if (!refused && tries <= FLOAT_RETRY_MS.length) {
+      this.floatRetryAt = Date.now() + FLOAT_RETRY_MS[tries - 1];
+      await this.scheduleAlarm();
+      return answer;
+    }
+    await this.applyAutoWrite("floatCupFailed", { cupId, error:refused && answer.error ? answer.error : "The room did not answer" },
+      { internal:FLOAT_INTERNAL, deviceId:"float", actionId:`float:${cupId}:failed` });
+    return answer;
+  }
+
+  /* a JSON object from the room, or null */
+  async readFloatBody(req, max) {
+    if (req.method !== "POST" || Number(req.headers.get("Content-Length") || 0) > max) return null;
+    let text;
+    try { text = await req.text(); } catch { return null; }
+    if (text.length > max) return null;
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch { return null; }
+  }
+
+  /* POST /internal/float/result { evId, cupId, order (real players, 1st to
+     last), rounds:[{ round, leg, field, out, results }], stats:{ rounds } }:
+     the race's stats kept (private), then the result through floatFinish as
+     the server's own write, so the winner scene, pocket alerts and the win
+     song follow it. Idempotent by cupId: a repeat is 200. The room posts
+     again on anything but a 2xx (1 s, 5 s, 30 s, 2 min, 10 min, then hourly
+     for a day), so a result the board will never take (a cup that is not
+     the board's, Float skipped, no rider on the roster) is answered 200 with
+     `refused`; only a write that did not save (503) is worth trying again,
+     and a body that did not come through whole is 400. */
+  async handleFloatResult(req) {
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const body = await this.readFloatBody(req, FLOAT_BODY_MAX);
+    const { evId, cupId, order, rounds = null, stats = null } = body || {};
+    if (!body || typeof evId !== "string" || typeof cupId !== "string" || !/^[\w-]{1,64}$/.test(cupId) || !Array.isArray(order))
+      return json({ ok:false, error:"That result didn't come through whole" }, 400);
+    try { await this.keepFloatStats({ cupId, evId, order, rounds, stats, at:Date.now() }); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"float-stats-write-failed", error:String(error?.message || error).slice(0, 200) }));
+    }
+    const result = await this.applyAutoWrite("floatFinish", { evId, cupId, order },
+      { internal:FLOAT_INTERNAL, deviceId:"float", actionId:`float:${cupId}:result` });
+    if (result.saved === false) return json({ ok:false, error:result.error }, 503);
+    if (!result.ok) {
+      console.error(JSON.stringify({ event:"float-result-refused", cupId, error:String(result.error || "").slice(0, 200) }));
+      return json({ ok:false, refused:true, error:result.error });
+    }
+    return json({ ok:true, posted:result.extra?.posted !== false, ...(result.extra?.unchanged ? { unchanged:true } : {}) });
+  }
+
+  /* a cup's stats under its own key, the newest FLOAT_STATS_LIMIT kept (an
+     index of them, so pruning never reads the stats themselves) */
+  async keepFloatStats(record) {
+    const index = await this.ctx.storage.get(FLOAT_STATS_INDEX_KEY);
+    const list = [{ cupId:record.cupId, at:record.at },
+      ...(Array.isArray(index) ? index : []).filter(item => item?.cupId && item.cupId !== record.cupId)];
+    const dropped = list.slice(FLOAT_STATS_LIMIT);
+    await this.ctx.storage.put({ [`${FLOAT_STATS_PREFIX}${record.cupId}`]:record, [FLOAT_STATS_INDEX_KEY]:list.slice(0, FLOAT_STATS_LIMIT) });
+    if (dropped.length) await this.ctx.storage.delete(dropped.map(item => `${FLOAT_STATS_PREFIX}${item.cupId}`));
+  }
+
+  /* POST /internal/float/feedback { cupId, pid, answers:{ fun, again, better } }:
+     one card a rider a cup (a retry replaces it), newest first, kept for the
+     commissioner. A card with nothing Field Day reads is answered 200 and
+     not kept (the room would post it again on anything else). */
+  async handleFloatFeedback(req) {
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const body = await this.readFloatBody(req, FLOAT_FEEDBACK_BODY_MAX);
+    if (!body || typeof body.cupId !== "string") return json({ ok:false, error:"That feedback didn't come through whole" }, 400);
+    const entry = cleanFloatFeedback(body, Date.now());
+    if (!entry) return json({ ok:true, kept:false });
+    const kept = await this.ctx.storage.get(FLOAT_FEEDBACK_KEY);
+    const list = Array.isArray(kept) ? kept : [];
+    const next = [entry, ...list.filter(item => !(item?.cupId === entry.cupId && item?.pid === entry.pid))]
+      .slice(0, FLOAT_FEEDBACK_LIMIT);
+    await this.ctx.storage.put(FLOAT_FEEDBACK_KEY, next);
+    return json({ ok:true });
+  }
+
+  /* the commissioner's read of it (a socket command; nothing broadcasts) */
+  async floatFeedbackCommand(isGm) {
+    if (!isGm) return { ok:false, error:"Commissioner only" };
+    const kept = await this.ctx.storage.get(FLOAT_FEEDBACK_KEY);
+    return { ok:true, extra:{ feedback:Array.isArray(kept) ? kept : [] } };
   }
 
   /* ── QA checkpoints (commissioner, QA capability) ──

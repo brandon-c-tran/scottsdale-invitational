@@ -255,7 +255,8 @@ test("the bets rack is your seat: last in the page's flow, docked by sticky, nev
 /* ── dev previews ── */
 test("dev previews: /dev/x.html is served as the page, not redirected onto dev/x.jsx", () => {
   const config = read("vite.config.js");
-  assert.match(config, /plugins: \[devPreviews\(\), react\(\), cloudflare\(\)/, "ahead of the Worker's asset handler");
+  /* Float's dev pages (float/PROTOCOL.md) sit beside them, also ahead of the Worker */
+  assert.match(config, /plugins: \[devPreviews\(\), (floatPages\(\), )?react\(\), cloudflare\(\)/, "ahead of the Worker's asset handler");
   assert.match(config, /apply: "serve"/, "dev only, never in a build");
   assert.match(config, /server\.transformIndexHtml\(req\.url, html\)/);
 });

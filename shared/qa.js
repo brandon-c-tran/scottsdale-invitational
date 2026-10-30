@@ -10,8 +10,10 @@
      crowned                     champion crowned, board frozen
      step                        the current event's current contest, once
      finish                      the current event through its result
-     solo:trivia|where           that in-app game started for the
-                                 commissioner's own player alone
+     solo:trivia|where|float     that in-app game started for the
+                                 commissioner's own player alone (Float's
+                                 with the room's bots, and only with the
+                                 float capability)
 
    Nothing here writes state. */
 import {
@@ -27,7 +29,7 @@ const QA_POKER_PHASES = Object.freeze(["set", "live", "counted"]);
 const QA_EVENT_PHASE_LABELS = Object.freeze({ open:"Open", mid:"Mid", done:"Done" });
 const QA_POKER_PHASE_LABELS = Object.freeze({ set:"Table set", live:"Cards live", counted:"Counts posted" });
 /* the in-app games a solo test can start: the event's `game` and its name */
-const QA_SOLO_GAMES = Object.freeze({ trivia:"Trivia", where:"Where and When" });
+const QA_SOLO_GAMES = Object.freeze({ trivia:"Trivia", where:"Where and When", float:"Float" });
 
 /* Exactly what a game-progress reset clears. A checkpoint stores these and a
    restore replaces only these: profiles, ratings, logistics, the onboarding
@@ -135,13 +137,16 @@ function qaTargets(state, events = allEventsOf(state)) {
 }
 
 /* The solo tests the sheet offers: each in-app game on the slate, whether
-   it has anything to play (a set list, photos), and where its event is. */
-function qaSoloTargets(state, events = allEventsOf(state)) {
+   it has anything to play (a set list, photos), and where its event is.
+   Float only with its capability (`float`), and always ready: the river
+   needs no content. */
+function qaSoloTargets(state, events = allEventsOf(state), { float = false } = {}) {
   const slate = qaSlate(state, events);
   return Object.entries(QA_SOLO_GAMES).flatMap(([game, label]) => {
+    if (game === "float" && !float) return [];
     const ev = slate.find(item => item.game === game);
     if (!ev) return [];
-    const ready = game === "trivia" ? triviaConfigured(state) : (state.geoRounds || []).length > 0;
+    const ready = game === "trivia" ? triviaConfigured(state) : game === "float" ? true : (state.geoRounds || []).length > 0;
     return [{ key:`solo:${game}`, game, label, evId:ev.id, ready, stage:qaEventStage(state, ev) }];
   });
 }

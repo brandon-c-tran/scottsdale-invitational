@@ -20,9 +20,8 @@
    rewritten; `worstBase` builds the one that needs players marked Not
    coming before anything is played. Pure apart from the reducers it calls. */
 import { EMPTY_STATE, RESET_PROGRESS_CONFIRMATION, ROSTER, computeStandings, rosterOf } from "../../shared/core.js";
-import { cleanLyrics } from "../../shared/karaokeLyrics.js";
+import { floatSlate } from "../../shared/float.js";
 import { applyAction } from "../../worker/actions.js";
-import { KARAOKE_FIT_LYRICS } from "./karaokeLyricsFixture.js";
 
 let serial = 0;
 const gm = () => ({ isGm:true, qa:true, progressReset:true, environment:"local", player:"Brandon", deviceId:"fit-worst",
@@ -159,11 +158,6 @@ export const WORST_BALLOT = Object.freeze({ id:"bworstawards", kind:"awards", qu
   Object.freeze({ id:"qworstsleep", title:"Most Likely To Fall Asleep At The Table", nominees:null, allowSelf:false }),
   Object.freeze({ id:"qworstcomeback", title:"Best Comeback Of The Entire Weekend", nominees:null, allowSelf:false }),
 ]) });
-/* a lyric line at the 160 a line keeps, where the stand-in's long line is */
-export const WORST_LYRIC = "And we kept on driving through the canyon with the windows down and the radio up until the sun came over Camelback and nobody wanted the night to end";
-export const WORST_LYRICS = Object.freeze(cleanLyrics(KARAOKE_FIT_LYRICS.map(line =>
-  line.text.startsWith("We were never meant") ? { t:line.t, text:WORST_LYRIC } : { ...line })));
-
 /* ── the board ── */
 /* a tie at every place, a leader at 18,500 and two below zero (the first
    ten: a board with three not coming is tied all the way down) */
@@ -181,7 +175,8 @@ export function worstSpread(state, values = WORST_SPREAD) {
 export const WORST_OUT = Object.freeze(["Evan", "Sahil", "Ben"]);
 export const WORST_AWAY = "Chinh";
 export function worstBase(target, { out = WORST_OUT, away = WORST_AWAY, seed = 7 } = {}) {
-  const state = structuredClone(EMPTY_STATE);
+  /* the slate a server starts with (scenarios.js fresh): Float plays, Beerio Kart stands by */
+  const state = floatSlate(structuredClone(EMPTY_STATE));
   out.forEach(player => run(state, "setOut", { player, out:true }));
   run(state, "qaAdvance", { target, seed, confirm:RESET_PROGRESS_CONFIRMATION, confirmPokerLive:true });
   if (away) run(state, "setAway", { player:away, away:true });

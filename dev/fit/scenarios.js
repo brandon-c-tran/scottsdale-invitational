@@ -18,13 +18,15 @@ import { songBeatOf } from "../../shared/bitMusic.js";
 import { bitById } from "../../src/features/gags/bits/registry.js";
 import { recordCards } from "../../src/features/tv/recordsModel.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
+import { bankStage } from "./qbankFixtures.js";
+import { qbankFixtureState, useDeskBank } from "./qbankDeskFixtures.js";
 import { karaokeStage } from "./karaokeFixtures.js";
 import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
 import {
-  WORST_BALLOT, WORST_GEO_ROUNDS, WORST_KARAOKE, WORST_LYRICS, WORST_PHOTOS, WORST_SONGS, WORST_TRIVIA_ROUND, worstBase,
+  WORST_BALLOT, WORST_GEO_ROUNDS, WORST_PHOTOS, WORST_SONGS, WORST_TRIVIA_ROUND, worstBase,
   worstEventName, worstKaraokeSong, worstNames, worstRuling, worstSongs, worstSpread, worstTeamNames,
 } from "./worstFixtures.js";
-import { projectKaraoke } from "../../shared/karaoke.js";
+import { floatSlate } from "../../shared/float.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -76,7 +78,8 @@ export function withPhotos(state, n) {
 
 /* `seed`: QA's own seeded stream (another weekend played the same way) */
 export function fresh(target = "locker", seed = 7) {
-  const state = structuredClone(EMPTY_STATE);
+  /* the slate a server starts with: Float plays, Beerio Kart stands by */
+  const state = floatSlate(structuredClone(EMPTY_STATE));
   qa(state, target, seed);
   return state;
 }
@@ -627,24 +630,59 @@ const FIT_KARAOKE_TRACK = Object.freeze({ provider:"spotify", trackId:"77NNZQSqz
   uri:"spotify:track:77NNZQSqzLNqh2A9JhLRkg", url:"https://open.spotify.com/track/77NNZQSqzLNqh2A9JhLRkg",
   name:"Don't Stop Believin' - Remastered 2022", artists:Object.freeze(["Journey"]), durationMs:250000, imageUrl:FIT_COVER,
   explicit:false, startMs:0 });
-/* the lookup's answer since Oct 15: two instrumentals (our lyrics) and a karaoke upload (its own) */
+/* the lookup's answer: three karaoke uploads (their words on them) */
 const FIT_KARAOKE_VIDEOS = Object.freeze([
-  { id:"fitKaraoke1", title:"Journey - Don't Stop Believin' (Official Instrumental)", channel:"JourneyVEVO", seconds:250 },
-  { id:"fitKaraoke2", title:"Don't Stop Believin' Instrumental", channel:"Backing Tracks Studio", seconds:251 },
-  { id:"fitKaraoke3", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke", seconds:245 },
+  { id:"fitKaraoke1", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke", seconds:245 },
+  { id:"fitKaraoke2", title:"Don't Stop Believin' Karaoke", channel:"Zoom Karaoke", seconds:251 },
+  { id:"fitKaraoke3", title:"Journey - Don't Stop Believin' (Karaoke)", channel:"KaraFun", seconds:250 },
 ].map(video => Object.freeze({ ...video, thumb:FIT_KARAOKE_THUMB })));
 export const FIT_KARAOKE = Object.freeze({
   search:{ ok:true, tracks:[FIT_KARAOKE_TRACK, { ...FIT_KARAOKE_TRACK, trackId:"4bHsxqR3GMrXTxEPLuK5ue",
     uri:"spotify:track:4bHsxqR3GMrXTxEPLuK5ue", url:"https://open.spotify.com/track/4bHsxqR3GMrXTxEPLuK5ue",
     name:"Don't Stop Believin' (Live in Houston, 1981)", imageUrl:null }] },
-  karaokeVideos:{ ok:true, videos:FIT_KARAOKE_VIDEOS, lyrics:true },
+  karaokeVideos:{ ok:true, videos:FIT_KARAOKE_VIDEOS },
 });
+/* Float (src/features/float): Float's market open on Saturday night, then
+   Lock and start on a server with the room (the float capability), so the
+   Cup opens in that write; `failed`, the room never took it */
+function floatRacing({ failed = false } = {}) {
+  const state = fresh("event:float:open");
+  const contest = resolveCurrentContest(state, eventOf(state, "float"));
+  act(state, "lockAndStart", { evId:"float", contestId:contest.id, contestRevision:contest.revision }, { ...gmCtx(), float:true });
+  if (failed) act(state, "floatCupFailed", { cupId:state.float.cupId, error:"The room did not answer" },
+    { isGm:true, internal:"float", auto:true, player:null, deviceId:"float", actionId:"fit-float-failed" });
+  return state;
+}
+/* a rider's saved look */
+function withFloatLook(state, player = FIT_GUEST) {
+  act(state, "floatLook", { player, look:{ critter:"capybara", floatie:"flamingo", hat:"cowboy", shades:"stars", pose:"airguitar" } });
+  return state;
+}
+/* Float still ahead, a few riders' looks saved and the rest the room's own
+   default: Saturday afternoon's end, or before the weekend with `out`
+   riders Not coming and `long` lettered a long name */
+function floatAhead({ target = "session:sap", out = [], long = null } = {}) {
+  const state = fresh(target);
+  withFloatLook(state, FIT_GUEST);
+  act(state, "floatLook", { player:"Henry", look:{ critter:"javelina", floatie:"donut", hat:"bucket", shades:"aviators", pose:"flex" } });
+  act(state, "floatLook", { player:"Khoa", look:{ critter:"roadrunner", floatie:"unicorn", hat:"none", shades:"hearts", pose:"chug" } });
+  out.forEach(player => act(state, "setOut", { player, out:true }));
+  return long ? renamed(state, long, RECORDS_LONG_NAME) : state;
+}
+/* the riders' feedback cards, as the room posts them (the desk reads them over the socket) */
+export const FIT_FLOAT_FEEDBACK = Object.freeze([
+  { cupId:"cupfit01", pid:"Richard", fun:5, again:true, better:"A longer river, and a second waterfall before the takeout bar", at:3 },
+  { cupId:"cupfit01", pid:"Jeremy", fun:3, again:false, better:null, at:2 },
+  { cupId:"cupfit01", pid:"Henry", fun:4, again:true, better:"More balloons", at:1 },
+  { cupId:"cupfit01", pid:null, fun:null, again:true, better:null, at:0 },
+]);
+
 /* the guest's saved karaoke song (the karaokeSong write keeps this shape) */
 function withKaraokeSong(state, player = FIT_GUEST) {
   const { startMs, ...track } = FIT_KARAOKE_TRACK;
   state.profiles[player] = { ...state.profiles[player], karaokeTrack:{ ...track, artists:[...track.artists],
-    video:{ ...FIT_KARAOKE_VIDEOS[0] }, alts:FIT_KARAOKE_VIDEOS.slice(1).map(video => ({ ...video })), at:Date.now(), checkedAt:null,
-    lyrics:true } };
+    video:{ ...FIT_KARAOKE_VIDEOS[0] }, alts:FIT_KARAOKE_VIDEOS.slice(1).map(video => ({ ...video })), at:Date.now(),
+    checkedAt:null } };
   return state;
 }
 
@@ -742,18 +780,14 @@ const KARAOKE_DESK_SONGS = Object.freeze([
   ["Africa", ["TOTO"], 295], ["Party In The U.S.A.", ["Miley Cyrus"], 202],
   ["Under Pressure - Remastered 2011", ["Queen", "David Bowie"], 248], ["Wonderwall", ["Oasis"], 258],
 ]);
-/* every other song since Oct 15 sung over its instrumental with our lyrics
-   (one nudged half a second earlier), the rest karaoke uploads */
+/* every song a karaoke upload with a karaoke alternate */
 const karaokeDeskTrack = (k, [name, artists, seconds]) => {
   const n = String(k + 1).padStart(2, "0");
   const trackId = `fitKaraokeSong${n}xxxxxx`;
-  const karaoke = { id:`fitKaraok${n}`, title:`${name} (Karaoke Version)`, channel:"Stingray Karaoke", seconds:seconds + 8 };
-  const lyrics = k % 2 === 0;
   return { provider:"spotify", trackId, uri:`spotify:track:${trackId}`, url:`https://open.spotify.com/track/${trackId}`, name,
     artists:[...artists], durationMs:seconds * 1000, imageUrl:null, explicit:false,
-    video:lyrics ? { id:`fitInstru${n}`, title:`${name} (Instrumental)`, channel:artists[0], seconds } : karaoke,
-    alts:lyrics ? [karaoke] : [{ id:`fitKarAlt${n}`, title:`${name} Karaoke`, channel:"KaraFun", seconds:seconds + 4 }],
-    at:1, checkedAt:null, lyrics, ...(k === 2 ? { lyricsOffset:500 } : {}) };
+    video:{ id:`fitKaraok${n}`, title:`${name} (Karaoke Version)`, channel:"Stingray Karaoke", seconds:seconds + 8 },
+    alts:[{ id:`fitKarAlt${n}`, title:`${name} Karaoke`, channel:"KaraFun", seconds:seconds + 4 }], at:1, checkedAt:null };
 };
 function karaokeDeskSongs(state, players) {
   players.forEach((player, k) => {
@@ -770,9 +804,7 @@ export const KARAOKE_DESK_CHECK = Object.freeze({ Brandon:{ ok:true, code:null, 
   Jeremy:{ ok:false, code:"none", video:null } });
 const karaokeDesk = () => karaokeDeskSongs(fresh("locker"), KARAOKE_DESK_PICKED);
 function karaokeDeskLive() {
-  const state = karaokePhoneStage("singing-lyrics");
-  const singer = state.karaoke.order[state.karaoke.index];
-  state.karaoke.songs[singer] = { ...state.karaoke.songs[singer], lyricsOffset:-250 };
+  const state = karaokePhoneStage("singing");
   state.away = { ...(state.away || {}), [FIT_GM]:{ at:Date.now() - 60000 } };
   return state;
 }
@@ -1105,26 +1137,6 @@ function worstBoard() {
   quickDraws(state, [["Allan", "Richard", 231, 286]]);
   return worstRuling(state);
 }
-/* the lyric stage: the third singer's long title over an instrumental, the
-   160-character line being sung */
-function worstKaraokeLyrics() {
-  const state = worstNames(karaokeStage("lyrics", { project:false }));
-  const game = state.karaoke;
-  const singer = game.order[game.index];
-  const song = game.songs[singer];
-  game.songs[singer] = { ...song, name:WORST_KARAOKE.name, artists:[...WORST_KARAOKE.artists] };
-  game.lyrics = { [song.trackId]:structuredClone(WORST_LYRICS) };
-  state.karaoke = projectKaraoke(state, null);
-  return state;
-}
-/* the viewer singing it, on their phone */
-function worstPhoneLyrics() {
-  const state = worstNames(karaokePhoneStage("singing-lyrics"));
-  const game = state.karaoke;
-  const trackId = game.songs[game.order[game.index]].trackId;
-  game.lyrics = { ...game.lyrics, [trackId]:structuredClone(WORST_LYRICS) };
-  return state;
-}
 /* the weekend kept: every team named at its longest, the renamed event
    (and on the phone, the first award revealed) */
 const worstCrowned = () => worst(fresh("crowned"), { teams:["die", "bball5", "pickleball", "volley"], pairs:true, event:true });
@@ -1163,7 +1175,6 @@ const WORST_TV_VIEWS = [
     wait:3000, ...WORST },
   { id:"tv-worst-awards", build:() => awards(WORST_BALLOT, worst(fresh("crowned"))), at:{ award:6000 }, ...WORST },
   { id:"tv-worst-geo-reveal", build:() => worst(geo("reveal", WORST_GEO_ROUNDS)), at:{ geoReveal:9000 }, wait:4500, ...WORST },
-  { id:"tv-worst-karaoke-lyrics", build:worstKaraokeLyrics, at:{ karaoke:0 }, wait:1200, ...WORST },
   /* the champion (seed 7 crowns Henry: the 16-letter handle, no photo) */
   { id:"tv-worst-crown-name", build:() => worst(fresh("crowned")), moment:{ kind:"crown", t:16800 }, ...WORST },
   { id:"tv-worst-trophy", build:worstCrowned, at:{ crown:"trophy" }, ...WORST },
@@ -1189,7 +1200,6 @@ const WORST_PHONE_VIEWS = [
   { id:"worst-trivia-options", build:() => worst(triviaStage("options", WORST_TRIVIA)), settle:false, tabs:["home"], ...WORST },
   { id:"worst-trivia-reveal", build:() => worst(triviaStage("reveal", WORST_TRIVIA)), tabs:["home"], ...WORST },
   { id:"worst-keepsake", build:worstKeepsake, tabs:["weekend"], ...WORST },
-  { id:"worst-karaoke-lyrics", build:worstPhoneLyrics, settle:false, freeze:true, karaoke:true, tabs:["home"], ...WORST },
 ];
 export const TV_SCENARIOS = Object.freeze([
   /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
@@ -1332,6 +1342,19 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-board-real-answer", build:() => boardPlayed("answer"), at:{ board:0 } },
   { id:"tv-board-real-reveal", build:() => boardPlayed("reveal"), at:{ board:0 }, wait:1500 },
   { id:"tv-board-real-final-reveal", build:() => boardPlayed("final-reveal"), at:{ board:0 } },
+  /* the question bank's board (dev/fit/qbankFixtures.js, the real writes
+     on the test fixtures): seven columns at 100 to 500, a headshot with
+     its name, a sound clip's speaker and bar, a video, a silhouette and a
+     crop, and their reveals with the note */
+  { id:"tv-bank-pick", build:() => bankStage("pick", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-text", build:() => bankStage("text", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-image", build:() => bankStage("image", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-audio", build:() => bankStage("audio", { now:Date.now() }).state, at:{ board:0 }, pause:true, wait:150 },
+  { id:"tv-bank-video", build:() => bankStage("video", { now:Date.now() }).state, at:{ board:0 }, pause:true, wait:150 },
+  { id:"tv-bank-audio-answer", build:() => bankStage("audio-answer", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-sil", build:() => bankStage("sil", { now:Date.now() }).state, at:{ board:0 } },
+  { id:"tv-bank-sil-reveal", build:() => bankStage("sil-reveal", { now:Date.now() }).state, at:{ board:0 }, wait:1500 },
+  { id:"tv-bank-crop-reveal", build:() => bankStage("crop-reveal", { now:Date.now() }).state, at:{ board:0 }, wait:1500 },
   /* Karaoke (dev/fit/karaokeFixtures.js, built from its contract and
      projected as a TV's frame carries it): the pick window, the order
      dealing, a singer up next, a song (the video's stand-in, a practice
@@ -1341,15 +1364,24 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-karaoke-order", build:() => karaokeStage("order"), at:{ karaoke:0 }, pause:true, wait:400 },
   { id:"tv-karaoke-up", build:() => karaokeStage("up"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-singing", build:() => karaokeStage("singing"), at:{ karaoke:0 }, wait:1200 },
-  /* sung over an instrumental with our lyrics (stand-in lines): the player compact, the lyric stage */
-  { id:"tv-karaoke-lyrics", build:() => karaokeStage("lyrics"), at:{ karaoke:0 }, wait:1200 },
-  { id:"tv-karaoke-lyrics-wait", build:() => karaokeStage("lyrics-wait"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-practice", build:() => karaokeStage("practice"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-failed", build:() => karaokeStage("failed"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-voting", build:() => karaokeStage("voting"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-legendary", build:() => karaokeStage("legendary"), at:{ karaoke:0 }, pause:true, wait:400 },
   { id:"tv-karaoke-reveal-mid", build:() => karaokeStage("reveal-mid"), at:{ karaoke:0 }, wait:1600 },
   { id:"tv-karaoke-reveal-podium", build:() => karaokeStage("reveal-podium"), at:{ karaoke:0 }, wait:1600 },
+  /* Float: the room's river over the whole canvas (the screen's own chunk,
+     its stub until the screen build lands), and the board back when the
+     room never took the Cup */
+  { id:"tv-float-live", build:() => floatRacing(), wait:1500 },
+  { id:"tv-float-failed", build:() => floatRacing({ failed:true }) },
+  /* the riders turn while Float is ahead: every rider coming as the room's
+     art draws them (its stub until the art build lands), names under them */
+  { id:"tv-float-roster", build:() => floatAhead(), float:true, at:{ floatRoster:{} }, wait:2500 },
+  { id:"tv-float-roster-short", build:() => floatAhead({ target:"locker", out:["Jeremy", "Ben", "Evan"], long:"Allan" }),
+    float:true, at:{ floatRoster:{} }, wait:2500 },
+  /* a TV that cannot draw them: each rider's photo chip (initials without a photo) */
+  { id:"tv-float-roster-chips", build:() => floatAhead(), float:true, floatArt:"fail", at:{ floatRoster:{} } },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
@@ -1655,11 +1687,28 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-final-wager", build:() => boardStage("final-wager"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-final-clue", build:() => boardStage("final-clue"), settle:false, freeze:true, tabs:["home"] },
   { id:"desk-board", build:boardDeskStage, viewer:"gm", tabs:[], sheets:["trivia-desk"] },
+  /* the Question bank desk (docs/TRIVIA-QBANK.md) over the fixture bank
+     (dev/fit/qbankDeskFixtures.js): the board and bank, a slot's alternatives,
+     the editor, the warnings; and a desk with nothing picked yet */
+  { id:"qbank", build:() => { useDeskBank(); return qbankFixtureState("worked", fresh("locker")); }, viewer:"gm", qbank:true, tabs:[],
+    sheets:["qbank-desk", "qbank-slot", "qbank-open", "qbank-edit", "qbank-browse", "qbank-warnings"], sheetSizes:["375"] },
+  /* and on the real bank (worker/triviaQBank) and its recommended board */
+  { id:"qbank-real", build:() => fresh("locker"), viewer:"gm", qbank:true, tabs:[],
+    sheets:["qbank-desk", "qbank-slot", "qbank-open", "qbank-browse"], sheetSizes:["375"] },
+  { id:"qbank-empty", build:() => { useDeskBank(); return qbankFixtureState("empty", fresh("locker")); }, viewer:"gm", qbank:true, tabs:[], sheets:["qbank-desk"] },
   /* and through the real writes */
   { id:"board-real-buzz", build:() => boardPlayed("armed"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-rebound", build:() => boardPlayed("rebound"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-answer", build:() => boardPlayed("answer"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-final-clue", build:() => boardPlayed("final-clue"), settle:false, freeze:true, tabs:["home"] },
+  /* the question bank's board on a phone: seven columns with short names,
+     a headshot small over the buzzer, a sound (nothing plays here), the
+     silhouette's original at the reveal */
+  { id:"bank-pick-mine", build:() => bankStage("pick", { now:Date.now(), viewer:FIT_GUEST }).state, settle:false, freeze:true, tabs:["home"],
+    sheets:["game-closed"] },
+  { id:"bank-buzz-image", build:() => bankStage("image", { now:Date.now() }).state, settle:false, freeze:true, tabs:["home"] },
+  { id:"bank-buzz-audio", build:() => bankStage("audio", { now:Date.now() }).state, settle:false, freeze:true, tabs:["home"] },
+  { id:"bank-reveal-sil", build:() => bankStage("sil-reveal", { now:Date.now() }).state, settle:false, freeze:true, tabs:["home"] },
   /* Karaoke on the guest's phone (dev/fit/karaokePhoneFixtures.js, built
      from its contract; `freeze` holds the page's clock on the moment): the
      pick window (your song, Change's picker, a failed video, locked in),
@@ -1674,11 +1723,6 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"karaoke-pick-locked", build:() => karaokePhoneStage("pick-locked"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-up", build:() => karaokePhoneStage("up"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-singing", build:() => karaokePhoneStage("singing"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
-  /* our lyrics: the singer's teleprompter, a voter's line, the window's lamp */
-  { id:"karaoke-singing-lyrics", build:() => karaokePhoneStage("singing-lyrics"), settle:false, freeze:true, karaoke:true,
-    tabs:["home"] },
-  { id:"karaoke-vote-lyrics", build:() => karaokePhoneStage("vote-lyrics"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
-  { id:"karaoke-pick-lyrics", build:() => karaokePhoneStage("pick-lyrics"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-legendary", build:() => karaokePhoneStage("legendary"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-up-watch", build:() => karaokePhoneStage("up-watch"), settle:false, freeze:true, karaoke:true, tabs:[],
     sheets:["karaoke-open"], sheetSizes:["375"] },
@@ -1773,6 +1817,20 @@ export const PHONE_SCENARIOS = Object.freeze([
     sheets:["profile-karaoke-found"], sheetSizes:["375"] },
   { id:"karaoke-song-chosen", build:() => withKaraokeSong(withSong(fresh("locker"), FIT_GUEST)), karaoke:true, tabs:[],
     sheets:["profile-karaoke"], sheetSizes:["375"] },
+  /* Float (src/features/float): Home's "Pick your floatie" before the
+     weekend and Profile > Locker (the room's picker, its stub until the
+     controller build lands); the controller over a rider's phone while the
+     Cup races, and Home's row once it is closed; the commissioner's pill
+     and desk, and the pill when the room never took the Cup */
+  { id:"float-setup", build:() => fresh("locker"), float:true, tabs:["home"], sheets:["profile-locker"] },
+  { id:"float-locker", build:() => withFloatLook(fresh("locker")), float:true, tabs:[], sheets:["profile-locker"], sheetSizes:["375"] },
+  { id:"float-play", build:() => floatRacing(), float:true, settle:false, tabs:["home"], sheets:["float-closed"] },
+  /* the rider's controller itself (v3): the round card with your seat, practice's 1 2 3 4, Last Call's place and verdict */
+  { id:"float-pad", build:() => floatRacing(), float:true, settle:false, tabs:[], sheetSizes:["375"],
+    sheets:["float-pad:card", "float-pad:watch-demo", "float-pad:lastcall-drink", "float-pad:lastcall-safe", "float-pad:fireworks-launch", "float-pad:play-streak", "float-pad:play-drift", "float-pad:podium"] },
+  { id:"gm-float-pill", build:() => floatRacing(), viewer:"gm", float:true, settle:false, tabs:[], sheets:["float-closed", "float-desk"],
+    floatFeedback:FIT_FLOAT_FEEDBACK },
+  { id:"gm-float-failed", build:() => floatRacing({ failed:true }), viewer:"gm", float:true, settle:false, tabs:["home"], sheets:["float-desk"] },
   /* arrivals (Oct 4): before check-in opens nothing is new; in the lobby
      the guest still on the way gets Scan the TV at the top of Home, and its
      scanner: looking (a camera frame with no code), the TV's code read and
@@ -1814,7 +1872,7 @@ export const PHONE_SCENARIOS = Object.freeze([
      songs hidden as it opens, then shown and checked, at both widths */
   { id:"gm-karaoke-desk", build:karaokeDesk, viewer:"gm", karaoke:true, karaokeCheck:KARAOKE_DESK_CHECK, tabs:[],
     sheets:["gm-menu", "karaoke-desk", "karaoke-desk-shown"], sheetSizes:["375"] },
-  /* the desk while a song is sung with our lyrics: the singer marked, their nudge (the commissioner away, so the game's own sheet stays shut) */
+  /* the desk while a song is sung: the singer marked (the commissioner away, so the game's own sheet stays shut) */
   { id:"gm-karaoke-desk-live", build:karaokeDeskLive, viewer:"gm", karaoke:true, settle:false, freeze:true, tabs:[],
     sheets:["karaoke-desk"], sheetSizes:["375"] },
   ...WORST_PHONE_VIEWS,

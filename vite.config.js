@@ -60,6 +60,24 @@ const devPreviews = () => ({
   },
 });
 
+/* Dev only: Float's pages (float/PROTOCOL.md). The Workers asset handler
+   serves /float, /float/play and /float/art from float.html, float/play.html
+   and float/art.html; the dev server's SPA fallback would serve Field Day's
+   index.html instead, so point those paths at their files here. */
+const FLOAT_PAGES = { "/float":"/float.html", "/float/play":"/float/play.html", "/float/art":"/float/art.html" };
+const floatPages = () => ({
+  name: "fd-float-pages",
+  apply: "serve",
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      const url = new URL(req.url, "http://dev.local");
+      const page = FLOAT_PAGES[url.pathname.replace(/\/+$/, "")];
+      if (page) req.url = `${page}${url.search}`;
+      next();
+    });
+  },
+});
+
 const appShell = mode => {
   const staging = mode === "staging";
   const values = {
@@ -91,7 +109,9 @@ export default defineConfig(({ mode }) => {
   else if (mode === "staging") process.env.CLOUDFLARE_ENV = "staging";
   else delete process.env.CLOUDFLARE_ENV;
   return {
-    plugins: [devPreviews(), react(), cloudflare(), appShell(mode), ogUrl()],
+    plugins: [devPreviews(), floatPages(), react(), cloudflare(), appShell(mode), ogUrl()],
     define: { __FD_BUILD_ID__: JSON.stringify(BUILD_ID) },
+    /* Field Day (index.html) and Float's pages (float.html, float/play.html, float/art.html; float/PROTOCOL.md) */
+    environments: { client: { build: { rollupOptions: { input: { main:path.resolve("index.html"), float:path.resolve("float.html"), floatPlay:path.resolve("float/play.html"), floatArt:path.resolve("float/art.html") } } } } },
   };
 });

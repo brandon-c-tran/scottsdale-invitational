@@ -1,0 +1,702 @@
+/* Float's phone controller, the Groove (float/GROOVE.md "The look"): soft
+   pastel skies with a big sun, flat mesas, the checkered water fading into
+   the distance, a white critter in a tube of the rider's colour, chunky
+   lettering with a dark outline. Self-contained and prefixed (flc-): it runs
+   on its own page and inside Field Day's app, and leans on neither's global
+   styles. Portrait first (one thumb taps, the other hand holds a drink);
+   landscape lays the same pieces side by side. */
+
+.flc-root {
+  --ink: #2b2233;
+  --ink-2: #5d5066;
+  --paper: #fffdf8;
+  --salmon: #ff7a6b;
+  --yellow: #ffe14a;
+  --gold: #f2b705;
+  --grey: #aaa4b6;
+  --teal: #1fb48c;
+  --coral: #ff5a4f;
+  --sun: #fff3b0;
+  --sky-a: #bdeee3;
+  --sky-b: #ffe6c9;
+  --mesa-far: #f3c0a3;
+  --mesa-near: #ea9f80;
+  --cactus: #77b088;
+  --water-a: #53cbe0;
+  --water-b: #7ddbea;
+  --foam: #e9fbff;
+  --sand-a: #f7dcae;
+  --sand-b: #f1cb94;
+  --me: #e4572e;
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pixel: "Float Pixel", "Silkscreen", "Pixelify Sans", ui-monospace, "SF Mono", Menlo, monospace;
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+  --outline: 3px 0 var(--ink), -3px 0 var(--ink), 0 3px var(--ink), 0 -3px var(--ink), 2px 2px var(--ink), -2px 2px var(--ink),
+    2px -2px var(--ink), -2px -2px var(--ink), 0 6px 0 rgba(43, 34, 51, 0.22);
+  --outline-thin: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink), 1.5px 1.5px var(--ink),
+    -1.5px 1.5px var(--ink), 1.5px -1.5px var(--ink), -1.5px -1.5px var(--ink);
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  overflow: hidden;
+  background: var(--sky-b);
+  color: var(--ink);
+  font-family: var(--font);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+/* the resets carry no weight (:where), so every component class wins over them */
+.flc-root *, .flc-root *::before, .flc-root *::after { box-sizing: border-box; }
+:where(.flc-root) :where(h1, h2, h3, p, ol, ul, dl, dd, fieldset, legend) { margin: 0; padding: 0; }
+:where(.flc-root) :where(ol, ul) { list-style: none; }
+:where(.flc-root) fieldset { border: 0; min-width: 0; }
+:where(.flc-root) button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; touch-action: manipulation; }
+:where(.flc-root) img { -webkit-user-drag: none; user-select: none; }
+html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: none; }
+
+/* ── the scenes: the sky by song (data-scene) ── */
+.flc-screen[data-scene="rocks"], .flc-scenery.is-rocks { --sky-a: #ffe3c9; --sky-b: #ffbda5; --mesa-far: #f2a98c; --mesa-near: #dc8466; --water-a: #46bfd2; --water-b: #73d3e2; }
+.flc-screen[data-scene="whirlpool"], .flc-scenery.is-whirlpool { --sky-a: #e3d8ff; --sky-b: #ffd3e7; --mesa-far: #dcb3d6; --mesa-near: #c793c4; --water-a: #6cbdf0; --water-b: #95d0f6; }
+/* Fireworks (v3 wave B): the final three at night on the lake */
+.flc-screen[data-scene="night"], .flc-scenery.is-night { --sky-a: #141a3d; --sky-b: #3b2f6b; --mesa-far: #2a2652; --mesa-near: #1f1c40; --water-a: #1d3e6e; --water-b: #2b558a; --sun: #f4efd2; }
+.flc-screen[data-scene="night"] .flc-songname, .flc-screen[data-scene="night"] .flc-card-kicker, .flc-screen[data-scene="night"] .flc-kicker,
+.flc-screen[data-scene="night"] .flc-meter-side { color: var(--paper); }
+.flc-screen[data-scene="falls"], .flc-scenery.is-falls { --sky-a: #ffd9ad; --sky-b: #ff9fae; --mesa-far: #f0988a; --mesa-near: #d9776c; --water-a: #49b0e2; --water-b: #78c8ee; }
+.flc-scenery.is-lobby { --sky-a: #d6f0ff; --sky-b: #f3e1ff; --mesa-far: #d9c3ec; --mesa-near: #c4a8e0; }
+.flc-scenery.is-podium { --sky-a: #fff0b3; --sky-b: #ffd2e6; --mesa-far: #f5c6a0; --mesa-near: #eaa983; }
+
+.flc-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--sa-top) + 10px) calc(var(--sa-right) + 16px) calc(var(--sa-bottom) + 14px) calc(var(--sa-left) + 16px);
+  overflow: hidden;
+}
+.flc-screen > * { position: relative; z-index: 1; }
+.flc-screen > .flc-scenery { position: absolute; z-index: 0; }
+
+.flc-scenery { inset: 0; overflow: hidden; pointer-events: none; background: linear-gradient(180deg, var(--sky-a) 0%, var(--sky-b) 62%); }
+.flc-sun {
+  position: absolute; right: -6%; top: 13%; width: 46vmin; height: 46vmin; max-width: 230px; max-height: 230px;
+  border-radius: 50%; background: var(--sun); opacity: 0.9;
+  box-shadow: 0 0 0 18px color-mix(in srgb, var(--sun) 32%, transparent);
+}
+.flc-mesas { position: absolute; left: 0; right: 0; bottom: 41%; width: 100%; height: 20%; }
+.flc-mesa-far { fill: var(--mesa-far); }
+.flc-mesa-near { fill: var(--mesa-near); }
+.flc-saguaro { position: absolute; left: 7%; bottom: 40%; width: 13vmin; max-width: 64px; height: auto; fill: var(--cactus); }
+.flc-water, .flc-bank {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 42%; overflow: hidden;
+  background: var(--water-a);
+  border-top: 3px solid var(--foam);
+}
+.flc-bank { background: var(--sand-a); border-top-color: color-mix(in srgb, var(--sand-b) 60%, white); }
+.flc-checker {
+  position: absolute; left: -60%; right: -60%; top: 0; height: 240%;
+  background: repeating-conic-gradient(var(--water-a) 0 25%, var(--water-b) 0 50%) 0 0 / 64px 64px;
+  transform: perspective(240px) rotateX(58deg);
+  transform-origin: 50% 0;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 24%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 24%);
+}
+.flc-bank .flc-checker { background: repeating-conic-gradient(var(--sand-a) 0 25%, var(--sand-b) 0 50%) 0 0 / 64px 64px; }
+/* the art's scene: the sky over everything, the land and water with their waterline on the horizon */
+.flc-scenery.is-art { background: none; }
+.flc-scenery.is-art img { position: absolute; display: block; pointer-events: none; -webkit-user-drag: none; }
+.flc-sky { inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.flc-strip {
+  position: absolute; left: 50%; top: calc((var(--horizon) - var(--water)) * 100%); height: 100%;
+  width: max(100%, calc(100vh * var(--ratio))); aspect-ratio: auto; transform: translateX(-50%);
+}
+.flc-strip img { inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.flc-strip img.flc-strip-under { inset: auto; left: 0; top: 100%; transform: scaleY(-1); }
+
+/* ── the top row, the way out, small labels ── */
+.flc-top { display: flex; align-items: center; gap: 10px; min-height: 44px; flex: none; }
+.flc-top-gap { flex: 1; }
+.flc-kicker { font-size: 15px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.flc-exit {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: rgba(255, 253, 248, 0.7); box-shadow: inset 0 0 0 2.5px var(--ink);
+}
+.flc-exit svg { width: 20px; height: 20px; fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.flc-exit[data-pressed] { transform: scale(0.94); }
+.flc-code { font-size: 16px; font-weight: 900; letter-spacing: 0.2em; padding: 9px 14px; border-radius: 14px; background: var(--paper); box-shadow: inset 0 0 0 2.5px var(--ink); }
+.flc-pill {
+  min-height: 48px; padding: 0 22px; border-radius: 999px; font-size: 17px; font-weight: 900;
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 var(--ink);
+  transition: transform 120ms var(--ease), box-shadow 120ms var(--ease);
+}
+.flc-pill[data-pressed] { transform: translateY(3px); box-shadow: inset 0 0 0 3px var(--ink), 0 1px 0 var(--ink); }
+.flc-pill.is-primary { background: var(--ink); color: var(--paper); box-shadow: 0 4px 0 color-mix(in srgb, var(--ink) 60%, black); }
+.flc-out-tag { font-size: 15px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; color: var(--paper); background: var(--coral); box-shadow: inset 0 0 0 2.5px var(--ink); }
+
+/* ── a critter, the host ── */
+.flc-critter { display: block; width: var(--size); height: var(--size); flex: none; }
+.flc-critter > svg, .flc-critter > img, .flc-critter > * { display: block; width: 100%; height: 100%; }
+.flc-critter img { object-fit: contain; }
+.flc-host { display: block; width: var(--size); height: var(--size); flex: none; }
+.flc-host > * { display: block; width: 100%; height: 100%; }
+.flc-me, .flc-me-move { transform-origin: 50% 82%; will-change: transform; }
+.flc-idle-me { transform-origin: 50% 82%; animation: flc-idle 1.6s ease-in-out infinite; }
+@keyframes flc-idle { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-5px) scale(0.99, 1.02); } }
+
+/* ── the song: the pad ── */
+.flc-song { touch-action: manipulation; cursor: pointer; }
+.flc-songbar { display: flex; align-items: center; gap: 10px; min-height: 40px; flex: none; position: relative; }
+.flc-songname { font-size: 17px; font-weight: 900; letter-spacing: 0.01em; color: var(--ink); }
+.flc-songbar-end { flex: 1; }
+.flc-tag {
+  margin-left: auto; font-size: 15px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 6px 12px; border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 2.5px var(--ink);
+  animation: flc-tag-in 260ms var(--spring) both;
+}
+@keyframes flc-tag-in { from { transform: scale(0.6); opacity: 0; } }
+.flc-progress { position: absolute; left: 0; right: 0; bottom: -6px; height: 6px; border-radius: 3px; background: rgba(43, 34, 51, 0.12); overflow: hidden; }
+.flc-progress b { position: absolute; inset: 0; background: var(--ink); transform-origin: 0 50%; transition: transform 250ms linear; }
+
+/* the round card: the 3 s lead and the intro */
+.flc-card { position: absolute; left: 16px; right: 16px; top: calc(var(--sa-top) + 12%); display: grid; justify-items: center; gap: 10px; text-align: center; z-index: 2; }
+.flc-card-kicker { font-size: 17px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+.flc-card-title {
+  font-size: clamp(40px, 12.5vw, 64px); line-height: 0.98; font-weight: 900; letter-spacing: -0.01em;
+  color: var(--paper); text-shadow: var(--outline); padding: 4px 6px;
+  animation: flc-card-in 520ms var(--spring) both;
+}
+@keyframes flc-card-in { from { transform: translateY(18px) scale(0.86); opacity: 0; } }
+.flc-cutline { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.flc-cutline i { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 2.5px var(--ink); }
+.flc-cutline i.is-in { background: var(--teal); }
+.flc-cutline i.is-out { background: color-mix(in srgb, var(--coral) 45%, var(--paper)); }
+.flc-cutline-bar { width: 4px; height: 26px; margin: 0 4px; border-radius: 2px; background: var(--ink); }
+
+/* the top of the song: the practice's narration, then the host's call */
+.flc-head { position: absolute !important; left: calc(var(--sa-left) + 14px); right: calc(var(--sa-right) + 14px); top: calc(var(--sa-top) + 62px);
+  display: flex; flex-direction: column; gap: 10px; pointer-events: none; z-index: 2; }
+/* Rhythm Heaven's text box: white, rounded, dark text, big */
+.flc-line { display: grid; justify-items: center; }
+.flc-line b {
+  display: block; max-width: 100%; padding: 12px 20px 14px; border-radius: 22px; text-align: center;
+  font-size: clamp(21px, 6.2vw, 27px); line-height: 1.18; font-weight: 900; letter-spacing: -0.01em; color: var(--ink);
+  background: var(--paper); box-shadow: inset 0 0 0 3.5px var(--ink), 0 5px 0 rgba(43, 34, 51, 0.2);
+  animation: flc-line-in 300ms var(--spring) both;
+}
+@keyframes flc-line-in { from { transform: translateY(-8px) scale(0.92); opacity: 0; } }
+/* the host shows it: Watch */
+.flc-watch-tag {
+  font-size: clamp(40px, 12vw, 56px); font-weight: 900; letter-spacing: 0.02em; color: var(--paper); text-shadow: var(--outline);
+  padding: 0 10px 12px; animation: flc-card-in 320ms var(--spring) both;
+}
+/* the host's call */
+.flc-call { position: relative; display: flex; align-items: flex-end; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity 140ms ease, transform 200ms var(--ease); pointer-events: none; }
+.flc-call.is-on { opacity: 1; transform: none; }
+/* one line, always: two or three calls at once ("Launch Launch", "Hop Hop
+   Hop") step their size down instead of wrapping into a tall bubble that
+   lands on the popup */
+.flc-bubble {
+  position: relative; display: flex; flex-wrap: nowrap; align-items: center; gap: 0 10px; min-width: 0; max-width: 100%;
+  min-height: 64px; padding: 10px 20px 12px; margin-bottom: 26px; white-space: nowrap;
+  border-radius: 26px; background: var(--paper); box-shadow: inset 0 0 0 3.5px var(--ink), 0 5px 0 rgba(43, 34, 51, 0.18);
+}
+.flc-bubble.is-n2 .flc-word { font-size: clamp(26px, 7.6vw, 36px); }
+.flc-bubble.is-n3 .flc-word { font-size: clamp(22px, 6.2vw, 30px); }
+.flc-bubble.is-n2, .flc-bubble.is-n3 { gap: 0 8px; padding: 10px 16px 12px; }
+/* a short phone (an SE): the host, the bubble and the narration tighter, so the popup keeps its room */
+@media (max-height: 700px) {
+  .flc-head { top: calc(var(--sa-top) + 54px); gap: 6px; }
+  .flc-call .flc-host { width: 64px; height: 64px; }
+  .flc-bubble { min-height: 50px; padding: 7px 16px 9px; margin-bottom: 16px; border-radius: 22px; }
+  .flc-word { font-size: clamp(26px, 8vw, 34px); }
+  .flc-bubble.is-n2 .flc-word { font-size: 26px; }
+  .flc-bubble.is-n3 .flc-word { font-size: 22px; }
+  .flc-line b { font-size: 19px; padding: 8px 16px 10px; }
+}
+.flc-bubble::before {
+  content: ""; position: absolute; left: -9px; bottom: 6px; width: 22px; height: 22px; background: var(--paper);
+  border-left: 3.5px solid var(--ink); border-bottom: 3.5px solid var(--ink); transform: skewX(28deg) rotate(8deg); border-radius: 0 0 0 6px;
+}
+.flc-word { font-size: clamp(30px, 9.4vw, 44px); line-height: 1; font-weight: 900; letter-spacing: -0.01em; color: var(--ink); animation: flc-word-in 220ms var(--spring) both; }
+.flc-word.is-drop { color: var(--coral); }
+.flc-word.is-rocket { color: #e8541e; }
+.flc-word.is-answered { opacity: 0.28; transition: opacity 160ms ease; }
+@keyframes flc-word-in { from { transform: translateY(10px) scale(0.5); opacity: 0; } }
+
+/* the stage: your popup over your critter, floating on the water */
+.flc-stage { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 24%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.flc-stage .flc-critter { width: min(var(--size), 36vh); height: min(var(--size), 36vh); }
+.flc-stage .flc-critter > .fg-rider { width: 100% !important; height: 100% !important; }
+.flc-popup-slot { position: relative; z-index: 1; height: min(150px, 18vh); width: 100%; display: grid; place-items: end center; padding-bottom: 0; }
+
+/* the judgement: the art's Popup (Float Pixel, the tones, its own pop and fade), big */
+.flc-popup { display: grid; justify-items: center; pointer-events: none; }
+.flc-popup .fg-popup { transform-origin: 50% 90%; }
+
+/* who's ahead: your place, small, at the song bar's end (never over the popup) */
+.flc-rank {
+  margin-left: auto; display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 11px; border-radius: 999px;
+  background: var(--paper); box-shadow: inset 0 0 0 2.5px var(--ink); white-space: nowrap;
+}
+.flc-rank b { font-size: 16px; font-weight: 900; color: var(--ink); animation: flc-tag-in 260ms var(--spring) both; }
+.flc-rank em { font-style: normal; font-size: 13px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; }
+.flc-rank.is-safe em { color: var(--teal); }
+.flc-rank.is-below { background: color-mix(in srgb, var(--coral) 22%, var(--paper)); }
+.flc-rank.is-below em { color: #c4332a; }
+.flc-rank + .flc-songbar-end { flex: 0; }
+
+/* the big Done (the chug-off) */
+.flc-done {
+  pointer-events: auto; width: min(100%, 380px); min-height: 132px; border-radius: 40px; display: flex; align-items: center; justify-content: center; gap: 14px;
+  font-size: 46px; font-weight: 900; letter-spacing: -0.01em; color: var(--ink); background: var(--paper);
+  box-shadow: inset 0 0 0 5px var(--ink), 0 9px 0 var(--ink);
+  transition: transform 100ms var(--ease), box-shadow 100ms var(--ease);
+}
+.flc-done .flc-cup { width: 46px; height: 46px; color: var(--gold); }
+.flc-done[data-pressed] { transform: translateY(7px); box-shadow: inset 0 0 0 5px var(--ink), 0 2px 0 var(--ink); }
+.flc-cup { width: 30px; height: 30px; flex: none; }
+.flc-cup-body { fill: rgba(255, 255, 255, 0.7); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.flc-cup-fill { fill: currentColor; }
+.flc-cup-check { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── the chug-off ── */
+.flc-chug-main { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 64px); display: grid; justify-items: center; gap: 12px; text-align: center; z-index: 2; pointer-events: none; }
+.flc-chug-title {
+  font-size: clamp(50px, 16vw, 80px); line-height: 1; font-weight: 900; letter-spacing: -0.01em; color: var(--yellow);
+  text-shadow: var(--outline); animation: flc-card-in 480ms var(--spring) both;
+}
+.flc-chug-title.is-small { font-size: clamp(30px, 9.5vw, 44px); color: var(--paper); overflow-wrap: anywhere; }
+.flc-chugoff.is-done .flc-chug-title { color: var(--paper); font-size: clamp(44px, 14vw, 68px); }
+.flc-chug-names { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: clamp(26px, 8vw, 36px); font-weight: 900; color: var(--ink); }
+.flc-chug-names span { padding: 2px 14px 4px; border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink); }
+.flc-chug-names i { font-style: normal; font-size: 0.7em; color: var(--ink-2); }
+.flc-chug-sub { font-size: 22px; font-weight: 900; color: var(--ink); }
+.flc-chug-why { font-size: 19px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.85); padding: 5px 14px; border-radius: 999px; animation: flc-line-in 320ms var(--spring) 260ms both; }
+.flc-line-text {
+  max-width: 340px; padding: 10px 18px 12px; border-radius: 20px; text-align: center;
+  font-size: 19px; line-height: 1.22; font-weight: 900; color: var(--ink);
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), 0 5px 0 rgba(43, 34, 51, 0.2);
+  animation: flc-line-in 320ms var(--spring) 200ms both;
+}
+.flc-chug-count {
+  font-family: var(--pixel); font-size: clamp(72px, 24vw, 120px); line-height: 1; font-weight: 700; color: var(--paper);
+  text-shadow: var(--outline); animation: flc-stamp-in 420ms var(--spring) both;
+}
+.flc-chugoff.is-go .flc-chug-count { color: var(--yellow); }
+.flc-chug-done {
+  position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 22px);
+  margin: 0 auto; width: auto; min-height: min(34vh, 240px); border-radius: 48px; font-size: clamp(64px, 20vw, 96px); background: var(--yellow);
+  animation: flc-card-in 280ms var(--spring) both;
+}
+.flc-chug-done .flc-cup { width: 72px; height: 72px; color: var(--gold); }
+.flc-chugoff.is-mine.is-go:not(.is-done) .flc-stage { bottom: calc(var(--sa-bottom) + min(34vh, 240px) + 34px); }
+.flc-chugoff.is-mine.is-go:not(.is-done) .flc-chug-main { top: calc(var(--sa-top) + 50px); }
+.flc-chugoff.is-out .flc-stamp { background: var(--coral); }
+.flc-chugoff .flc-stamp { font-size: clamp(40px, 12vw, 64px); }
+.flc-stamp.is-small { font-size: clamp(30px, 9vw, 44px) !important; }
+.flc-chug-pair { position: absolute !important; left: 0; right: 0; top: 40%; display: flex; justify-content: center; gap: 4vw; pointer-events: none; }
+.flc-chug-pair .flc-critter { width: min(var(--size), 22vh); height: min(var(--size), 22vh); }
+.flc-chug-one { display: grid; justify-items: center; gap: 2px; min-width: 0; }
+.flc-chug-one > b { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; font-weight: 900; color: var(--ink);
+  padding: 2px 12px 3px; border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 2.5px var(--ink); }
+.flc-podium-name { display: block; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 900; color: var(--ink); }
+.flc-stage.is-low { bottom: calc(var(--sa-bottom) + 156px); }
+.flc-stage.is-low .flc-critter { width: min(var(--size), 18vh); height: min(var(--size), 18vh); }
+.flc-cut.is-bubble .flc-stamp { background: var(--yellow); color: var(--ink); text-shadow: none; font-size: clamp(44px, 13vw, 66px); white-space: nowrap; }
+
+/* ── Last Call: the bar ── */
+.flc-lastcall { background: #6e3a22; }
+.flc-screen > .flc-bar { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.flc-bar-room { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
+.flc-bar-room.is-standin {
+  background: linear-gradient(180deg, #f3c39a 0%, #e09a6c calc(var(--counter) * 100%), #a85f3a calc(var(--counter) * 100%),
+    #8a4a2b calc(var(--counter) * 100% + 22px), #6e3a22 calc(var(--counter) * 100% + 22px), #5a2e1b 100%);
+}
+.flc-lastcall .flc-songname { color: var(--paper); text-shadow: var(--outline-thin); }
+/* the bartender, waist up, standing on the counter line at the far end */
+.flc-bartender { position: absolute !important; z-index: 1; left: -6%; width: min(46vw, 210px); aspect-ratio: 1; top: calc(var(--counter) * 100% - min(46vw, 210px) * 0.985); pointer-events: none; }
+.flc-bartender img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* you at the bar, waist up behind the counter (v3 "No tubes at the bar"): the sprite's foot (its kayak) is clipped at the counter line */
+.flc-barseat { --cs: min(280px, 34vh); --waist: 0.72; position: absolute; z-index: 1; left: calc(50% - var(--cs) * 0.12); width: var(--cs); height: var(--cs);
+  top: calc(var(--counter) * 100% - var(--cs) * var(--waist)); pointer-events: none;
+  clip-path: inset(-60% -60% calc((1 - var(--waist)) * 100%) -60%); }
+.flc-barseat .flc-critter { width: 100%; height: 100%; animation: flc-idle 1.6s ease-in-out infinite; transform-origin: 50% 100%; }
+.flc-barseat .flc-critter > * { width: 100% !important; height: 100% !important; }
+.flc-lc-place { font-size: clamp(21px, 6.2vw, 26px); font-weight: 900; color: var(--ink); white-space: nowrap; padding: 6px 16px 7px; border-radius: 999px;
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.22); animation: flc-line-in 320ms var(--spring) 180ms both; }
+.flc-lc-place.is-first { background: color-mix(in srgb, #4fdc7c 45%, var(--paper)); }
+/* the reveal and the verdict sit on the counter's front, below you and the bartender */
+.flc-lastcall.is-reveal .flc-verdict, .flc-lastcall.is-verdict .flc-verdict { top: calc(var(--counter) * 100% + 28px); }
+.flc-lastcall-card { top: calc(var(--sa-top) + 9%); }
+.flc-lastcall .flc-card-title { color: var(--yellow); }
+/* Tap on zero, then Locked: big over the room; the pad is the whole lower screen */
+.flc-zero { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 9%); display: grid; justify-items: center; z-index: 2; pointer-events: none; }
+.flc-zero-title {
+  font-size: clamp(48px, 15vw, 76px); line-height: 1; font-weight: 900; letter-spacing: -0.01em; color: var(--yellow);
+  text-shadow: var(--outline); text-align: center; animation: flc-card-in 420ms var(--spring) both;
+}
+.flc-lastcall.is-locked .flc-zero-title { color: var(--paper); }
+.flc-zero-pad {
+  position: absolute !important; z-index: 2; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 20px);
+  height: min(30vh, 220px); border-radius: 44px; display: grid; place-items: center; pointer-events: none;
+  background: color-mix(in srgb, var(--yellow) 88%, transparent); box-shadow: inset 0 0 0 5px var(--ink), 0 9px 0 var(--ink);
+}
+.flc-zero-pad i { width: 72px; height: 72px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 0 0 5px var(--ink); display: grid; place-items: center; }
+.flc-zero-pad svg { width: 38px; height: 38px; fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.flc-zero-pad.is-locked { background: color-mix(in srgb, var(--grey) 80%, transparent); transform: translateY(7px); box-shadow: inset 0 0 0 5px var(--ink), 0 2px 0 var(--ink); }
+.flc-verdict { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 9%); display: grid; justify-items: center; gap: 12px; z-index: 2; }
+.flc-lastcall .flc-stamp { font-size: clamp(44px, 13vw, 68px); white-space: nowrap; }
+.flc-lastcall.is-drinks .flc-stamp { background: var(--coral); }
+
+/* ── joining ── */
+.flc-connecting { align-items: center; justify-content: center; gap: 22px; }
+.flc-connecting .flc-top { position: absolute; top: calc(var(--sa-top) + 10px); right: calc(var(--sa-right) + 16px); left: calc(var(--sa-left) + 16px); }
+.flc-joining { font-size: 22px; font-weight: 900; }
+.flc-ripples { position: relative; width: 120px; height: 120px; }
+.flc-ripples i { position: absolute; inset: 0; border-radius: 50%; border: 4px solid var(--ink); opacity: 0; animation: flc-ring 2.4s var(--ease) infinite; }
+.flc-ripples i:nth-child(2) { animation-delay: 0.8s; }
+.flc-ripples i:nth-child(3) { animation-delay: 1.6s; }
+@keyframes flc-ring { 0% { transform: scale(0.2); opacity: 0.9; } 100% { transform: scale(1); opacity: 0; } }
+
+/* ── the lobby ── */
+.flc-lobby-main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; padding-bottom: 8px; }
+.flc-name { font-size: clamp(30px, 9vw, 44px); font-weight: 900; color: var(--paper); text-shadow: var(--outline); text-align: center; overflow-wrap: anywhere; padding: 0 6px; }
+.flc-lobby-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.flc-ready {
+  min-height: 52px; padding: 0 22px 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 10px;
+  font-size: 19px; font-weight: 900; background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 var(--ink);
+  transition: transform 120ms var(--ease);
+}
+.flc-ready[data-pressed] { transform: translateY(3px); }
+.flc-ready-box { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; box-shadow: inset 0 0 0 3px var(--ink); background: var(--paper); }
+.flc-ready-box svg { width: 22px; height: 22px; fill: none; stroke: var(--ink); stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+.flc-ready.is-on { background: var(--teal); color: var(--paper); }
+.flc-ready.is-on .flc-ready-box { animation: flc-tag-in 320ms var(--spring); }
+.flc-roster { flex: none; display: grid; gap: 8px; justify-items: center; margin-top: 10px; }
+.flc-roster-count { font-size: 15px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.75); padding: 4px 12px; border-radius: 999px; }
+.flc-roster ul { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.flc-roster li { position: relative; border-radius: 50%; opacity: 0.55; transition: opacity 200ms; }
+.flc-roster li.is-ready, .flc-roster li.is-me { opacity: 1; }
+.flc-roster li.is-away { opacity: 0.25; }
+.flc-roster li.is-ready::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2.5px var(--ink); }
+.flc-roster li.is-me .flp { box-shadow: 0 0 0 3px var(--ink); }
+/* the Locker on the Groove's paper (its light tone), as in the join */
+.flc-locker-sheet { gap: 8px; background: linear-gradient(180deg, #fdf3e4 0%, #f6e6f6 100%); }
+.flc-sheet-title { font-size: 30px; font-weight: 900; letter-spacing: -0.01em; }
+.flc-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; margin: 0 -6px; padding: 0 6px 8px; }
+
+/* ── the cut ── */
+.flc-cut-main { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 9%); display: grid; justify-items: center; gap: 14px; text-align: center; }
+.flc-stamp {
+  font-size: clamp(56px, 17vw, 88px); line-height: 1; font-weight: 900; letter-spacing: -0.01em; color: var(--paper);
+  padding: 8px 26px 12px; border-radius: 24px; background: var(--teal); box-shadow: inset 0 0 0 5px var(--ink), 0 8px 0 var(--ink);
+  text-shadow: var(--outline-thin); transform: rotate(-3deg);
+  animation: flc-stamp-in 520ms var(--spring) both;
+}
+@keyframes flc-stamp-in { from { transform: rotate(-12deg) scale(2.2); opacity: 0; } 60% { opacity: 1; } }
+.flc-cut.is-out .flc-stamp { background: var(--coral); }
+.flc-cut.is-final .flc-stamp { background: var(--paper); color: var(--ink); text-shadow: none; }
+.flc-cut.is-p1 .flc-stamp { background: var(--gold); }
+.flc-cut.is-p2 .flc-stamp { background: #d7dde6; color: var(--ink); text-shadow: none; }
+.flc-cut.is-p3 .flc-stamp { background: #e7a46f; }
+.flc-score { display: grid; justify-items: center; gap: 4px; }
+/* the grade, Rhythm Heaven's three, and the judge's line */
+.flc-grade {
+  font-family: var(--pixel); font-size: clamp(54px, 17vw, 84px); line-height: 1; font-weight: 700; letter-spacing: 0.01em;
+  color: var(--paper); text-shadow: var(--outline); padding: 0 6px 8px;
+  animation: flc-stamp-in 560ms var(--spring) both;
+}
+.flc-grade.is-superb { color: var(--gold); }
+.flc-grade.is-ok { color: var(--paper); }
+.flc-grade.is-tryagain { color: var(--grey); }
+.flc-judge {
+  max-width: 330px; padding: 10px 18px 12px; border-radius: 20px; text-align: center;
+  font-size: 20px; line-height: 1.2; font-weight: 900; color: var(--ink);
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), 0 5px 0 rgba(43, 34, 51, 0.2);
+  animation: flc-line-in 320ms var(--spring) 180ms both;
+}
+.flc-cut.is-told .flc-grade { font-size: clamp(38px, 11vw, 52px); }
+.flc-cut .flc-stamp { margin-top: 4px; }
+.flc-pct { font-family: var(--pixel); font-size: 56px; line-height: 1; color: var(--paper); text-shadow: var(--outline); }
+.flc-place { font-size: 21px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.8); padding: 5px 14px; border-radius: 999px; }
+
+/* ── the crowd: out, cheering from the bank ── */
+/* out: on the bank, the tube on the shore line */
+.flc-crowd .flc-stage { bottom: calc(42% - min(260px, 36vh) * 0.1); }
+.flc-cheer {
+  position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 22px);
+  margin: 0 auto; width: min(calc(100% - 32px), 380px); min-height: 120px; border-radius: 40px;
+  font-size: 44px; font-weight: 900; color: var(--ink); background: var(--yellow);
+  box-shadow: inset 0 0 0 5px var(--ink), 0 9px 0 var(--ink); transition: transform 90ms var(--ease), box-shadow 90ms var(--ease);
+}
+.flc-cheer[data-pressed] { transform: translateY(7px); box-shadow: inset 0 0 0 5px var(--ink), 0 2px 0 var(--ink); }
+
+/* ── the podium ── */
+.flc-podium-place { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 9%); display: grid; justify-items: center; }
+.flc-podium-place b { font-size: clamp(88px, 28vw, 150px); line-height: 0.9; font-weight: 900; letter-spacing: -0.04em; color: var(--paper); text-shadow: var(--outline); }
+.flc-podium-place span { font-size: 21px; font-weight: 900; margin-top: 8px; background: rgba(255, 253, 248, 0.8); padding: 4px 14px; border-radius: 999px; }
+.flc-podium.is-p1 .flc-podium-place b { color: var(--gold); animation: flc-stamp-in 620ms var(--spring) both; }
+.flc-podium.is-p2 .flc-podium-place b { color: #e3e8ef; animation: flc-stamp-in 620ms var(--spring) both; }
+.flc-podium.is-p3 .flc-podium-place b { color: #eaa66f; animation: flc-stamp-in 620ms var(--spring) both; }
+.flc-podium .flc-stage { bottom: max(calc(var(--sa-bottom) + 24%), calc(var(--sa-bottom) + 120px)); }
+.flc-podium-row { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 18px); display: flex; justify-content: center; align-items: flex-end; gap: 18px; }
+.flc-podium-row li { display: grid; justify-items: center; gap: 4px; font-size: 15px; font-weight: 900; }
+.flc-podium-row li.is-me .flp { box-shadow: 0 0 0 3.5px var(--ink); }
+/* out: the three above, the critter above them, Cheer in the thumb's reach */
+.flc-podium.has-cheer .flc-podium-row { bottom: calc(var(--sa-bottom) + 158px); }
+.flc-podium.has-cheer .flc-stage { bottom: calc(var(--sa-bottom) + 250px); }
+.flc-podium.has-cheer .flc-stage .flc-critter { width: min(var(--size), 30vh); height: min(var(--size), 30vh); }
+
+/* ── the card: over the podium's scene, each question in the game's text
+   box, the answers its chips, Send in its yellow once both are answered,
+   your critter in the water under them; it all fits an SE upright, and the
+   body scrolls on its own (the scene stays) when the keyboard takes the room ── */
+.flc-feedback-body {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;
+  display: flex; flex-direction: column; align-items: center; margin: 0 -4px; padding: 2px 4px 0;
+}
+/* your critter under the questions, as big as the height left allows (an
+   SE upright has 140 px of water under Send); a phone held sideways has none */
+.flc-feedback-me { flex: 1 1 0; min-height: 0; width: 100%; margin-top: 10px; display: grid; grid-template-rows: minmax(0, 1fr); justify-items: center; align-items: end; }
+.flc-feedback-me .flc-critter { width: auto; height: 100%; max-height: min(var(--size), 30vh); aspect-ratio: 1 / 1; }
+.flc-feedback-me .flc-critter > .fg-rider { width: 100% !important; height: 100% !important; }
+.flc-feedback-main { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 12%); display: grid; justify-items: center; }
+.flc-thanks { font-size: clamp(56px, 18vw, 84px); line-height: 1; font-weight: 900; color: var(--paper); text-shadow: var(--outline); animation: flc-card-in 420ms var(--spring) both; }
+.flc-form { display: grid; gap: 12px; max-width: 520px; width: 100%; margin: 0 auto; }
+.flc-ask { display: block; }
+.flc-ask legend { display: block; width: 100%; text-align: center; margin-bottom: 8px; }
+.flc-better { display: grid; justify-items: center; gap: 8px; }
+.flc-ask legend > span, .flc-better > span {
+  display: inline-block; max-width: 100%; padding: 7px 16px 9px; border-radius: 18px; text-align: center;
+  font-size: 19px; line-height: 1.18; font-weight: 900; color: var(--ink); background: var(--paper);
+  box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.2);
+}
+.flc-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.flc-yesno { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.flc-scale button, .flc-yesno button {
+  min-height: 54px; border-radius: 18px; font-size: 24px; font-weight: 900; color: var(--ink); background: var(--paper);
+  box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 var(--ink);
+  transition: transform 100ms var(--ease), box-shadow 100ms var(--ease), background-color 100ms ease;
+}
+.flc-scale button:active, .flc-yesno button:active { transform: translateY(3px); box-shadow: inset 0 0 0 3px var(--ink), 0 1px 0 var(--ink); }
+/* the one picked: yellow, and down */
+.flc-scale button.is-on, .flc-yesno button.is-on { background: var(--yellow); transform: translateY(2px); box-shadow: inset 0 0 0 3px var(--ink), 0 2px 0 var(--ink); }
+.flc-better textarea {
+  width: 100%; height: clamp(66px, 11vh, 96px); border: 0; border-radius: 18px; padding: 11px 14px; font: inherit; font-size: 17px; line-height: 1.3; color: var(--ink);
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.2); resize: none; -webkit-user-select: text; user-select: text;
+}
+.flc-better textarea:focus { outline: none; box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 4px var(--yellow); }
+.flc-send {
+  min-height: 58px; margin-top: 4px; border-radius: 999px; font-size: 23px; font-weight: 900; color: var(--ink); background: var(--yellow);
+  box-shadow: inset 0 0 0 3px var(--ink), 0 5px 0 var(--ink); transition: transform 100ms var(--ease), box-shadow 100ms var(--ease), background-color 120ms ease;
+}
+.flc-send:not(:disabled):active { transform: translateY(4px); box-shadow: inset 0 0 0 3px var(--ink), 0 1px 0 var(--ink); }
+.flc-send:disabled { background: rgba(255, 253, 248, 0.7); color: color-mix(in srgb, var(--ink) 38%, transparent); cursor: default; }
+
+/* ── watching ── */
+.flc-watch-main { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 18%); display: grid; justify-items: center; gap: 8px; text-align: center; }
+
+/* ── the connection ── */
+.flc-link {
+  position: absolute; left: 50%; top: 44%; transform: translateX(-50%); z-index: 9;
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+  font-size: 15px; font-weight: 900; color: var(--paper); background: var(--ink); pointer-events: none;
+}
+.flc-link i { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); animation: flc-low 700ms ease-in-out infinite alternate; }
+@keyframes flc-low { from { opacity: 1; } to { opacity: 0.3; } }
+
+/* ── v3: who you are (your seat in the flotilla), your colour on the pad, practice's count ── */
+/* the flotilla as the TV seats it: the front row at the bottom, every seat a kayak, yours your critter */
+.flc-seats { display: grid; justify-items: center; gap: 8px; margin-top: 30px; }
+.flc-seats-water {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 20px 10px; border-radius: 20px;
+  background: color-mix(in srgb, var(--water-a) 72%, var(--paper)); box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.18);
+}
+.flc-seats-row { display: flex; align-items: flex-end; justify-content: center; gap: 13px; height: 26px; }
+.flc-seat { position: relative; flex: none; width: 38px; height: 16px;
+  transform: scale(calc(1 - var(--depth, 0) * 0.08)); transform-origin: 50% 100%; }
+.flc-seat > svg { display: block; width: 100%; height: 100%; overflow: visible; fill: var(--paper); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
+.flc-seat.is-me { z-index: 2; transform: none; }
+.flc-seat.is-me::before { content: ""; position: absolute; left: -10px; right: -10px; top: -6px; bottom: -6px; border-radius: 50%;
+  background: var(--me); opacity: 0.55; filter: blur(5px); animation: flc-seat-glow 1s ease-in-out infinite alternate; }
+@keyframes flc-seat-glow { from { opacity: 0.35; transform: scale(0.9); } to { opacity: 0.75; transform: scale(1.12); } }
+.flc-seat.is-me .flc-critter { position: absolute; left: 50%; bottom: -3px; width: 76px; height: 76px; margin-left: -38px; }
+.flc-seat.is-me .flc-critter > * { width: 100% !important; height: 100% !important; }
+.flc-seats-words {
+  font-size: 20px; line-height: 1.1; font-weight: 900; color: var(--ink); padding: 6px 14px 7px; border-radius: 999px;
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--me), 0 3px 0 rgba(43, 34, 51, 0.16); white-space: nowrap;
+}
+.flc-card.has-seats { top: calc(var(--sa-top) + 9%); gap: 8px; }
+.flc-card.has-seats .flc-card-title { font-size: clamp(36px, 11vw, 56px); }
+/* the card with your seat takes the top: your critter waits lower */
+.flc-song.is-card .flc-stage, .flc-song.is-intro .flc-stage { bottom: calc(var(--sa-bottom) + 6%); }
+
+/* in a song the pad is your colour: a wash over the scene and a frame round the screen */
+.flc-tint { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--me) 13%, transparent); box-shadow: inset 0 0 0 10px var(--me), inset 0 0 0 13px var(--ink); }
+
+/* practice's count: 1 2 3 4, the beats with a tap lit, the beat now pulsing */
+.flc-counter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; pointer-events: none; }
+.flc-count { display: grid; justify-items: center; align-content: start; gap: 12px; }
+.flc-count i {
+  display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; font-style: normal;
+  font-size: 30px; font-weight: 900; color: var(--ink-2); background: color-mix(in srgb, var(--paper) 55%, transparent); box-shadow: inset 0 0 0 3px var(--ink);
+  transition: transform 120ms var(--ease);
+}
+.flc-count.is-on i { color: var(--ink); background: var(--yellow); }
+/* a stroke is water blue with the paddle under it; the song's own move is yellow with its word */
+.flc-count.is-row i { background: #7ddbea; border-radius: 18px; }
+.flc-count.is-move i { background: var(--yellow); }
+.flc-count b { display: inline-flex; align-items: center; gap: 4px; }
+.flc-count-paddle { width: 30px; height: 11px; fill: var(--paper); stroke: var(--ink); stroke-width: 1.6; }
+/* the host's demo beat: his, not yours yet */
+.flc-count.is-demo i { background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 9px var(--yellow); }
+.flc-count.is-row.is-demo i { box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 9px #7ddbea; }
+.flc-count.is-now i { transform: scale(1.18); box-shadow: inset 0 0 0 4px var(--ink), 0 0 0 5px color-mix(in srgb, var(--paper) 80%, transparent); animation: flc-count-pulse 500ms var(--ease) both; }
+.flc-count.is-now.is-on i { box-shadow: inset 0 0 0 4px var(--ink), 0 0 0 4px var(--me); }
+@keyframes flc-count-pulse { from { transform: scale(1.34); } to { transform: scale(1.18); } }
+.flc-count b { min-height: 20px; font-size: 17px; line-height: 1.1; font-weight: 900; color: var(--paper); text-shadow: var(--outline-thin); white-space: nowrap; }
+
+/* a blackout bar (chart.dark): the scene drops to silhouettes; you, your popup and the pad stay lit */
+.flc-song > .flc-scenery, .flc-song > .flc-tint { transition: filter 220ms ease; }
+.flc-song.is-dark > .flc-scenery { filter: brightness(0.32) saturate(0.4); }
+/* a launch that lands: a burst in your colour (a Perfect the biggest) */
+.flc-burst { position: absolute; left: 50%; top: calc(min(150px, 18vh) + 10px); z-index: 0; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(var(--me) 0deg 8deg, transparent 8deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 30%, #000 31% 70%, transparent 71%); mask: radial-gradient(circle, transparent 0 30%, #000 31% 70%, transparent 71%);
+  animation: flc-burst 700ms var(--ease) both; }
+.flc-burst.is-perfect { width: 300px; height: 300px; margin-left: -150px; }
+.flc-burst.is-early, .flc-burst.is-late { width: 150px; height: 150px; margin-left: -75px; }
+@keyframes flc-burst { from { transform: scale(0.2); opacity: 1; } 70% { opacity: 1; } to { transform: scale(1.15); opacity: 0; } }
+
+/* ── v4: right versus wrong at a glance ── */
+/* the pad's answer to each judgement, over the scene and under you */
+.flc-answer { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.flc-answer::before, .flc-answer::after { content: ""; position: absolute; pointer-events: none; }
+.flc-answer.is-perfect::before, .flc-answer.is-nice::before, .flc-answer.is-ok::before { inset: 0;
+  background: radial-gradient(circle at 50% 70%, color-mix(in srgb, var(--me) 75%, #fff) 0, color-mix(in srgb, var(--me) 45%, transparent) 34%, transparent 68%);
+  animation: flc-flash 420ms ease-out both; }
+.flc-answer.is-nice::before { animation-name: flc-flash-nice; }
+.flc-answer.is-ok::before { animation-name: flc-flash-ok; }
+@keyframes flc-flash { from { opacity: 0.95; } to { opacity: 0; } }
+@keyframes flc-flash-nice { from { opacity: 0.55; } to { opacity: 0; } }
+@keyframes flc-flash-ok { from { opacity: 0.22; } to { opacity: 0; } }
+/* Perfect's gold ring bursts from you, centred on your kayak and never up
+   into the popup's stamp; Nice's is smaller */
+.flc-answer.is-perfect::after, .flc-answer.is-nice::after { left: 50%; top: 70%; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%;
+  box-shadow: 0 0 0 10px #f5b82e, 0 0 0 14px var(--ink); animation: flc-ring 460ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.flc-answer.is-nice::after { width: 160px; height: 160px; margin: -80px 0 0 -80px; box-shadow: 0 0 0 6px #ffe24d, 0 0 0 9px var(--ink); animation-duration: 380ms; }
+@keyframes flc-ring { from { transform: scale(0.35); opacity: 1; } 75% { opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
+/* Early and Late: a salmon edge, thicker on the side you were off to; a Miss: a red edge */
+.flc-answer.is-early::before, .flc-answer.is-late::before, .flc-answer.is-miss::before { inset: 0; animation: flc-edge 560ms ease-out both; }
+.flc-answer.is-early::before { box-shadow: inset 0 0 0 14px #ff8f80, inset 34px 0 40px -6px rgba(255, 143, 128, 0.85); }
+.flc-answer.is-late::before { box-shadow: inset 0 0 0 14px #ff8f80, inset -34px 0 40px -6px rgba(255, 143, 128, 0.85); }
+.flc-answer.is-miss::before { box-shadow: inset 0 0 0 16px #ff3b30, inset 0 0 60px 10px rgba(255, 59, 48, 0.55); }
+@keyframes flc-edge { 0% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+/* Early and Late say their word big */
+.flc-popup[data-q="early"] .fg-popup-word, .flc-popup[data-q="late"] .fg-popup-word { font-size: 1.12em; }
+
+/* the foot: practice's count, then the streak and the coach, then the meter */
+/* up off the very bottom, where a thumb rests while it taps; lower in practice, where the count joins it */
+.flc-foot { position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 11%);
+  display: grid; gap: 10px; z-index: 2; pointer-events: none; }
+.flc-foot.has-counter { bottom: calc(var(--sa-bottom) + 4%); }
+/* no streak and no coach: the row takes no room */
+.flc-foot-row:has(> .flc-streak.is-empty:only-child) { display: none; }
+@media (orientation: portrait) and (max-height: 700px) {
+  .flc-foot { bottom: calc(var(--sa-bottom) + 4%); }
+  .flc-foot.has-counter { bottom: calc(var(--sa-bottom) + 2%); gap: 8px; }
+  .flc-count { gap: 6px; }
+  .flc-count i { width: 50px; height: 50px; font-size: 25px; }
+}
+.flc-foot-row { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; }
+.flc-streak {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 4px 16px 5px; border-radius: 999px; white-space: nowrap;
+  font-size: 22px; font-weight: 900; color: var(--ink); background: var(--yellow); box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.22);
+  animation: flc-streak-up 260ms var(--spring) both; }
+.flc-streak.is-empty { visibility: hidden; padding: 0; width: 0; }
+.flc-streak.is-hot { background: #f5b82e; box-shadow: inset 0 0 0 3px var(--ink), 0 0 0 4px var(--me), 0 4px 0 rgba(43, 34, 51, 0.22); }
+@keyframes flc-streak-up { from { transform: scale(1.22); } }
+/* 10, 20, 30: a bigger pop with the run's sound */
+.flc-streak.is-milestone { animation: flc-streak-mile 520ms var(--spring) both; }
+@keyframes flc-streak-mile { 0% { transform: scale(1.7) rotate(-4deg); } 60% { transform: scale(0.94) rotate(1deg); } 100% { transform: none; } }
+/* a streak broken: struck through, grey, and it drops away */
+.flc-streak.is-broken { background: #c3c1cc; color: var(--ink-2); text-decoration: line-through 3px; animation: flc-streak-break 1100ms ease-in both; }
+@keyframes flc-streak-break { 0% { transform: rotate(0) translateY(0); } 12% { transform: rotate(-6deg) scale(1.08); } 60% { opacity: 1; transform: rotate(-9deg) translateY(4px); }
+  100% { opacity: 0; transform: rotate(-14deg) translateY(28px); } }
+.flc-coach { display: inline-flex; align-items: center; min-height: 40px; padding: 4px 16px 5px; border-radius: 999px; white-space: nowrap;
+  font-size: 22px; font-weight: 900; color: var(--ink); background: #ff8f80; box-shadow: inset 0 0 0 3px var(--ink), 0 4px 0 rgba(43, 34, 51, 0.22);
+  animation: flc-streak-up 260ms var(--spring) both; }
+/* the timing meter: the beat in the middle, the Perfect and Nice bands, your last 8 taps as ticks */
+.flc-meter { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.flc-meter-side { font-size: 14px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; color: var(--paper); text-shadow: var(--outline-thin); }
+.flc-meter-bar { position: relative; height: 18px; border-radius: 9px; background: color-mix(in srgb, var(--paper) 72%, transparent); box-shadow: inset 0 0 0 2.5px var(--ink); overflow: visible; }
+.flc-meter-nice, .flc-meter-perfect, .flc-meter-mid { position: absolute; top: 2.5px; bottom: 2.5px; }
+.flc-meter-nice { left: calc(50% - 100 / 300 * 50%); right: calc(50% - 100 / 300 * 50%); background: color-mix(in srgb, #4fdc7c 45%, transparent); }
+.flc-meter-perfect { left: calc(50% - 50 / 300 * 50%); right: calc(50% - 50 / 300 * 50%); background: color-mix(in srgb, #f5b82e 70%, transparent); }
+.flc-meter-mid { left: calc(50% - 1.5px); width: 3px; top: -4px; bottom: -4px; border-radius: 2px; background: var(--ink); }
+.flc-tick { position: absolute; top: -3px; bottom: -3px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--paper); box-shadow: 0 0 0 1.5px var(--ink);
+  transition: left 120ms var(--ease); }
+.flc-tick.is-gold { background: #f5b82e; } .flc-tick.is-green { background: #4fdc7c; } .flc-tick.is-yellow { background: #ffe24d; } .flc-tick.is-red { background: #ff5f56; }
+.flc-tick.is-last { top: -8px; bottom: -8px; width: 8px; margin-left: -4px; box-shadow: 0 0 0 2.5px var(--ink); animation: flc-tick-in 220ms var(--spring) both; }
+@keyframes flc-tick-in { from { transform: scaleY(1.8); } }
+
+/* the popup's number in its tone (chart offsetTone / countTone): gold, green, yellow, orange, red; a miss grey */
+.flc-popup.is-num-gold .fg-popup-num { color: #f5b82e; }
+.flc-popup.is-num-green .fg-popup-num { color: #4fdc7c; }
+.flc-popup.is-num-yellow .fg-popup-num { color: #ffe24d; }
+.flc-popup.is-num-orange .fg-popup-num { color: #ffa54a; }
+.flc-popup.is-num-red .fg-popup-num { color: #ff5f56; }
+.flc-popup.is-num-grey .fg-popup-num { color: #c3c1cc; }
+
+/* ── held sideways: the same pieces side by side ── */
+@media (orientation: landscape) and (max-height: 560px) {
+  .flc-card { top: calc(var(--sa-top) + 8%); left: 46%; }
+  .flc-card-title { font-size: 44px; }
+  .flc-stage { left: 0; right: 50%; bottom: calc(var(--sa-bottom) + 2%); }
+  .flc-popup-slot { position: absolute; left: 100%; bottom: 40px; width: 100%; height: auto; }
+  .flc-critter { width: calc(var(--size) * 0.72); height: calc(var(--size) * 0.72); }
+  .flc-head { top: calc(var(--sa-top) + 48px); left: 46%; }
+  .flc-line b { font-size: 20px; padding: 8px 16px 10px; }
+  .flc-cut-main, .flc-podium-place, .flc-watch-main, .flc-chug-main, .flc-feedback-main { left: 46%; top: calc(var(--sa-top) + 10%); }
+  /* the chug-off: the Done on the right half */
+  .flc-chug-done { left: 50%; min-height: 0; top: calc(var(--sa-top) + 64px); bottom: calc(var(--sa-bottom) + 16px); }
+  .flc-chugoff.is-mine.is-go:not(.is-done) .flc-stage { bottom: calc(var(--sa-bottom) + 2%); }
+  .flc-chugoff.is-mine.is-go:not(.is-done) .flc-chug-main { left: 0; right: 50%; top: calc(var(--sa-top) + 48px); }
+  .flc-chug-pair { top: 36%; left: 0; right: 50%; }
+  .flc-chug-main { top: calc(var(--sa-top) + 52px); }
+  .flc-barseat { --cs: min(220px, 52vh); left: 14%; }
+  /* practice's count, the streak and the meter on the right half, clear of you */
+  .flc-foot { left: 50%; bottom: calc(var(--sa-bottom) + 3%); }
+  .flc-count i { width: 52px; height: 52px; font-size: 26px; }
+  .flc-chugoff.is-crowd .flc-stage.is-low { display: none; }
+  .flc-chug-count { font-size: 96px; }
+  /* Last Call: the bartender and you share the counter; the words and the pad go on the right */
+  .flc-zero, .flc-verdict, .flc-lastcall-card, .flc-lastcall.is-reveal .flc-verdict, .flc-lastcall.is-verdict .flc-verdict { left: 46%; top: calc(var(--sa-top) + 48px); gap: 6px; }
+  .flc-zero-pad { left: 50%; height: 44vh; }
+  .flc-lastcall .flc-stamp { font-size: 40px; }
+  .flc-podium-place b { font-size: 96px; }
+  .flc-podium.has-cheer .flc-podium-row { left: 50%; right: 0; bottom: calc(var(--sa-bottom) + 122px); }
+  .flc-podium.has-cheer .flc-stage { bottom: calc(var(--sa-bottom) + 8px); }
+  .flc-cheer { min-height: 96px; width: min(46%, 340px); left: auto; right: calc(var(--sa-right) + 16px); }
+  .flc-mesas { bottom: 34%; }
+  /* the card: the questions take the height; the critter sits out */
+  .flc-feedback:not(.is-sent) .flc-feedback-me { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flc-root *, .flc-root *::before, .flc-root *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  .flc-popup { animation: none; }
+}

@@ -5,12 +5,23 @@
    /dev/fit-phone.html?scenario=<id>&tab=<home|events|bets|weekend>[&sheet=]
    at a phone's viewport and measures it. A tap that dispatches runs the
    real reducer here and re-projects, so a sheet opened by a tap is real. */
+import React from "react";
 import { applyAction } from "../worker/actions.js";
 import { publicState } from "../worker/publicState.js";
 import { bankForDesk } from "../worker/trivia.js";
 import { publishFrame } from "../src/lib/frameGate.js";
+import { provideFloatPart } from "../src/features/float/floatParts.js";
 import { FIT_ARRIVE_CODE, FIT_GM, FIT_GUEST, PHONE_SCENARIOS, buildScenario } from "./fit/scenarios.js";
+import { qbankFixtureResponse } from "./fit/qbankDeskFixtures.js";
 import qrcode from "qrcode-generator";
+import FloatController from "../float/client/controller/FloatController.jsx";
+import { createMockRoom } from "../float/client/controller/mockRoom.js";
+
+/* the rider's controller with no room behind it (the audit has no server):
+   the room's own controller waits on "Joining", so a view that closes it
+   hands in a stand-in whose Leave is the controller's onExit */
+const FitController = ({ onExit }) => React.createElement("div", { className:"fit-float-controller" },
+  React.createElement("button", { type:"button", "aria-label":"Leave", onClick:onExit }, "Leave"));
 
 const params = new URLSearchParams(location.search);
 const scenario = buildScenario(PHONE_SCENARIOS, params.get("scenario") || "locker");
@@ -44,11 +55,15 @@ const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExpor
   audioDirector:gm && !!scenario.audio, audioCatalog:!!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push,
   /* `karaoke`: the karaoke capability (the song picker in anyone's
      profile, its Home row before the game) */
-  karaoke:!!scenario.karaoke };
+  karaoke:!!scenario.karaoke,
+  /* `float`: Float's room (the Locker, Home's floatie row, the desk) */
+  ...(scenario.float ? { float:true } : {}) };
 globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 /* the Karaoke desk and its Ready check row (`karaoke`), and its stubbed video check */
 if (gm && scenario.karaoke) capabilities.karaoke = true;
 globalThis.__FIT_KARAOKE_CHECK__ = scenario.karaokeCheck || null;
+/* the Question bank desk's records (`qbank`), as GET /api/trivia/qbank answers */
+globalThis.__FIT_QBANK__ = gm && scenario.qbank ? () => qbankFixtureResponse(state) : null;
 let version = 1;
 const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
   ...(gm && scenario.tvs ? { tvs:scenario.tvs, tvsAt:Date.now() } : {}) });
@@ -58,8 +73,10 @@ let seq = 0;
 globalThis.__FIT_DISPATCH__ = (type, payload) => {
   /* checkpoints live in the Durable Object's private keys, not in state */
   if (type === "qaCheckpoints") return { ok:true, extra:{ checkpoints:[] } };
+  /* and so does Float's feedback (the scenario's own cards) */
+  if (type === "floatFeedback") return gm ? { ok:true, extra:{ feedback:scenario.floatFeedback || [] } } : { ok:false, error:"Commissioner only" };
   const result = applyAction(state, type, payload, { isGm:gm, player:me, deviceId:`fit-${me}`, actionId:`fitp-${++seq}`,
-    environment:"local", qa:qaOn, progressReset:qaOn, arriveCode:FIT_ARRIVE_CODE });
+    environment:"local", qa:qaOn, progressReset:qaOn, arriveCode:FIT_ARRIVE_CODE, float:!!scenario.float });
   if (result.ok) import("./fit/client.js").then(m => { publishFrame({ version, fresh:false }); m.setFitFrame(frame()); });
   return result;
 };
@@ -332,6 +349,42 @@ async function openSheet(kind) {
     document.activeElement?.blur?.();
     return document.querySelectorAll(".fd-ksong-video").length === 3;
   }
+  /* Float (src/features/float): the profile's Locker (the room's picker, its
+     own chunk); the rider's controller closed (its onExit), leaving Home's
+     row; the commissioner's desk from its menu row, past the controller a
+     playing commissioner closes first */
+  if (kind === "profile-locker") {
+    if (!await tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible))) return false;
+    await sleep(600);
+    if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
+      .find(b => visible(b) && b.textContent.trim() === "Locker"))) return false;
+    return !!(await until(() => document.querySelector(".fd-float-locker .fll-root, .fd-float-locker select, .fd-float-locker [data-locker]")));
+  }
+  /* the rider's real controller on the pretend room (mockRoom.js: the real
+     room run in the tab), one moment held still: float-pad:<scene> */
+  if (kind.startsWith("float-pad:")) {
+    const scene = kind.slice("float-pad:".length);
+    provideFloatPart("controller", props => React.createElement(FloatController, { ...props,
+      connect:options => createMockRoom({ ...options, scene, freeze:true }) }));
+    return !!(await until(() => document.querySelector(".fd-float-play .flc-root")?.dataset.screen
+      && !document.querySelector(".flc-connecting"), 20000)) && (await sleep(1500), true);
+  }
+  if (kind === "float-closed" || kind === "float-desk") {
+    provideFloatPart("controller", FitController);
+    if (await until(() => document.querySelector(".fd-float-play"), kind === "float-closed" ? 6000 : 1500)) {
+      const closed = await tap(() => [...document.querySelectorAll(".fd-float-play button")].find(b => visible(b)
+        && /close|exit|done|leave/i.test(`${b.getAttribute("aria-label") || ""} ${b.textContent}`)));
+      if (!closed || !(await until(() => !document.querySelector(".fd-float-play")))) return false;
+      await sleep(400);
+    }
+    if (kind === "float-closed") return !!document.querySelector(".fd-float-now, .fd-gm-dock");
+    const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
+    if (!opened) return false;
+    await sleep(600);
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
+      && b.querySelector(".fd-menu-name")?.textContent.trim() === "Float"));
+    return ok && !!(await until(() => document.querySelector(".fd-float-desk")));
+  }
   /* the profile's Win song section with the saved song (the picker, the
      Win song capability on) */
   if (kind === "profile-song") {
@@ -394,6 +447,43 @@ async function openSheet(kind) {
     const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === "Trivia"));
     return ok && !!(await until(() => document.querySelector(".fd-trivia-desk")));
+  }
+  /* the Question bank desk, from Trivia's desk: as it opens, a slot's
+     sheet (Pass the Aux 200), a row opened in it, the editor (the pick's
+     More, Edit), Browse all, the warnings list */
+  if (kind.startsWith("qbank-")) {
+    if (!await openSheet("trivia-desk")) return false;
+    await sleep(400);
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
+      && /^(Your board|Question bank)$/.test(b.querySelector(".fd-menu-name")?.textContent.trim() || "")));
+    if (!ok || !(await until(() => document.querySelector(".fd-qb:not(.is-loading)")))) return false;
+    if (kind === "qbank-desk") return true;
+    const slot = async () => {
+      await tap(() => [...document.querySelectorAll(".fd-qb-cell")].find(b => /^Pass the Aux 200/.test(b.getAttribute("aria-label") || "")));
+      return !!(await until(() => document.querySelector(".fd-qb-slot")));
+    };
+    if (kind === "qbank-slot") return slot();
+    if (kind === "qbank-open") {
+      if (!await slot()) return false;
+      await tap(() => document.querySelectorAll(".fd-qb-slot .fd-qb-row-main")[1]);
+      return !!(await until(() => document.querySelector(".fd-qb-row.is-open .fd-qb-options")));
+    }
+    if (kind === "qbank-edit") {
+      if (!await slot()) return false;
+      await tap(() => document.querySelector(".fd-qb-row.is-here .fd-qb-row-main"));
+      await tap(() => [...document.querySelectorAll(".fd-qb-more")].find(visible));
+      await tap(() => [...document.querySelectorAll(".fd-qb-menu button")].find(b => b.textContent.trim() === "Edit"));
+      return !!(await until(() => document.querySelector(".fd-qb-editor")));
+    }
+    if (kind === "qbank-browse") {
+      await tap(() => [...document.querySelectorAll(".fd-qb button")].find(b => b.textContent.trim() === "Browse all"));
+      return !!(await until(() => document.querySelector(".fd-qb-browse .fd-qb-row")));
+    }
+    if (kind === "qbank-warnings") {
+      await tap(() => document.querySelector(".fd-qb-warnbtn"));
+      return !!(await until(() => document.querySelector(".fd-qb-warnings")));
+    }
+    return false;
   }
   /* the commissioner's Karaoke desk, from its menu row: as it opens (songs
      hidden), and with Show songs and Check videos tapped (the scenario's

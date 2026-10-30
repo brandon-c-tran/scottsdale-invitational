@@ -1,0 +1,57 @@
+{
+  "about": "Content builder B's recommended five per category, one per tier. Reasons in short.",
+  "aux": [
+    {
+      "tier": 1,
+      "id": "aux-mr-brightside",
+      "why": "Everyone knows it; two excerpts exist (aux-mr-brightside-b)."
+    },
+    {
+      "tier": 2,
+      "id": "aux-get-lucky",
+      "why": "Brandon tried it on guitar and vocals (provided); broad; a variant exists."
+    },
+    {
+      "tier": 3,
+      "id": "aux-bubblin",
+      "why": "One of Brandon's favorite songs (provided); hip-hop; a variant exists."
+    },
+    {
+      "tier": 4,
+      "id": "aux-scary-monsters",
+      "why": "Late-2000s EDM, no lyrics to give it away; breaks up the rock and Mayer songs."
+    },
+    {
+      "tier": 5,
+      "id": "aux-cliffs-of-dover",
+      "why": "Instrumental, Brandon's Guitar Hero connection (provided); the deep cut."
+    }
+  ],
+  "sound": [
+    {
+      "tier": 1,
+      "id": "sound-os-xp-startup",
+      "why": "Windows XP startup, the broadest nostalgia."
+    },
+    {
+      "tier": 2,
+      "id": "sound-lol-flash",
+      "why": "League summoner spell; connects eight guests."
+    },
+    {
+      "tier": 3,
+      "id": "sound-mc-totem",
+      "why": "The totem pop; Minecraft gives Chinh and Khoa a moment."
+    },
+    {
+      "tier": 4,
+      "id": "sound-app-discord-leave",
+      "why": "Needs the distinction between join and leave."
+    },
+    {
+      "tier": 5,
+      "id": "sound-game-maplestory-login",
+      "why": "MapleStory's 2010 to 2023 login theme (variant: the pre-Chaos one); a specialist moment for the maternal cousins."
+    }
+  ]
+}

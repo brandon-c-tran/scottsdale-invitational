@@ -100,9 +100,9 @@ test("the view reads only what the projection sends: others' buzzes are just 'in
 
 test("the cells: played dark, the values by row, the Daily Double hidden until picked", () => {
   const v = view(stage("pick"), null);
-  assert.equal(v.columns.length, 6, "six columns: the seventh round does not fit");
+  assert.equal(v.columns.length, 7, "seven columns: the eighth round does not fit");
   assert.ok(v.columns.every(column => column.cells.map(cell => cell.value).join() === BOARD_VALUES.join()));
-  assert.equal(v.cellsLeft, 30 - 9);
+  assert.equal(v.cellsLeft, 35 - 9);
   assert.ok(v.columns.flatMap(column => column.cells).every(cell => !cell.dd), "the Daily Double never shows before it is picked");
   const dd = view(stage("dd-clue"), null);
   assert.equal(dd.dd, true);
@@ -313,9 +313,9 @@ test("wagers: the Daily Double from 100 to its max, the Final from 0 to your sco
 /* ── the desk ── */
 test("the desk draws the set list as the board it will deal", () => {
   const board = deskBoard(BOARD_FIT_ROUNDS, bankForDesk());
-  assert.equal(board.columns.length, 6);
-  assert.equal(board.cells, 30);
-  assert.deepEqual(board.out.map(item => [item.name, item.reason]), [["Music", "full"]], "a seventh round stands beside it");
+  assert.equal(board.columns.length, 7);
+  assert.equal(board.cells, 35);
+  assert.deepEqual(board.out.map(item => [item.name, item.reason]), [["Music", "full"]], "an eighth round stands beside it");
   const sports = board.columns.find(column => column.name === "Sports");
   assert.equal(sports.unusable.length, 1, "a closest number a buzzer cannot answer");
   assert.equal(sports.unusable[0].format, "number");
@@ -462,7 +462,7 @@ test("the TV draws every board moment: the board, the clue, the order, the turn,
   const draw = (name, at = NOW) => { const s = tv(stage(name)); return wrap(s, React.createElement(TVTrivia, { state:s, now:at, fixed:true })); };
   const pick = draw("pick");
   assert.match(pick, /tv-board is-pick/);
-  assert.equal((pick.match(/class="tv-board-cell( is-[a-z]+)*"/g) || []).length, 30, "thirty cells");
+  assert.equal((pick.match(/class="tv-board-cell( is-[a-z]+)*"/g) || []).length, 35, "thirty-five cells");
   assert.equal((pick.match(/tv-board-cell is-played/g) || []).length, 9, "the nine played dark");
   assert.equal((pick.match(/<li class="tv-board-slot/g) || []).length, ROSTER.length, "the rail: every player");
   assert.match(pick, /tv-board-slot is-control/);
@@ -527,7 +527,7 @@ test("the phone: the board view opens itself for each moment, the buzzer lit on 
   };
   const mine = sheet(stage("pick-mine"));
   assert.match(mine, /fd-board-game is-pick/);
-  assert.equal((mine.match(/<button type="button" class="fd-board-cell is-live/g) || []).length, 21, "every lit value a button");
+  assert.equal((mine.match(/<button type="button" class="fd-board-cell is-live/g) || []).length, 26, "every lit value a button");
   assert.match(mine, />Your pick</);
   assert.match(sheet(stage("pick")), /fd-board-picker/, "someone else's pick: who picks, the board still");
   const ready = sheet(stage("clue"));

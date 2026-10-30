@@ -47,6 +47,9 @@ const GAME_DESKS = [
   f => f.karaoke ? { id:"karaoke", name:"Karaoke", icon:"song",
     value:typeof f.karaoke === "string" ? f.karaoke : `${f.karaokeSongs || 0} of ${f.coming || 0} songs` } : null,
   f => ({ id:"trivia", name:"Trivia", icon:"games", value:plural(f.triviaQuestions || 0, "question") }),
+  /* Float's desk, only with its room (the float capability), after
+     Trivia as on the slate: who has picked a look, of everyone coming */
+  f => f.float ? { id:"float", name:"Float", icon:"games", value:`${f.floaties || 0} of ${f.coming || 0} floaties` } : null,
   f => ({ id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null }),
 ];
 

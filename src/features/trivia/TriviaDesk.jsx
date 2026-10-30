@@ -10,9 +10,11 @@ import { Icon } from "../../ui/Icon.jsx";
 import { LETTERS, numberLabel } from "./triviaModel.js";
 import "./trivia.css";
 import { writeError } from "../../lib/writeErrors.js";
-import { BOARD_FORMAT, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
+import { BOARD_FORMAT, isBoardGame, qbankPlanInUse, triviaFormatOf } from "../../../shared/triviaBoard.js";
 import { triviaFinalEntry, triviaLive } from "../../../shared/trivia.js";
 import { BoardPreview, FormatSwitch } from "./BoardDesk.jsx";
+import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
+import { qbankRowValue } from "./qbankModel.js";
 
 const newId = prefix => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -348,7 +350,8 @@ function FinalCard({ rounds, onAct, running }) {
    draws them as the board they will deal, with its Final. Locked while a
    game runs; Restart clears the answers, never the set list. */
 /* `initial` opens an editor straight away (the rehearsal page) */
-export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initial = null }) {
+/* `onOpenBank` opens the question bank's desk (QBankDesk.jsx) over this one */
+export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initial = null, onOpenBank = null }) {
   const rounds = state.triviaRounds || [];
   /* the board's own Final rides in the set list; it is not a round */
   const listed = rounds.filter(round => round?.source !== "final");
@@ -361,6 +364,10 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
   const [editing, setEditing] = useState(initial);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState(null);
+  /* the question bank's board, when it has one, is what Trivia plays: the
+     old set list (rounds, its own board) folds away */
+  const planned = qbankPlanInUse(state);
+  const [showList, setShowList] = useState(false);
   const save = async payload => {
     const result = await onAct("triviaSaveRound", { round:payload });
     if (result?.ok) { setEditing(null); setAdding(false); }
@@ -382,7 +389,8 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
   };
   const runningGame = game || board;
   return <div className="fd-trivia-desk">
-    <FormatSwitch format={format} onChange={setFormat} disabled={running} />
+    {onOpenBank && <MenuGroup><MenuRow name={planned ? "Your board" : "Question bank"} icon="games" value={qbankRowValue(state)} onClick={onOpenBank} /></MenuGroup>}
+    {!planned && <FormatSwitch format={format} onChange={setFormat} disabled={running} />}
     {running && <div className="fd-trivia-running">
       <span>{board ? `${(board.played || []).length} of ${board.total || 0} played` : `Question ${game.index + 1} of ${game.questions.length} live`}</span>
       <button type="button" className={confirm === "restart" ? "is-confirm" : ""} onClick={async () => {
@@ -392,8 +400,12 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
         if (!result?.ok) notify?.(result?.error || "Couldn't restart");
       }}>{confirm === "restart" ? "Clear every answer?" : "Restart game"}</button>
     </div>}
+    {planned && <FinalCard rounds={rounds} onAct={onAct} running={running} />}
+    {planned && !running && <button type="button" className="fd-trivia-oldlist" aria-expanded={showList}
+      onClick={() => setShowList(on => !on)}>{showList ? "Hide the old set list" : "Old set list"}</button>}
+    {(!planned || showList) && <>
     {/* the board it will deal; the list under it orders its columns */}
-    {format === BOARD_FORMAT && <BoardPreview rounds={rounds} bank={bank}
+    {format === BOARD_FORMAT && !planned && <BoardPreview rounds={rounds} bank={bank}
       onEdit={round => { if (!running) setEditing({ id:round.id, source:round.source }); }} />}
     <ol className="fd-trivia-rounds">
       {listed.map((round, index) => <li key={round.id}>
@@ -414,7 +426,7 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
         </span>}
       </li>)}
     </ol>
-    {format === BOARD_FORMAT && <FinalCard rounds={rounds} onAct={onAct} running={running} />}
+    {format === BOARD_FORMAT && !planned && <FinalCard rounds={rounds} onAct={onAct} running={running} />}
     {!running && listed.length < TRIVIA_MAX_ROUNDS && (adding ? <div className="fd-trivia-add">
       <ActionButton onClick={() => setEditing({ source:"custom" })}>Write a round</ActionButton>
       <ul className="fd-trivia-bank">
@@ -426,5 +438,6 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
       <ActionButton variant="tertiary" onClick={() => setAdding(false)}>Cancel</ActionButton>
     </div> : <ActionButton onClick={() => setAdding(true)}>Add round</ActionButton>)}
     {format !== BOARD_FORMAT && <p className="fd-trivia-hint">{plural(total, "question")}</p>}
+    </>}
   </div>;
 }

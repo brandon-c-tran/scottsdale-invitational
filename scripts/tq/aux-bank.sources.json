@@ -1,0 +1,1707 @@
+{
+ "about": "Pass the Aux: song specs. deezerId is the original studio recording; aux.mjs verifies it, fetches the 30 s preview into tq-raw/aux and cuts the excerpt (from/len seconds into the preview).",
+ "songs": [
+  {
+   "slug": "bubblin",
+   "title": "Bubblin",
+   "artist": "Anderson .Paak",
+   "tier": 3,
+   "reach": "shared",
+   "by": "provided",
+   "topics": [
+    "hip-hop",
+    "brandon"
+   ],
+   "decoys": [
+    "Tints",
+    "Come Down",
+    "Am I Wrong"
+   ],
+   "note": "One of Brandon's favorite songs (provided).",
+   "deezerId": 499048992,
+   "from": 7.5,
+   "len": 8,
+   "revealExtra": "One of Brandon's favorite songs.",
+   "deezer": {
+    "id": 499048992,
+    "isrc": "ZZOPM1800182",
+    "title": "Bubblin",
+    "artist": "Anderson .Paak",
+    "album": "Bubblin",
+    "duration": 207,
+    "explicit": false,
+    "released": "2018-05-17"
+   },
+   "variants": [
+    {
+     "suffix": "b",
+     "from": 20.5,
+     "len": 8
+    }
+   ]
+  },
+  {
+   "slug": "rnp",
+   "title": "RNP",
+   "artist": "Cordae",
+   "tier": 4,
+   "reach": "shared",
+   "by": "provided",
+   "topics": [
+    "hip-hop",
+    "brandon"
+   ],
+   "decoys": [
+    "Gifted",
+    "Sinister",
+    "Bad Idea"
+   ],
+   "query": "RNP Cordae Anderson .Paak",
+   "note": "Brandon knows the words and rapped along live (provided). Cordae feat. Anderson .Paak.",
+   "deezerId": 717960082,
+   "from": 8.5,
+   "len": 8,
+   "feat": "Anderson .Paak",
+   "deezer": {
+    "id": 717960082,
+    "isrc": "USAT21903972",
+    "title": "RNP (feat. Anderson .Paak)",
+    "artist": "Cordae",
+    "album": "The Lost Boy",
+    "duration": 175,
+    "explicit": true,
+    "released": "2019-07-26"
+   }
+  },
+  {
+   "slug": "dancing-in-the-kitchen",
+   "title": "Dancing in the Kitchen",
+   "artist": "LANY",
+   "tier": 4,
+   "reach": "deep",
+   "by": "provided",
+   "topics": [
+    "pop",
+    "brandon",
+    "wedding"
+   ],
+   "decoys": [
+    "Malibu Nights",
+    "Thick and Thin",
+    "Cowboy in LA"
+   ],
+   "query": "dancing in the kitchen LANY",
+   "surprise": true,
+   "note": "POSSIBLE WEDDING SURPRISE: the first-dance song Brandon selected. Brandon reviews before use.",
+   "deezerId": 1476757862,
+   "from": 18,
+   "len": 8,
+   "deezer": {
+    "id": 1476757862,
+    "isrc": "GBUM72103516",
+    "title": "dancing in the kitchen",
+    "artist": "LANY",
+    "album": "gg bb xx",
+    "duration": 209,
+    "explicit": false,
+    "released": "2021-09-03"
+   }
+  },
+  {
+   "slug": "neon",
+   "title": "Neon",
+   "artist": "John Mayer",
+   "tier": 5,
+   "reach": "deep",
+   "by": "provided",
+   "topics": [
+    "rock",
+    "brandon",
+    "john-mayer"
+   ],
+   "decoys": [
+    "Clarity",
+    "Gravity",
+    "Daughters"
+   ],
+   "showAlbum": true,
+   "note": "John Mayer song Brandon has a connection to (provided).",
+   "deezerId": 13146260,
+   "from": 17,
+   "len": 8,
+   "deezer": {
+    "id": 13146260,
+    "isrc": "USSM10102941",
+    "title": "Neon",
+    "artist": "John Mayer",
+    "album": "Room For Squares",
+    "duration": 262,
+    "explicit": false,
+    "released": "2001-08-16"
+   }
+  },
+  {
+   "slug": "the-heart-of-life",
+   "title": "The Heart of Life",
+   "artist": "John Mayer",
+   "tier": 4,
+   "reach": "shared",
+   "by": "provided",
+   "topics": [
+    "rock",
+    "brandon",
+    "john-mayer"
+   ],
+   "decoys": [
+    "Stop This Train",
+    "Who Says",
+    "Why Georgia"
+   ],
+   "showAlbum": true,
+   "note": "John Mayer song Brandon has a connection to (provided).",
+   "deezerId": 14875479,
+   "from": 7.5,
+   "len": 8,
+   "deezer": {
+    "id": 14875479,
+    "isrc": "USSM10603629",
+    "title": "The Heart of Life",
+    "artist": "John Mayer",
+    "album": "Continuum",
+    "duration": 198,
+    "explicit": false,
+    "released": "2006-09-11"
+   }
+  },
+  {
+   "slug": "stop-this-train",
+   "title": "Stop This Train",
+   "artist": "John Mayer",
+   "tier": 5,
+   "reach": "deep",
+   "by": "provided",
+   "topics": [
+    "rock",
+    "brandon",
+    "john-mayer"
+   ],
+   "decoys": [
+    "The Heart of Life",
+    "Gravity",
+    "Waiting on the World to Change"
+   ],
+   "showAlbum": true,
+   "note": "John Mayer song Brandon has a connection to (provided).",
+   "deezerId": 14875481,
+   "from": 20.25,
+   "len": 8,
+   "deezer": {
+    "id": 14875481,
+    "isrc": "USSM10603631",
+    "title": "Stop This Train",
+    "artist": "John Mayer",
+    "album": "Continuum",
+    "duration": 285,
+    "explicit": false,
+    "released": "2006-09-11"
+   }
+  },
+  {
+   "slug": "lets-fall-in-love-for-the-night",
+   "title": "Let's Fall in Love for the Night",
+   "artist": "FINNEAS",
+   "tier": 5,
+   "reach": "deep",
+   "by": "provided",
+   "topics": [
+    "pop",
+    "brandon"
+   ],
+   "decoys": [
+    "Partners in Crime",
+    "Break My Heart Again",
+    "I Lost a Friend"
+   ],
+   "query": "Lets Fall in Love for the Night FINNEAS",
+   "note": "FINNEAS song Brandon has a connection to (provided).",
+   "deezerId": 2581938312,
+   "from": 7.25,
+   "len": 8,
+   "deezer": {
+    "id": 2581938312,
+    "isrc": "GBKPL1825156",
+    "title": "Let's Fall in Love for the Night",
+    "artist": "FINNEAS",
+    "album": "Blood Harmony",
+    "duration": 190,
+    "explicit": true,
+    "released": "2019-10-04"
+   }
+  },
+  {
+   "slug": "get-lucky",
+   "title": "Get Lucky",
+   "artist": "Daft Punk",
+   "tier": 2,
+   "reach": "broad",
+   "by": "provided",
+   "topics": [
+    "edm",
+    "brandon"
+   ],
+   "decoys": [
+    "Instant Crush",
+    "Around the World",
+    "One More Time"
+   ],
+   "query": "Get Lucky Daft Punk",
+   "note": "Brandon attempted it on guitar and vocals (provided).",
+   "deezerId": 67238735,
+   "from": 17.75,
+   "len": 8,
+   "feat": "Pharrell Williams and Nile Rodgers",
+   "deezer": {
+    "id": 67238735,
+    "isrc": "USQX91300108",
+    "title": "Get Lucky (feat. Pharrell Williams and Nile Rodgers)",
+    "artist": "Daft Punk",
+    "album": "Random Access Memories",
+    "duration": 367,
+    "explicit": false,
+    "released": "2013-05-20"
+   },
+   "variants": [
+    {
+     "suffix": "b",
+     "from": 1,
+     "len": 8
+    }
+   ]
+  },
+  {
+   "slug": "cliffs-of-dover",
+   "title": "Cliffs of Dover",
+   "artist": "Eric Johnson",
+   "tier": 5,
+   "reach": "deep",
+   "by": "provided",
+   "topics": [
+    "rock",
+    "guitar-hero",
+    "brandon"
+   ],
+   "decoys": [
+    "High Landrons",
+    "Forty Mile Town",
+    "Trademark"
+   ],
+   "showAlbum": true,
+   "note": "Guitar Hero connection (provided). Instrumental.",
+   "deezerId": 14600400,
+   "from": 20.25,
+   "len": 8,
+   "prompt": "Name this instrumental.",
+   "deezer": {
+    "id": 14600400,
+    "isrc": "USCA28900086",
+    "title": "Cliffs Of Dover (Instrumental)",
+    "artist": "Eric Johnson",
+    "album": "Ah Via Musicom",
+    "duration": 249,
+    "explicit": false,
+    "released": "2007-03-27"
+   }
+  },
+  {
+   "slug": "through-the-fire-and-flames",
+   "title": "Through the Fire and Flames",
+   "artist": "DragonForce",
+   "tier": 4,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "Valley of the Damned",
+    "Heroes of Our Time",
+    "Fury of the Storm"
+   ],
+   "query": "Through the Fire and Flames DragonForce Valley of the Damned",
+   "note": "Discussed soundtrack candidate, not a confirmed favorite.",
+   "deezerId": 2213095667,
+   "from": 19.25,
+   "len": 8,
+   "deezer": {
+    "id": 2213095667,
+    "isrc": "GBAJE0508258",
+    "title": "Through The Fire And Flames",
+    "artist": "DragonForce",
+    "album": "Killer Elite",
+    "duration": 439,
+    "explicit": false,
+    "released": "2016-04-29"
+   }
+  },
+  {
+   "slug": "when-you-were-young",
+   "title": "When You Were Young",
+   "artist": "The Killers",
+   "tier": 3,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "Somebody Told Me",
+    "Human",
+    "All These Things That I've Done"
+   ],
+   "showAlbum": true,
+   "note": "Discussed soundtrack candidate, not a confirmed favorite.",
+   "deezerId": 1109953,
+   "from": 2,
+   "len": 8,
+   "deezer": {
+    "id": 1109953,
+    "isrc": "USUM70605164",
+    "title": "When You Were Young",
+    "artist": "The Killers",
+    "album": "Sam's Town",
+    "duration": 218,
+    "explicit": false,
+    "released": "2006-10-12"
+   }
+  },
+  {
+   "slug": "even-flow",
+   "title": "Even Flow",
+   "artist": "Pearl Jam",
+   "tier": 3,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "Better Man",
+    "Daughter",
+    "Given to Fly"
+   ],
+   "showAlbum": true,
+   "note": "Discussed soundtrack candidate, not a confirmed favorite.",
+   "deezerId": 7675129,
+   "from": 20,
+   "len": 8,
+   "deezer": {
+    "id": 7675129,
+    "isrc": "USSM19100673",
+    "title": "Even Flow",
+    "artist": "Pearl Jam",
+    "album": "Ten",
+    "duration": 294,
+    "explicit": true,
+    "released": "1992-01-14"
+   }
+  },
+  {
+   "slug": "my-name-is-jonas",
+   "title": "My Name Is Jonas",
+   "artist": "Weezer",
+   "tier": 4,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "Buddy Holly",
+    "Say It Ain't So",
+    "Undone"
+   ],
+   "showAlbum": true,
+   "note": "Discussed soundtrack candidate, not a confirmed favorite.",
+   "deezerId": 2542114,
+   "from": 1,
+   "len": 8,
+   "deezer": {
+    "id": 2542114,
+    "isrc": "USGF19962901",
+    "title": "My Name Is Jonas",
+    "artist": "Weezer",
+    "album": "Weezer (Blue Album)",
+    "duration": 204,
+    "explicit": false,
+    "released": "1994-05-10"
+   }
+  },
+  {
+   "slug": "knights-of-cydonia",
+   "title": "Knights of Cydonia",
+   "artist": "Muse",
+   "tier": 3,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "Uprising",
+    "Supermassive Black Hole",
+    "Starlight"
+   ],
+   "showAlbum": true,
+   "note": "Discussed soundtrack candidate, not a confirmed favorite.",
+   "deezerId": 3590194,
+   "from": 1.75,
+   "len": 8,
+   "deezer": {
+    "id": 3590194,
+    "isrc": "GBAHT0500600",
+    "title": "Knights of Cydonia",
+    "artist": "Muse",
+    "album": "Black Holes and Revelations",
+    "duration": 367,
+    "explicit": false,
+    "released": "2006-06-28"
+   }
+  },
+  {
+   "slug": "everlong",
+   "title": "Everlong",
+   "artist": "Foo Fighters",
+   "tier": 3,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "My Hero",
+    "The Pretender",
+    "Best of You"
+   ],
+   "note": "Discussed soundtrack candidate, not a confirmed favorite.",
+   "deezerId": 4762041,
+   "from": 1.75,
+   "len": 8,
+   "deezer": {
+    "id": 4762041,
+    "isrc": "USRW29600011",
+    "title": "Everlong",
+    "artist": "Foo Fighters",
+    "album": "Greatest Hits",
+    "duration": 250,
+    "explicit": false,
+    "released": "2009-11-02"
+   }
+  },
+  {
+   "slug": "yeah",
+   "title": "Yeah!",
+   "artist": "Usher",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop",
+    "party"
+   ],
+   "decoys": [
+    "Burn",
+    "Caught Up",
+    "OMG"
+   ],
+   "query": "Yeah! Usher Lil Jon Ludacris",
+   "note": "Party candidate, not a confirmed favorite.",
+   "deezerId": 13783449,
+   "from": 19.75,
+   "len": 8,
+   "feat": "Lil Jon and Ludacris",
+   "titleSung": true,
+   "deezer": {
+    "id": 13783449,
+    "isrc": "USAR10301423",
+    "title": "Yeah! (feat. Lil Jon & Ludacris)",
+    "artist": "USHER",
+    "album": "Confessions (Expanded Edition)",
+    "duration": 250,
+    "explicit": false,
+    "released": "2004-03-23"
+   }
+  },
+  {
+   "slug": "party-in-the-usa",
+   "title": "Party in the U.S.A.",
+   "artist": "Miley Cyrus",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop",
+    "party"
+   ],
+   "decoys": [
+    "See You Again",
+    "Can't Be Tamed",
+    "Wrecking Ball"
+   ],
+   "query": "Party in the U.S.A. Miley Cyrus",
+   "note": "Party candidate, not a confirmed favorite.",
+   "deezerId": 24957851,
+   "from": 19.75,
+   "len": 8,
+   "deezer": {
+    "id": 24957851,
+    "isrc": "USHR10924519",
+    "title": "Party In The U.S.A.",
+    "artist": "Miley Cyrus",
+    "album": "The Time Of Our Lives",
+    "duration": 202,
+    "explicit": false,
+    "released": "2009-08-31"
+   }
+  },
+  {
+   "slug": "pursuit-of-happiness",
+   "title": "Pursuit of Happiness",
+   "artist": "Kid Cudi",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop",
+    "party"
+   ],
+   "decoys": [
+    "Day 'n' Nite",
+    "Soundtrack 2 My Life",
+    "Mr. Rager"
+   ],
+   "query": "Pursuit of Happiness (Nightmare) Kid Cudi MGMT Ratatat",
+   "note": "Party candidate, not a confirmed favorite. Original album version (Man on the Moon), not the Steve Aoki remix.",
+   "deezerId": 7371878,
+   "from": 3,
+   "len": 8,
+   "deezer": {
+    "id": 7371878,
+    "isrc": "USUM70981907",
+    "title": "Pursuit Of Happiness (Nightmare)",
+    "artist": "Kid Cudi",
+    "album": "Man On The Moon: The End Of Day",
+    "duration": 295,
+    "explicit": true,
+    "released": "2009-09-15"
+   }
+  },
+  {
+   "slug": "love-sosa",
+   "title": "Love Sosa",
+   "artist": "Chief Keef",
+   "tier": 3,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "hip-hop",
+    "party"
+   ],
+   "decoys": [
+    "I Don't Like",
+    "Faneto",
+    "Hate Bein' Sober"
+   ],
+   "note": "Party candidate, not a confirmed favorite.",
+   "deezerId": 62892170,
+   "from": 1.5,
+   "len": 8,
+   "deezer": {
+    "id": 62892170,
+    "isrc": "USUM71214600",
+    "title": "Love Sosa",
+    "artist": "Chief Keef",
+    "album": "Finally Rich",
+    "duration": 246,
+    "explicit": true,
+    "released": "2012-12-18"
+   }
+  },
+  {
+   "slug": "mr-brightside",
+   "title": "Mr. Brightside",
+   "artist": "The Killers",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "party"
+   ],
+   "decoys": [
+    "Somebody Told Me",
+    "Human",
+    "Smile Like You Mean It"
+   ],
+   "showAlbum": true,
+   "note": "Party candidate, not a confirmed favorite.",
+   "deezerId": 71955234,
+   "from": 13.25,
+   "len": 8,
+   "deezer": {
+    "id": 71955234,
+    "isrc": "USIR20400274",
+    "title": "Mr. Brightside",
+    "artist": "The Killers",
+    "album": "Direct Hits",
+    "duration": 223,
+    "explicit": false,
+    "released": "2013-11-11"
+   },
+   "variants": [
+    {
+     "suffix": "b",
+     "from": 1,
+     "len": 8
+    }
+   ],
+   "albumName": "Hot Fuss"
+  },
+  {
+   "slug": "no-role-modelz",
+   "title": "No Role Modelz",
+   "artist": "J. Cole",
+   "tier": 4,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "hip-hop",
+    "party"
+   ],
+   "decoys": [
+    "Power Trip",
+    "Wet Dreamz",
+    "Work Out"
+   ],
+   "showAlbum": true,
+   "note": "Party candidate, not a confirmed favorite.",
+   "deezerId": 1591188152,
+   "from": 1.75,
+   "len": 8,
+   "deezer": {
+    "id": 1591188152,
+    "isrc": "USQX91402598",
+    "title": "No Role Modelz",
+    "artist": "J. Cole",
+    "album": "2014 Forest Hills Drive",
+    "duration": 292,
+    "explicit": true,
+    "released": "2014-12-09"
+   }
+  },
+  {
+   "slug": "lose-yourself",
+   "title": "Lose Yourself",
+   "artist": "Eminem",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Without Me",
+    "The Real Slim Shady",
+    "Not Afraid"
+   ],
+   "deezerId": 1109731,
+   "from": 20,
+   "len": 8,
+   "deezer": {
+    "id": 1109731,
+    "isrc": "USIR10211559",
+    "title": "Lose Yourself",
+    "artist": "Eminem",
+    "album": "Curtain Call: The Hits",
+    "duration": 326,
+    "explicit": true,
+    "released": "2005-11-21"
+   }
+  },
+  {
+   "slug": "day-n-nite",
+   "title": "Day 'n' Nite",
+   "artist": "Kid Cudi",
+   "tier": 3,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Pursuit of Happiness",
+    "Up Up & Away",
+    "Erase Me"
+   ],
+   "query": "Day 'n' Nite Kid Cudi Man on the Moon",
+   "deezerId": 7371872,
+   "from": 7.5,
+   "len": 8,
+   "deezer": {
+    "id": 7371872,
+    "isrc": "USUM70957500",
+    "title": "Day 'N' Nite (nightmare)",
+    "artist": "Kid Cudi",
+    "album": "Man On The Moon: The End Of Day",
+    "duration": 223,
+    "explicit": false,
+    "released": "2009-09-15"
+   }
+  },
+  {
+   "slug": "mr-rager",
+   "title": "Mr. Rager",
+   "artist": "Kid Cudi",
+   "tier": 4,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Soundtrack 2 My Life",
+    "Heart of a Lion",
+    "Cudi Zone"
+   ],
+   "query": "Mr. Rager Kid Cudi Man on the Moon II",
+   "deezerId": 7521065,
+   "from": 1,
+   "len": 8,
+   "deezer": {
+    "id": 7521065,
+    "isrc": "USUM71025042",
+    "title": "Mr. Rager",
+    "artist": "Kid Cudi",
+    "album": "Man On The Moon II: The Legend Of Mr. Rager",
+    "duration": 298,
+    "explicit": false,
+    "released": "2010-11-09"
+   }
+  },
+  {
+   "slug": "soundtrack-2-my-life",
+   "title": "Soundtrack 2 My Life",
+   "artist": "Kid Cudi",
+   "tier": 5,
+   "reach": "deep",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Sky Might Fall",
+    "Heart of a Lion",
+    "Cudi Zone"
+   ],
+   "query": "Soundtrack 2 My Life Kid Cudi",
+   "deezerId": 7371867,
+   "from": 16.25,
+   "len": 8,
+   "deezer": {
+    "id": 7371867,
+    "isrc": "USUM70981690",
+    "title": "Soundtrack 2 My Life",
+    "artist": "Kid Cudi",
+    "album": "Man On The Moon: The End Of Day",
+    "duration": 235,
+    "explicit": true,
+    "released": "2009-09-15"
+   }
+  },
+  {
+   "slug": "sicko-mode",
+   "title": "SICKO MODE",
+   "artist": "Travis Scott",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Goosebumps",
+    "Highest in the Room",
+    "Antidote"
+   ],
+   "deezerId": 536421002,
+   "from": 14.25,
+   "len": 8,
+   "deezer": {
+    "id": 536421002,
+    "isrc": "USSM11806660",
+    "title": "SICKO MODE",
+    "artist": "Travis Scott",
+    "album": "ASTROWORLD",
+    "duration": 312,
+    "explicit": true,
+    "released": "2018-08-03"
+   }
+  },
+  {
+   "slug": "gods-plan",
+   "title": "God's Plan",
+   "artist": "Drake",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Hotline Bling",
+    "One Dance",
+    "In My Feelings"
+   ],
+   "deezerId": 533609232,
+   "from": 6,
+   "len": 8,
+   "deezer": {
+    "id": 533609232,
+    "isrc": "USCM51800004",
+    "title": "God's Plan",
+    "artist": "Drake",
+    "album": "Scorpion",
+    "duration": 198,
+    "explicit": true,
+    "released": "2018-06-29"
+   }
+  },
+  {
+   "slug": "swimming-pools",
+   "title": "Swimming Pools (Drank)",
+   "artist": "Kendrick Lamar",
+   "tier": 3,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Backseat Freestyle",
+    "Poetic Justice",
+    "The Recipe"
+   ],
+   "showAlbum": true,
+   "deezerId": 52735971,
+   "from": 12.5,
+   "len": 8,
+   "lang": true,
+   "deezer": {
+    "id": 52735971,
+    "isrc": "USUM71207642",
+    "title": "Swimming Pools (Drank)",
+    "artist": "Kendrick Lamar",
+    "album": "Swimming Pools (Drank)",
+    "duration": 248,
+    "explicit": true,
+    "released": "2012-07-31"
+   },
+   "albumName": "good kid, m.A.A.d city"
+  },
+  {
+   "slug": "humble",
+   "title": "HUMBLE.",
+   "artist": "Kendrick Lamar",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "DNA.",
+    "Alright",
+    "LOVE."
+   ],
+   "showAlbum": true,
+   "deezerId": 350171311,
+   "from": 1.75,
+   "len": 8,
+   "deezer": {
+    "id": 350171311,
+    "isrc": "USUM71703085",
+    "title": "HUMBLE.",
+    "artist": "Kendrick Lamar",
+    "album": "DAMN.",
+    "duration": 177,
+    "explicit": true,
+    "released": "2017-04-14"
+   }
+  },
+  {
+   "slug": "stronger",
+   "title": "Stronger",
+   "artist": "Kanye West",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Heartless",
+    "Power",
+    "Gold Digger"
+   ],
+   "query": "Stronger Kanye West Graduation",
+   "deezerId": 630827242,
+   "from": 1.5,
+   "len": 8,
+   "deezer": {
+    "id": 630827242,
+    "isrc": "USUM70741299",
+    "title": "Stronger",
+    "artist": "Kanye West",
+    "album": "Graduation",
+    "duration": 312,
+    "explicit": true,
+    "released": "2019-02-15"
+   }
+  },
+  {
+   "slug": "thrift-shop",
+   "title": "Thrift Shop",
+   "artist": "Macklemore & Ryan Lewis",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Can't Hold Us",
+    "Same Love",
+    "Downtown"
+   ],
+   "query": "Thrift Shop Macklemore Ryan Lewis Wanz",
+   "deezerId": 61424045,
+   "from": 7,
+   "len": 8,
+   "lang": true,
+   "feat": "Wanz",
+   "deezer": {
+    "id": 61424045,
+    "isrc": "GMM881200003",
+    "title": "Thrift Shop (feat. Wanz)",
+    "artist": "Macklemore & Ryan Lewis",
+    "album": "The Heist",
+    "duration": 235,
+    "explicit": true,
+    "released": "2012-10-09"
+   }
+  },
+  {
+   "slug": "mask-off",
+   "title": "Mask Off",
+   "artist": "Future",
+   "tier": 4,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Low Life",
+    "March Madness",
+    "Where Ya At"
+   ],
+   "deezerId": 142337683,
+   "from": 8,
+   "len": 8,
+   "deezer": {
+    "id": 142337683,
+    "isrc": "USSM11701444",
+    "title": "Mask Off",
+    "artist": "Future",
+    "album": "FUTURE",
+    "duration": 204,
+    "explicit": true,
+    "released": "2017-02-17"
+   }
+  },
+  {
+   "slug": "no-problem",
+   "title": "No Problem",
+   "artist": "Chance the Rapper",
+   "tier": 4,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Same Drugs",
+    "Juke Jam",
+    "All Night"
+   ],
+   "query": "No Problem Chance the Rapper Lil Wayne 2 Chainz",
+   "note": "Editorial suggestion. Brandon's first concert was Chance the Rapper (provided); the song itself is not a stated favorite.",
+   "deezerId": 125544828,
+   "from": 20.25,
+   "len": 8,
+   "feat": "Lil Wayne and 2 Chainz",
+   "deezer": {
+    "id": 125544828,
+    "isrc": "TCACO1667423",
+    "title": "No Problem (feat. Lil Wayne & 2 Chainz)",
+    "artist": "Chance The Rapper",
+    "album": "Coloring Book",
+    "duration": 305,
+    "explicit": true,
+    "released": "2016-05-27"
+   }
+  },
+  {
+   "slug": "come-down",
+   "title": "Come Down",
+   "artist": "Anderson .Paak",
+   "tier": 5,
+   "reach": "deep",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "Bubblin",
+    "Am I Wrong",
+    "Put Me Thru"
+   ],
+   "note": "Editorial suggestion; named only as a decoy in Brandon's brief.",
+   "deezerId": 114788694,
+   "from": 4,
+   "len": 8,
+   "lang": true,
+   "deezer": {
+    "id": 114788694,
+    "isrc": "USUYG1088425",
+    "title": "Come Down",
+    "artist": "Anderson .Paak",
+    "album": "Malibu",
+    "duration": 169,
+    "explicit": true,
+    "released": "2016-01-15"
+   }
+  },
+  {
+   "slug": "two-tens",
+   "title": "Two Tens",
+   "artist": "Cordae",
+   "tier": 5,
+   "reach": "deep",
+   "by": "suggested",
+   "topics": [
+    "hip-hop"
+   ],
+   "decoys": [
+    "RNP",
+    "Bad Idea",
+    "Gifted"
+   ],
+   "query": "Two Tens Cordae",
+   "note": "Editorial suggestion; named only as a decoy in Brandon's brief.",
+   "deezerId": 2115567007,
+   "from": 18.75,
+   "len": 8,
+   "feat": "Anderson .Paak",
+   "deezer": {
+    "id": 2115567007,
+    "isrc": "USAT22221476",
+    "title": "Two Tens (feat. Anderson .Paak)",
+    "artist": "Cordae",
+    "album": "Two Tens (feat. Anderson .Paak)",
+    "duration": 152,
+    "explicit": true,
+    "released": "2023-01-25"
+   }
+  },
+  {
+   "slug": "lose-yourself-to-dance",
+   "title": "Lose Yourself to Dance",
+   "artist": "Daft Punk",
+   "tier": 5,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "edm"
+   ],
+   "decoys": [
+    "Get Lucky",
+    "Instant Crush",
+    "Give Life Back to Music"
+   ],
+   "query": "Lose Yourself to Dance Daft Punk Pharrell",
+   "note": "Editorial suggestion; named only as a decoy in Brandon's brief.",
+   "deezerId": 67238733,
+   "from": 1,
+   "len": 8,
+   "feat": "Pharrell Williams",
+   "deezer": {
+    "id": 67238733,
+    "isrc": "USQX91300106",
+    "title": "Lose Yourself to Dance (feat. Pharrell Williams)",
+    "artist": "Daft Punk",
+    "album": "Random Access Memories",
+    "duration": 353,
+    "explicit": false,
+    "released": "2013-05-20"
+   }
+  },
+  {
+   "slug": "poker-face",
+   "title": "Poker Face",
+   "artist": "Lady Gaga",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop"
+   ],
+   "decoys": [
+    "Bad Romance",
+    "Just Dance",
+    "Paparazzi"
+   ],
+   "deezerId": 734508762,
+   "from": 14,
+   "len": 8,
+   "deezer": {
+    "id": 734508762,
+    "isrc": "USUM70824409",
+    "title": "Poker Face",
+    "artist": "Lady Gaga",
+    "album": "The Fame Monster (Deluxe Edition)",
+    "duration": 237,
+    "explicit": true,
+    "released": "2019-08-23"
+   }
+  },
+  {
+   "slug": "rolling-in-the-deep",
+   "title": "Rolling in the Deep",
+   "artist": "Adele",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop"
+   ],
+   "decoys": [
+    "Someone Like You",
+    "Set Fire to the Rain",
+    "Skyfall"
+   ],
+   "showAlbum": true,
+   "deezerId": 1174602992,
+   "from": 1,
+   "len": 8,
+   "deezer": {
+    "id": 1174602992,
+    "isrc": "GBBKS1000335",
+    "title": "Rolling in the Deep",
+    "artist": "Adele",
+    "album": "21",
+    "duration": 228,
+    "explicit": false,
+    "released": "2011-01-24"
+   }
+  },
+  {
+   "slug": "single-ladies",
+   "title": "Single Ladies (Put a Ring on It)",
+   "artist": "Beyoncé",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop"
+   ],
+   "decoys": [
+    "Crazy in Love",
+    "Irreplaceable",
+    "If I Were a Boy"
+   ],
+   "deezerId": 2485118,
+   "from": 19.75,
+   "len": 8,
+   "deezer": {
+    "id": 2485118,
+    "isrc": "USSM10803760",
+    "title": "Single Ladies (Put a Ring on It)",
+    "artist": "Beyoncé",
+    "album": "I AM...SASHA FIERCE",
+    "duration": 193,
+    "explicit": false,
+    "released": "2008-11-14"
+   }
+  },
+  {
+   "slug": "call-me-maybe",
+   "title": "Call Me Maybe",
+   "artist": "Carly Rae Jepsen",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop"
+   ],
+   "decoys": [
+    "Good Time",
+    "I Really Like You",
+    "Run Away with Me"
+   ],
+   "deezerId": 16670786,
+   "from": 18.25,
+   "len": 8,
+   "deezer": {
+    "id": 16670786,
+    "isrc": "CAB391100615",
+    "title": "Call Me Maybe",
+    "artist": "Carly Rae Jepsen",
+    "album": "Call Me Maybe",
+    "duration": 193,
+    "explicit": false,
+    "released": "2012-02-22"
+   }
+  },
+  {
+   "slug": "tik-tok",
+   "title": "TiK ToK",
+   "artist": "Ke$ha",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop"
+   ],
+   "decoys": [
+    "Take It Off",
+    "Die Young",
+    "We R Who We R"
+   ],
+   "query": "TiK ToK Ke$ha",
+   "deezerId": 15595929,
+   "from": 6.25,
+   "len": 8,
+   "deezer": {
+    "id": 15595929,
+    "isrc": "USRC10900433",
+    "title": "TiK ToK",
+    "artist": "Ke$ha",
+    "album": "Animal (Expanded Edition)",
+    "duration": 200,
+    "explicit": false,
+    "released": "2010-01-01"
+   }
+  },
+  {
+   "slug": "somebody-that-i-used-to-know",
+   "title": "Somebody That I Used to Know",
+   "artist": "Gotye",
+   "tier": 3,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop"
+   ],
+   "decoys": [
+    "We Are Never Ever Getting Back Together",
+    "Payphone",
+    "Hearts a Mess"
+   ],
+   "query": "Somebody That I Used to Know Gotye Kimbra",
+   "deezerId": 119615552,
+   "from": 20,
+   "len": 8,
+   "feat": "Kimbra",
+   "deezer": {
+    "id": 119615552,
+    "isrc": "AUZS21100040",
+    "title": "Somebody That I Used To Know",
+    "artist": "Gotye",
+    "album": "Making Mirrors",
+    "duration": 241,
+    "explicit": false,
+    "released": "2012-01-20"
+   }
+  },
+  {
+   "slug": "pumped-up-kicks",
+   "title": "Pumped Up Kicks",
+   "artist": "Foster the People",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "indie"
+   ],
+   "decoys": [
+    "Helena Beat",
+    "Don't Stop (Color on the Walls)",
+    "Houdini"
+   ],
+   "deezerId": 15546830,
+   "from": 14,
+   "len": 8,
+   "deezer": {
+    "id": 15546830,
+    "isrc": "USSM11002931",
+    "title": "Pumped Up Kicks",
+    "artist": "Foster The People",
+    "album": "Torches",
+    "duration": 239,
+    "explicit": false,
+    "released": "2011-05-23"
+   }
+  },
+  {
+   "slug": "radioactive",
+   "title": "Radioactive",
+   "artist": "Imagine Dragons",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "rock"
+   ],
+   "decoys": [
+    "Demons",
+    "It's Time",
+    "On Top of the World"
+   ],
+   "deezerId": 1896624687,
+   "from": 11.5,
+   "len": 8,
+   "deezer": {
+    "id": 1896624687,
+    "isrc": "USUM71201074",
+    "title": "Radioactive",
+    "artist": "Imagine Dragons",
+    "album": "Night Visions (Expanded Edition / Super Deluxe)",
+    "duration": 187,
+    "explicit": false,
+    "released": "2022-09-09"
+   }
+  },
+  {
+   "slug": "fireflies",
+   "title": "Fireflies",
+   "artist": "Owl City",
+   "tier": 3,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop"
+   ],
+   "decoys": [
+    "Good Time",
+    "Vanilla Twilight",
+    "Umbrella Beach"
+   ],
+   "deezerId": 4188437,
+   "from": 17.75,
+   "len": 8,
+   "deezer": {
+    "id": 4188437,
+    "isrc": "USUM70972068",
+    "title": "Fireflies",
+    "artist": "Owl City",
+    "album": "Ocean Eyes",
+    "duration": 228,
+    "explicit": false,
+    "released": "2009-07-28"
+   }
+  },
+  {
+   "slug": "titanium",
+   "title": "Titanium",
+   "artist": "David Guetta",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "edm"
+   ],
+   "decoys": [
+    "Without You",
+    "Memories",
+    "Play Hard"
+   ],
+   "query": "Titanium David Guetta Sia",
+   "deezerId": 62847142,
+   "from": 18.5,
+   "len": 8,
+   "feat": "Sia",
+   "deezer": {
+    "id": 62847142,
+    "isrc": "GB28K1100036",
+    "title": "Titanium (feat. Sia)",
+    "artist": "David Guetta",
+    "album": "Nothing but the Beat (Ultimate Edition)",
+    "duration": 245,
+    "explicit": false,
+    "released": "2012-12-07"
+   }
+  },
+  {
+   "slug": "wake-me-up",
+   "title": "Wake Me Up",
+   "artist": "Avicii",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "edm"
+   ],
+   "decoys": [
+    "Levels",
+    "Hey Brother",
+    "The Nights"
+   ],
+   "query": "Wake Me Up Avicii",
+   "deezerId": 70266756,
+   "from": 10.75,
+   "len": 8,
+   "deezer": {
+    "id": 70266756,
+    "isrc": "SEUM71301326",
+    "title": "Wake Me Up",
+    "artist": "Avicii",
+    "album": "True",
+    "duration": 249,
+    "explicit": false,
+    "released": "2013-09-16"
+   }
+  },
+  {
+   "slug": "scary-monsters",
+   "title": "Scary Monsters and Nice Sprites",
+   "artist": "Skrillex",
+   "tier": 4,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "edm"
+   ],
+   "decoys": [
+    "First of the Year (Equinox)",
+    "Kill Everybody",
+    "With You, Friends (Long Drive)"
+   ],
+   "deezerId": 7927244,
+   "from": 6,
+   "len": 8,
+   "deezer": {
+    "id": 7927244,
+    "isrc": "GBTDG1000196",
+    "title": "Scary Monsters and Nice Sprites",
+    "artist": "Skrillex",
+    "album": "Scary Monsters and Nice Sprites EP",
+    "duration": 243,
+    "explicit": false,
+    "released": "2010-12-21"
+   }
+  },
+  {
+   "slug": "sandstorm",
+   "title": "Sandstorm",
+   "artist": "Darude",
+   "tier": 3,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "edm",
+    "internet"
+   ],
+   "decoys": [
+    "Feel the Beat",
+    "Out of Control",
+    "Rush"
+   ],
+   "note": "Instrumental.",
+   "deezerId": 11390027,
+   "from": 1.75,
+   "len": 8,
+   "prompt": "Name this instrumental.",
+   "deezer": {
+    "id": 11390027,
+    "isrc": "FISGC9900001",
+    "title": "Sandstorm",
+    "artist": "Darude",
+    "album": "Before the Storm",
+    "duration": 225,
+    "explicit": false,
+    "released": "2000-01-01"
+   }
+  },
+  {
+   "slug": "gangnam-style",
+   "title": "Gangnam Style",
+   "artist": "PSY",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "pop",
+    "internet"
+   ],
+   "decoys": [
+    "Gentleman",
+    "New Face",
+    "Champion"
+   ],
+   "deezerId": 60726278,
+   "from": 7.5,
+   "len": 8,
+   "deezer": {
+    "id": 60726278,
+    "isrc": "USUM71210283",
+    "title": "Gangnam Style (강남스타일)",
+    "artist": "Psy",
+    "album": "Gangnam Style (강남스타일)",
+    "duration": 219,
+    "explicit": false,
+    "released": "2012-09-04"
+   }
+  },
+  {
+   "slug": "seven-nation-army",
+   "title": "Seven Nation Army",
+   "artist": "The White Stripes",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "rock"
+   ],
+   "decoys": [
+    "Fell in Love with a Girl",
+    "Icky Thump",
+    "Blue Orchid"
+   ],
+   "showAlbum": true,
+   "note": "Instrumental riff excerpt.",
+   "deezerId": 1153182282,
+   "from": 19.25,
+   "len": 8,
+   "prompt": "Name this riff.",
+   "deezer": {
+    "id": 1153182282,
+    "isrc": "USVT10300001",
+    "title": "Seven Nation Army",
+    "artist": "The White Stripes",
+    "album": "The White Stripes Greatest Hits",
+    "duration": 231,
+    "explicit": false,
+    "released": "2020-12-04"
+   },
+   "albumName": "Elephant"
+  },
+  {
+   "slug": "all-star",
+   "title": "All Star",
+   "artist": "Smash Mouth",
+   "tier": 1,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "internet"
+   ],
+   "decoys": [
+    "Walkin' on the Sun",
+    "Pacific Coast Party",
+    "Holiday in My Head"
+   ],
+   "deezerId": 917717,
+   "from": 12.5,
+   "len": 8,
+   "deezer": {
+    "id": 917717,
+    "isrc": "USIR19902220",
+    "title": "All Star",
+    "artist": "Smash Mouth",
+    "album": "All Star Smash Hits",
+    "duration": 201,
+    "explicit": false,
+    "released": "2005-08-02"
+   }
+  },
+  {
+   "slug": "sweet-child-o-mine",
+   "title": "Sweet Child o' Mine",
+   "artist": "Guns N' Roses",
+   "tier": 2,
+   "reach": "broad",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "Welcome to the Jungle",
+    "Paradise City",
+    "November Rain"
+   ],
+   "deezerId": 518458172,
+   "from": 17.75,
+   "len": 8,
+   "deezer": {
+    "id": 518458172,
+    "isrc": "USGF18714809",
+    "title": "Sweet Child O' Mine",
+    "artist": "Guns N' Roses",
+    "album": "Appetite For Destruction (Super Deluxe Edition)",
+    "duration": 355,
+    "explicit": false,
+    "released": "2018-06-29"
+   }
+  },
+  {
+   "slug": "chop-suey",
+   "title": "Chop Suey!",
+   "artist": "System of a Down",
+   "tier": 3,
+   "reach": "shared",
+   "by": "suggested",
+   "topics": [
+    "rock",
+    "guitar-hero"
+   ],
+   "decoys": [
+    "B.Y.O.B.",
+    "Toxicity",
+    "Aerials"
+   ],
+   "showAlbum": true,
+   "deezerId": 15523781,
+   "from": 8.75,
+   "len": 8,
+   "deezer": {
+    "id": 15523781,
+    "isrc": "USSM10107256",
+    "title": "Chop Suey!",
+    "artist": "System of A Down",
+    "album": "Toxicity",
+    "duration": 210,
+    "explicit": false,
+    "released": "2001-09-04"
+   }
+  }
+ ]
+}

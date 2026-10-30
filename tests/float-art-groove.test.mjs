@@ -203,8 +203,11 @@ test("the font: Float Pixel, the woff2 and its OFL licence beside it, declared o
   assert.equal(readFileSync(woff).subarray(0, 4).toString("latin1"), "wOF2");
   assert.match(readFileSync(join(PUB, "fonts/pixelify-sans-OFL.txt"), "utf8"), /SIL Open Font License/);
   const css = readFileSync(join(ROOT, "float/client/art/groove/groove.css"), "utf8");
-  assert.equal(css.match(/@font-face/g)?.length, 1);
-  assert.match(css, /font-family:\s*"Float Pixel"/);
+  /* two faces of the one family: the variable font to 650, its opened bold (float-pixel-bold.woff2) above */
+  assert.equal(css.match(/@font-face/g)?.length, 2);
+  assert.equal(css.match(/font-family:\s*"Float Pixel";/g)?.length, 2);
+  assert.ok(css.includes('url("/fonts/float-pixel-bold.woff2")'));
+  assert.equal(readFileSync(join(PUB, "fonts/float-pixel-bold.woff2")).subarray(0, 4).toString("latin1"), "wOF2");
   assert.ok(css.includes(`url("${manifest.font.src}")`));
 });
 

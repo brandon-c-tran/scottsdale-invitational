@@ -390,13 +390,19 @@
      "eyes": [
       690,
       460
+     ],
+     "deck": [
+      663,
+      880
      ]
     },
     "measure": {
      "headW": 330,
      "eyeSpan": 104,
      "tilt": -1.6
-    }
+    },
+    "deckR": 70,
+    "deckTilt": -2
    },
    "kayak": true,
    "tee": {
@@ -438,6 +444,10 @@
        "chest": [
         179,
         334
+       ],
+       "deck": [
+        326,
+        414
        ]
       },
       "chestR": 18,
@@ -445,7 +455,10 @@
        "headW": 160,
        "eyeSpan": 39,
        "tilt": -4
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "stroke": {
       "src": "critters/capybara/tee/stroke.webp",
@@ -479,6 +492,10 @@
        "chest": [
         193,
         350
+       ],
+       "deck": [
+        282,
+        416
        ]
       },
       "chestR": 20,
@@ -486,7 +503,10 @@
        "headW": 160,
        "eyeSpan": 37,
        "tilt": 3.4
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 6
      },
      "stroke-r": {
       "src": "critters/capybara/tee/stroke-r.webp",
@@ -520,6 +540,10 @@
        "chest": [
         266,
         363
+       ],
+       "deck": [
+        320,
+        412
        ]
       },
       "chestR": 20,
@@ -527,7 +551,10 @@
        "headW": 160,
        "eyeSpan": 39,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "hey": {
       "src": "critters/capybara/tee/hey.webp",
@@ -561,6 +588,10 @@
        "chest": [
         184,
         331
+       ],
+       "deck": [
+        324,
+        414
        ]
       },
       "chestR": 20,
@@ -568,7 +599,10 @@
        "headW": 160,
        "eyeSpan": 37,
        "tilt": -10
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "nice": {
       "src": "critters/capybara/tee/nice.webp",
@@ -602,6 +636,10 @@
        "chest": [
         178,
         332
+       ],
+       "deck": [
+        324,
+        408
        ]
       },
       "chestR": 18,
@@ -609,7 +647,10 @@
        "headW": 160,
        "eyeSpan": 40,
        "tilt": -5.9
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -14
      },
      "miss": {
       "src": "critters/capybara/tee/miss.webp",
@@ -643,6 +684,10 @@
        "chest": [
         166,
         344
+       ],
+       "deck": [
+        318,
+        414
        ]
       },
       "chestR": 18,
@@ -650,7 +695,10 @@
        "headW": 160,
        "eyeSpan": 39,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "chug": {
       "src": "critters/capybara/tee/chug.webp",
@@ -684,6 +732,10 @@
        "chest": [
         193,
         330
+       ],
+       "deck": [
+        318,
+        410
        ]
       },
       "chestR": 18,
@@ -691,7 +743,10 @@
        "headW": 160,
        "eyeSpan": 39,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.99,
+      "deckTilt": -6
      },
      "cheer": {
       "src": "critters/capybara/tee/cheer.webp",
@@ -725,6 +780,10 @@
        "chest": [
         195,
         344
+       ],
+       "deck": [
+        326,
+        414
        ]
       },
       "chestR": 20,
@@ -732,7 +791,10 @@
        "headW": 160,
        "eyeSpan": 35,
        "tilt": -3.9
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "out": {
       "src": "critters/capybara/tee/out.webp",
@@ -766,6 +828,10 @@
        "chest": [
         202,
         356
+       ],
+       "deck": [
+        198,
+        414
        ]
       },
       "chestR": 20,
@@ -773,7 +839,10 @@
        "headW": 160,
        "eyeSpan": 32,
        "tilt": 7.8
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 10
      }
     }
    }
@@ -1152,13 +1221,19 @@
      "eyes": [
       554,
       548
+     ],
+     "deck": [
+      324,
+      877
      ]
     },
     "measure": {
      "headW": 387,
      "eyeSpan": 237,
      "tilt": -0.2
-    }
+    },
+    "deckR": 54,
+    "deckTilt": 10
    },
    "kayak": true,
    "tee": {
@@ -1200,6 +1275,10 @@
        "chest": [
         237,
         364
+       ],
+       "deck": [
+        188,
+        414
        ]
       },
       "chestR": 18,
@@ -1207,7 +1286,10 @@
        "headW": 161,
        "eyeSpan": 92,
        "tilt": -0.7
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.7,
+      "deckTilt": 10
      },
      "stroke": {
       "src": "critters/javelina/tee/stroke.webp",
@@ -1241,6 +1323,10 @@
        "chest": [
         237,
         359
+       ],
+       "deck": [
+        214,
+        406
        ]
       },
       "chestR": 18,
@@ -1248,7 +1334,10 @@
        "headW": 152,
        "eyeSpan": 82,
        "tilt": 11
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "stroke-r": {
       "src": "critters/javelina/tee/stroke-r.webp",
@@ -1282,6 +1371,10 @@
        "chest": [
         277,
         376
+       ],
+       "deck": [
+        260,
+        416
        ]
       },
       "chestR": 18,
@@ -1289,7 +1382,10 @@
        "headW": 149,
        "eyeSpan": 85,
        "tilt": -1
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.96,
+      "deckTilt": 2
      },
      "hey": {
       "src": "critters/javelina/tee/hey.webp",
@@ -1323,6 +1419,10 @@
        "chest": [
         236,
         363
+       ],
+       "deck": [
+        188,
+        412
        ]
       },
       "chestR": 18,
@@ -1330,7 +1430,10 @@
        "headW": 139,
        "eyeSpan": 89,
        "tilt": 2.7
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.79,
+      "deckTilt": 10
      },
      "nice": {
       "src": "critters/javelina/tee/nice.webp",
@@ -1364,6 +1467,10 @@
        "chest": [
         238,
         358
+       ],
+       "deck": [
+        202,
+        412
        ]
       },
       "chestR": 18,
@@ -1371,7 +1478,10 @@
        "headW": 161,
        "eyeSpan": 92,
        "tilt": 0
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.66,
+      "deckTilt": 6
      },
      "miss": {
       "src": "critters/javelina/tee/miss.webp",
@@ -1405,6 +1515,10 @@
        "chest": [
         257,
         371
+       ],
+       "deck": [
+        258,
+        416
        ]
       },
       "chestR": 18,
@@ -1412,7 +1526,10 @@
        "headW": 161,
        "eyeSpan": 92,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.83,
+      "deckTilt": -2
      },
      "chug": {
       "src": "critters/javelina/tee/chug.webp",
@@ -1446,6 +1563,10 @@
        "chest": [
         225,
         337
+       ],
+       "deck": [
+        208,
+        412
        ]
       },
       "chestR": 18,
@@ -1453,7 +1574,10 @@
        "headW": 161,
        "eyeSpan": 92,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "cheer": {
       "src": "critters/javelina/tee/cheer.webp",
@@ -1487,6 +1611,10 @@
        "chest": [
         226,
         371
+       ],
+       "deck": [
+        202,
+        412
        ]
       },
       "chestR": 18,
@@ -1494,7 +1622,10 @@
        "headW": 143,
        "eyeSpan": 80,
        "tilt": 0.7
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "out": {
       "src": "critters/javelina/tee/out.webp",
@@ -1528,6 +1659,10 @@
        "chest": [
         211,
         361
+       ],
+       "deck": [
+        276,
+        416
        ]
       },
       "chestR": 18,
@@ -1535,7 +1670,10 @@
        "headW": 161,
        "eyeSpan": 92,
        "tilt": 0
-      }
+      },
+      "deckR": 20,
+      "chestShown": 0.71,
+      "deckTilt": 6
      }
     }
    }
@@ -1914,13 +2052,19 @@
      "eyes": [
       477,
       493
+     ],
+     "deck": [
+      313,
+      876
      ]
     },
     "measure": {
      "headW": 223,
      "eyeSpan": 128,
      "tilt": 0
-    }
+    },
+    "deckR": 55,
+    "deckTilt": 14
    },
    "kayak": true,
    "tee": {
@@ -1962,6 +2106,10 @@
        "chest": [
         251,
         347
+       ],
+       "deck": [
+        256,
+        418
        ]
       },
       "chestR": 18,
@@ -1969,7 +2117,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 20,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "stroke": {
       "src": "critters/roadrunner/tee/stroke.webp",
@@ -2003,6 +2154,10 @@
        "chest": [
         236,
         365
+       ],
+       "deck": [
+        200,
+        410
        ]
       },
       "chestR": 21,
@@ -2010,7 +2165,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "stroke-r": {
       "src": "critters/roadrunner/tee/stroke-r.webp",
@@ -2044,6 +2202,10 @@
        "chest": [
         258,
         370
+       ],
+       "deck": [
+        324,
+        414
        ]
       },
       "chestR": 21,
@@ -2051,7 +2213,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": -14
      },
      "hey": {
       "src": "critters/roadrunner/tee/hey.webp",
@@ -2085,6 +2250,10 @@
        "chest": [
         256,
         352
+       ],
+       "deck": [
+        308,
+        420
        ]
       },
       "chestR": 21,
@@ -2092,7 +2261,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "nice": {
       "src": "critters/roadrunner/tee/nice.webp",
@@ -2126,6 +2298,10 @@
        "chest": [
         247,
         351
+       ],
+       "deck": [
+        314,
+        420
        ]
       },
       "chestR": 18,
@@ -2133,7 +2309,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 20,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "miss": {
       "src": "critters/roadrunner/tee/miss.webp",
@@ -2167,6 +2346,10 @@
        "chest": [
         255,
         352
+       ],
+       "deck": [
+        250,
+        412
        ]
       },
       "chestR": 21,
@@ -2174,7 +2357,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "chug": {
       "src": "critters/roadrunner/tee/chug.webp",
@@ -2208,6 +2394,10 @@
        "chest": [
         243,
         355
+       ],
+       "deck": [
+        188,
+        414
        ]
       },
       "chestR": 18,
@@ -2215,7 +2405,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "cheer": {
       "src": "critters/roadrunner/tee/cheer.webp",
@@ -2249,6 +2442,10 @@
        "chest": [
         254,
         351
+       ],
+       "deck": [
+        198,
+        406
        ]
       },
       "chestR": 21,
@@ -2256,7 +2453,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "out": {
       "src": "critters/roadrunner/tee/out.webp",
@@ -2290,6 +2490,10 @@
        "chest": [
         220,
         354
+       ],
+       "deck": [
+        186,
+        410
        ]
       },
       "chestR": 18,
@@ -2297,7 +2501,10 @@
        "headW": 95,
        "eyeSpan": 50,
        "tilt": 0
-      }
+      },
+      "deckR": 19,
+      "chestShown": 1,
+      "deckTilt": 6
      }
     }
    }
@@ -2676,13 +2883,19 @@
      "eyes": [
       540,
       571
+     ],
+     "deck": [
+      649,
+      891
      ]
     },
     "measure": {
      "headW": 227,
      "eyeSpan": 151,
      "tilt": 1.2
-    }
+    },
+    "deckR": 59,
+    "deckTilt": -2
    },
    "kayak": true,
    "tee": {
@@ -2724,6 +2937,10 @@
        "chest": [
         280,
         357
+       ],
+       "deck": [
+        320,
+        416
        ]
       },
       "chestR": 18,
@@ -2731,7 +2948,10 @@
        "headW": 90,
        "eyeSpan": 58,
        "tilt": 1
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.8,
+      "deckTilt": -10
      },
      "stroke": {
       "src": "critters/jackrabbit/tee/stroke.webp",
@@ -2765,6 +2985,10 @@
        "chest": [
         254,
         361
+       ],
+       "deck": [
+        254,
+        412
        ]
       },
       "chestR": 18,
@@ -2772,7 +2996,10 @@
        "headW": 90,
        "eyeSpan": 54,
        "tilt": 7.9
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 6
      },
      "stroke-r": {
       "src": "critters/jackrabbit/tee/stroke-r.webp",
@@ -2806,6 +3033,10 @@
        "chest": [
         271,
         363
+       ],
+       "deck": [
+        326,
+        410
        ]
       },
       "chestR": 18,
@@ -2813,7 +3044,10 @@
        "headW": 90,
        "eyeSpan": 54,
        "tilt": -4.8
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "hey": {
       "src": "critters/jackrabbit/tee/hey.webp",
@@ -2847,6 +3081,10 @@
        "chest": [
         280,
         355
+       ],
+       "deck": [
+        304,
+        416
        ]
       },
       "chestR": 18,
@@ -2854,7 +3092,10 @@
        "headW": 90,
        "eyeSpan": 56,
        "tilt": 8
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.8,
+      "deckTilt": -6
      },
      "nice": {
       "src": "critters/jackrabbit/tee/nice.webp",
@@ -2888,6 +3129,10 @@
        "chest": [
         280,
         355
+       ],
+       "deck": [
+        314,
+        416
        ]
       },
       "chestR": 18,
@@ -2895,7 +3140,10 @@
        "headW": 90,
        "eyeSpan": 58,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.84,
+      "deckTilt": -10
      },
      "miss": {
       "src": "critters/jackrabbit/tee/miss.webp",
@@ -2929,6 +3177,10 @@
        "chest": [
         269,
         362
+       ],
+       "deck": [
+        256,
+        418
        ]
       },
       "chestR": 18,
@@ -2936,7 +3188,10 @@
        "headW": 90,
        "eyeSpan": 58,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.84,
+      "deckTilt": -2
      },
      "chug": {
       "src": "critters/jackrabbit/tee/chug.webp",
@@ -2970,6 +3225,10 @@
        "chest": [
         287,
         352
+       ],
+       "deck": [
+        292,
+        416
        ]
       },
       "chestR": 18,
@@ -2977,7 +3236,10 @@
        "headW": 90,
        "eyeSpan": 58,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "cheer": {
       "src": "critters/jackrabbit/tee/cheer.webp",
@@ -3011,6 +3273,10 @@
        "chest": [
         278,
         361
+       ],
+       "deck": [
+        324,
+        412
        ]
       },
       "chestR": 18,
@@ -3018,7 +3284,10 @@
        "headW": 90,
        "eyeSpan": 53,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "out": {
       "src": "critters/jackrabbit/tee/out.webp",
@@ -3052,6 +3321,10 @@
        "chest": [
         224,
         369
+       ],
+       "deck": [
+        276,
+        418
        ]
       },
       "chestR": 18,
@@ -3059,7 +3332,10 @@
        "headW": 94,
        "eyeSpan": 49,
        "tilt": -0.9
-      }
+      },
+      "deckR": 18,
+      "chestShown": 0.46,
+      "deckTilt": -14
      }
     }
    }
@@ -3438,13 +3714,19 @@
      "eyes": [
       513,
       537
+     ],
+     "deck": [
+      493,
+      892
      ]
     },
     "measure": {
      "headW": 329,
      "eyeSpan": 192,
      "tilt": 0.1
-    }
+    },
+    "deckR": 59,
+    "deckTilt": 6
    },
    "kayak": true,
    "tee": {
@@ -3486,6 +3768,10 @@
        "chest": [
         287,
         355
+       ],
+       "deck": [
+        226,
+        416
        ]
       },
       "chestR": 18,
@@ -3493,7 +3779,10 @@
        "headW": 127,
        "eyeSpan": 73,
        "tilt": 1.6
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.88,
+      "deckTilt": 10
      },
      "stroke": {
       "src": "critters/tortoise/tee/stroke.webp",
@@ -3527,6 +3816,10 @@
        "chest": [
         240,
         365
+       ],
+       "deck": [
+        248,
+        414
        ]
       },
       "chestR": 18,
@@ -3534,7 +3827,10 @@
        "headW": 113,
        "eyeSpan": 69,
        "tilt": 9.7
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "stroke-r": {
       "src": "critters/tortoise/tee/stroke-r.webp",
@@ -3568,6 +3864,10 @@
        "chest": [
         268,
         367
+       ],
+       "deck": [
+        322,
+        408
        ]
       },
       "chestR": 18,
@@ -3575,7 +3875,10 @@
        "headW": 124,
        "eyeSpan": 73,
        "tilt": -7.8
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "hey": {
       "src": "critters/tortoise/tee/hey.webp",
@@ -3609,6 +3912,10 @@
        "chest": [
         290,
         351
+       ],
+       "deck": [
+        222,
+        414
        ]
       },
       "chestR": 18,
@@ -3616,7 +3923,10 @@
        "headW": 104,
        "eyeSpan": 70,
        "tilt": 7.8
-      }
+      },
+      "deckR": 23,
+      "chestShown": 0.92,
+      "deckTilt": 6
      },
      "nice": {
       "src": "critters/tortoise/tee/nice.webp",
@@ -3650,6 +3960,10 @@
        "chest": [
         287,
         352
+       ],
+       "deck": [
+        296,
+        414
        ]
       },
       "chestR": 18,
@@ -3657,7 +3971,10 @@
        "headW": 127,
        "eyeSpan": 73,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 0.88,
+      "deckTilt": -10
      },
      "miss": {
       "src": "critters/tortoise/tee/miss.webp",
@@ -3691,6 +4008,10 @@
        "chest": [
         289,
         364
+       ],
+       "deck": [
+        254,
+        416
        ]
       },
       "chestR": 18,
@@ -3698,7 +4019,10 @@
        "headW": 127,
        "eyeSpan": 73,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 0.93,
+      "deckTilt": 10
      },
      "chug": {
       "src": "critters/tortoise/tee/chug.webp",
@@ -3732,6 +4056,10 @@
        "chest": [
         296,
         348
+       ],
+       "deck": [
+        252,
+        416
        ]
       },
       "chestR": 18,
@@ -3739,7 +4067,10 @@
        "headW": 127,
        "eyeSpan": 73,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "cheer": {
       "src": "critters/tortoise/tee/cheer.webp",
@@ -3773,6 +4104,10 @@
        "chest": [
         292,
         360
+       ],
+       "deck": [
+        256,
+        416
        ]
       },
       "chestR": 18,
@@ -3780,7 +4115,10 @@
        "headW": 127,
        "eyeSpan": 64,
        "tilt": 1.6
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "out": {
       "src": "critters/tortoise/tee/out.webp",
@@ -3814,6 +4152,10 @@
        "chest": [
         337,
         367
+       ],
+       "deck": [
+        278,
+        424
        ]
       },
       "chestR": 18,
@@ -3821,7 +4163,10 @@
        "headW": 156,
        "eyeSpan": 65,
        "tilt": 0
-      }
+      },
+      "deckR": 18,
+      "chestShown": 0.25,
+      "deckTilt": 6
      }
     }
    }
@@ -4200,13 +4545,19 @@
      "eyes": [
       384,
       551
+     ],
+     "deck": [
+      342,
+      880
      ]
     },
     "measure": {
      "headW": 321,
      "eyeSpan": 208,
      "tilt": 3.6
-    }
+    },
+    "deckR": 58,
+    "deckTilt": 10
    },
    "kayak": true,
    "tee": {
@@ -4248,6 +4599,10 @@
        "chest": [
         325,
         325
+       ],
+       "deck": [
+        210,
+        416
        ]
       },
       "chestR": 25,
@@ -4255,7 +4610,10 @@
        "headW": 133,
        "eyeSpan": 86,
        "tilt": 3.5
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "stroke": {
       "src": "critters/gila/tee/stroke.webp",
@@ -4289,6 +4647,10 @@
        "chest": [
         225,
         355
+       ],
+       "deck": [
+        256,
+        410
        ]
       },
       "chestR": 21,
@@ -4296,7 +4658,10 @@
        "headW": 143,
        "eyeSpan": 89,
        "tilt": 21.3
-      }
+      },
+      "deckR": 25,
+      "chestShown": 1,
+      "deckTilt": 6
      },
      "stroke-r": {
       "src": "critters/gila/tee/stroke-r.webp",
@@ -4330,6 +4695,10 @@
        "chest": [
         184,
         354
+       ],
+       "deck": [
+        314,
+        412
        ]
       },
       "chestR": 21,
@@ -4337,7 +4706,10 @@
        "headW": 123,
        "eyeSpan": 87,
        "tilt": -11.6
-      }
+      },
+      "deckR": 25,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "hey": {
       "src": "critters/gila/tee/hey.webp",
@@ -4371,6 +4743,10 @@
        "chest": [
         347,
         326
+       ],
+       "deck": [
+        204,
+        412
        ]
       },
       "chestR": 21,
@@ -4378,7 +4754,10 @@
        "headW": 133,
        "eyeSpan": 86,
        "tilt": 0
-      }
+      },
+      "deckR": 25,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "nice": {
       "src": "critters/gila/tee/nice.webp",
@@ -4412,6 +4791,10 @@
        "chest": [
         334,
         326
+       ],
+       "deck": [
+        236,
+        416
        ]
       },
       "chestR": 23,
@@ -4419,7 +4802,10 @@
        "headW": 133,
        "eyeSpan": 86,
        "tilt": 0
-      }
+      },
+      "deckR": 25,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "miss": {
       "src": "critters/gila/tee/miss.webp",
@@ -4453,6 +4839,10 @@
        "chest": [
         338,
         341
+       ],
+       "deck": [
+        250,
+        426
        ]
       },
       "chestR": 29,
@@ -4460,7 +4850,10 @@
        "headW": 133,
        "eyeSpan": 86,
        "tilt": 0
-      }
+      },
+      "deckR": 15,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "chug": {
       "src": "critters/gila/tee/chug.webp",
@@ -4494,6 +4887,10 @@
        "chest": [
         345,
         346
+       ],
+       "deck": [
+        198,
+        410
        ]
       },
       "chestR": 29,
@@ -4501,7 +4898,10 @@
        "headW": 133,
        "eyeSpan": 86,
        "tilt": 0
-      }
+      },
+      "deckR": 25,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "cheer": {
       "src": "critters/gila/tee/cheer.webp",
@@ -4535,6 +4935,10 @@
        "chest": [
         288,
         346
+       ],
+       "deck": [
+        186,
+        410
        ]
       },
       "chestR": 29,
@@ -4542,7 +4946,10 @@
        "headW": 136,
        "eyeSpan": 84,
        "tilt": 21.4
-      }
+      },
+      "deckR": 25,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "out": {
       "src": "critters/gila/tee/out.webp",
@@ -4576,6 +4983,10 @@
        "chest": [
         312,
         348
+       ],
+       "deck": [
+        308,
+        416
        ]
       },
       "chestR": 29,
@@ -4583,7 +4994,10 @@
        "headW": 156,
        "eyeSpan": 91,
        "tilt": 2.7
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -10
      }
     }
    }
@@ -4962,13 +5376,19 @@
      "eyes": [
       544,
       495
+     ],
+     "deck": [
+      670,
+      880
      ]
     },
     "measure": {
      "headW": 325,
      "eyeSpan": 237,
      "tilt": 1.7
-    }
+    },
+    "deckR": 66,
+    "deckTilt": -14
    },
    "kayak": true,
    "tee": {
@@ -5010,6 +5430,10 @@
        "chest": [
         283,
         351
+       ],
+       "deck": [
+        318,
+        414
        ]
       },
       "chestR": 18,
@@ -5017,7 +5441,10 @@
        "headW": 148,
        "eyeSpan": 90,
        "tilt": 1.7
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "stroke": {
       "src": "critters/hornedlizard/tee/stroke.webp",
@@ -5051,6 +5478,10 @@
        "chest": [
         231,
         366
+       ],
+       "deck": [
+        200,
+        408
        ]
       },
       "chestR": 18,
@@ -5058,7 +5489,10 @@
        "headW": 142,
        "eyeSpan": 91,
        "tilt": 12.9
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "stroke-r": {
       "src": "critters/hornedlizard/tee/stroke-r.webp",
@@ -5092,6 +5526,10 @@
        "chest": [
         291,
         360
+       ],
+       "deck": [
+        326,
+        410
        ]
       },
       "chestR": 18,
@@ -5099,7 +5537,10 @@
        "headW": 118,
        "eyeSpan": 81,
        "tilt": -7.4
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "hey": {
       "src": "critters/hornedlizard/tee/hey.webp",
@@ -5133,6 +5574,10 @@
        "chest": [
         283,
         351
+       ],
+       "deck": [
+        316,
+        416
        ]
       },
       "chestR": 18,
@@ -5140,7 +5585,10 @@
        "headW": 135,
        "eyeSpan": 89,
        "tilt": -2.2
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "nice": {
       "src": "critters/hornedlizard/tee/nice.webp",
@@ -5174,6 +5622,10 @@
        "chest": [
         279,
         351
+       ],
+       "deck": [
+        326,
+        412
        ]
       },
       "chestR": 18,
@@ -5181,7 +5633,10 @@
        "headW": 148,
        "eyeSpan": 90,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "miss": {
       "src": "critters/hornedlizard/tee/miss.webp",
@@ -5215,6 +5670,10 @@
        "chest": [
         237,
         362
+       ],
+       "deck": [
+        326,
+        416
        ]
       },
       "chestR": 18,
@@ -5222,7 +5681,10 @@
        "headW": 148,
        "eyeSpan": 90,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 0.94,
+      "deckTilt": -6
      },
      "chug": {
       "src": "critters/hornedlizard/tee/chug.webp",
@@ -5256,6 +5718,10 @@
        "chest": [
         312,
         352
+       ],
+       "deck": [
+        318,
+        416
        ]
       },
       "chestR": 18,
@@ -5263,7 +5729,10 @@
        "headW": 148,
        "eyeSpan": 90,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "cheer": {
       "src": "critters/hornedlizard/tee/cheer.webp",
@@ -5297,6 +5766,10 @@
        "chest": [
         290,
         362
+       ],
+       "deck": [
+        308,
+        414
        ]
       },
       "chestR": 18,
@@ -5304,7 +5777,10 @@
        "headW": 136,
        "eyeSpan": 78,
        "tilt": -0.2
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "out": {
       "src": "critters/hornedlizard/tee/out.webp",
@@ -5338,6 +5814,10 @@
        "chest": [
         202,
         379
+       ],
+       "deck": [
+        188,
+        412
        ]
       },
       "chestR": 18,
@@ -5345,7 +5825,10 @@
        "headW": 153,
        "eyeSpan": 74,
        "tilt": 7.1
-      }
+      },
+      "deckR": 18,
+      "chestShown": 0.98,
+      "deckTilt": 14
      }
     }
    }
@@ -5724,13 +6207,19 @@
      "eyes": [
       562,
       526
+     ],
+     "deck": [
+      652,
+      886
      ]
     },
     "measure": {
      "headW": 423,
      "eyeSpan": 190,
      "tilt": 0.2
-    }
+    },
+    "deckR": 65,
+    "deckTilt": -6
    },
    "kayak": true,
    "tee": {
@@ -5772,6 +6261,10 @@
        "chest": [
         291,
         357
+       ],
+       "deck": [
+        320,
+        412
        ]
       },
       "chestR": 18,
@@ -5779,7 +6272,10 @@
        "headW": 129,
        "eyeSpan": 71,
        "tilt": 0.1
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.76,
+      "deckTilt": -6
      },
      "stroke": {
       "src": "critters/bighorn/tee/stroke.webp",
@@ -5813,6 +6309,10 @@
        "chest": [
         254,
         368
+       ],
+       "deck": [
+        216,
+        408
        ]
       },
       "chestR": 18,
@@ -5820,7 +6320,10 @@
        "headW": 105,
        "eyeSpan": 65,
        "tilt": 14.7
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "stroke-r": {
       "src": "critters/bighorn/tee/stroke-r.webp",
@@ -5854,6 +6357,10 @@
        "chest": [
         280,
         366
+       ],
+       "deck": [
+        324,
+        416
        ]
       },
       "chestR": 18,
@@ -5861,7 +6368,10 @@
        "headW": 151,
        "eyeSpan": 69,
        "tilt": 5.8
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "hey": {
       "src": "critters/bighorn/tee/hey.webp",
@@ -5895,6 +6405,10 @@
        "chest": [
         289,
         356
+       ],
+       "deck": [
+        324,
+        416
        ]
       },
       "chestR": 18,
@@ -5902,7 +6416,10 @@
        "headW": 129,
        "eyeSpan": 69,
        "tilt": -1.7
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.82,
+      "deckTilt": -6
      },
      "nice": {
       "src": "critters/bighorn/tee/nice.webp",
@@ -5936,6 +6453,10 @@
        "chest": [
         282,
         356
+       ],
+       "deck": [
+        320,
+        416
        ]
       },
       "chestR": 18,
@@ -5943,7 +6464,10 @@
        "headW": 129,
        "eyeSpan": 71,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.83,
+      "deckTilt": -2
      },
      "miss": {
       "src": "critters/bighorn/tee/miss.webp",
@@ -5977,6 +6501,10 @@
        "chest": [
         268,
         363
+       ],
+       "deck": [
+        322,
+        416
        ]
       },
       "chestR": 18,
@@ -5984,7 +6512,10 @@
        "headW": 129,
        "eyeSpan": 71,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "chug": {
       "src": "critters/bighorn/tee/chug.webp",
@@ -6018,6 +6549,10 @@
        "chest": [
         295,
         349
+       ],
+       "deck": [
+        326,
+        410
        ]
       },
       "chestR": 18,
@@ -6025,7 +6560,10 @@
        "headW": 129,
        "eyeSpan": 71,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "cheer": {
       "src": "critters/bighorn/tee/cheer.webp",
@@ -6059,6 +6597,10 @@
        "chest": [
         294,
         360
+       ],
+       "deck": [
+        326,
+        410
        ]
       },
       "chestR": 18,
@@ -6066,7 +6608,10 @@
        "headW": 157,
        "eyeSpan": 60,
        "tilt": -1.4
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "out": {
       "src": "critters/bighorn/tee/out.webp",
@@ -6100,6 +6645,10 @@
        "chest": [
         206,
         382
+       ],
+       "deck": [
+        188,
+        410
        ]
       },
       "chestR": 18,
@@ -6107,7 +6656,10 @@
        "headW": 161,
        "eyeSpan": 63,
        "tilt": 0.2
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.68,
+      "deckTilt": 14
      }
     }
    }
@@ -6486,13 +7038,19 @@
      "eyes": [
       519,
       522
+     ],
+     "deck": [
+      328,
+      866
      ]
     },
     "measure": {
      "headW": 260,
      "eyeSpan": 187,
      "tilt": 0.2
-    }
+    },
+    "deckR": 63,
+    "deckTilt": 10
    },
    "kayak": true,
    "tee": {
@@ -6534,6 +7092,10 @@
        "chest": [
         277,
         358
+       ],
+       "deck": [
+        298,
+        420
        ]
       },
       "chestR": 18,
@@ -6541,7 +7103,10 @@
        "headW": 99,
        "eyeSpan": 71,
        "tilt": -0.6
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "stroke": {
       "src": "critters/quail/tee/stroke.webp",
@@ -6575,6 +7140,10 @@
        "chest": [
         240,
         373
+       ],
+       "deck": [
+        212,
+        412
        ]
       },
       "chestR": 18,
@@ -6582,7 +7151,10 @@
        "headW": 105,
        "eyeSpan": 70,
        "tilt": 5.4
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "stroke-r": {
       "src": "critters/quail/tee/stroke-r.webp",
@@ -6616,6 +7188,10 @@
        "chest": [
         279,
         370
+       ],
+       "deck": [
+        324,
+        416
        ]
       },
       "chestR": 20,
@@ -6623,7 +7199,10 @@
        "headW": 106,
        "eyeSpan": 69,
        "tilt": 7
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "hey": {
       "src": "critters/quail/tee/hey.webp",
@@ -6657,6 +7236,10 @@
        "chest": [
         279,
         354
+       ],
+       "deck": [
+        300,
+        418
        ]
       },
       "chestR": 18,
@@ -6664,7 +7247,10 @@
        "headW": 99,
        "eyeSpan": 71,
        "tilt": 0.1
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "nice": {
       "src": "critters/quail/tee/nice.webp",
@@ -6698,6 +7284,10 @@
        "chest": [
         277,
         357
+       ],
+       "deck": [
+        266,
+        418
        ]
       },
       "chestR": 18,
@@ -6705,7 +7295,10 @@
        "headW": 99,
        "eyeSpan": 71,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "miss": {
       "src": "critters/quail/tee/miss.webp",
@@ -6739,6 +7332,10 @@
        "chest": [
         277,
         364
+       ],
+       "deck": [
+        272,
+        420
        ]
       },
       "chestR": 20,
@@ -6746,7 +7343,10 @@
        "headW": 99,
        "eyeSpan": 71,
        "tilt": 0
-      }
+      },
+      "deckR": 20,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "chug": {
       "src": "critters/quail/tee/chug.webp",
@@ -6780,6 +7380,10 @@
        "chest": [
         302,
         356
+       ],
+       "deck": [
+        256,
+        416
        ]
       },
       "chestR": 18,
@@ -6787,7 +7391,10 @@
        "headW": 99,
        "eyeSpan": 71,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "cheer": {
       "src": "critters/quail/tee/cheer.webp",
@@ -6821,6 +7428,10 @@
        "chest": [
         285,
         364
+       ],
+       "deck": [
+        216,
+        414
        ]
       },
       "chestR": 20,
@@ -6828,7 +7439,10 @@
        "headW": 127,
        "eyeSpan": 68,
        "tilt": 1
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "out": {
       "src": "critters/quail/tee/out.webp",
@@ -6862,6 +7476,10 @@
        "chest": [
         203,
         348
+       ],
+       "deck": [
+        268,
+        420
        ]
       },
       "chestR": 18,
@@ -6869,7 +7487,10 @@
        "headW": 118,
        "eyeSpan": 63,
        "tilt": 6.3
-      }
+      },
+      "deckR": 19,
+      "chestShown": 0.75,
+      "deckTilt": 14
      }
     }
    }
@@ -7248,13 +7869,19 @@
      "eyes": [
       440,
       515
+     ],
+     "deck": [
+      318,
+      876
      ]
     },
     "measure": {
      "headW": 293,
      "eyeSpan": 194,
      "tilt": 0
-    }
+    },
+    "deckR": 66,
+    "deckTilt": 6
    },
    "kayak": true,
    "tee": {
@@ -7296,6 +7923,10 @@
        "chest": [
         298,
         343
+       ],
+       "deck": [
+        222,
+        420
        ]
       },
       "chestR": 19,
@@ -7303,7 +7934,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "stroke": {
       "src": "critters/armadillo/tee/stroke.webp",
@@ -7337,6 +7971,10 @@
        "chest": [
         308,
         343
+       ],
+       "deck": [
+        190,
+        406
        ]
       },
       "chestR": 18,
@@ -7344,7 +7982,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 6
      },
      "stroke-r": {
       "src": "critters/armadillo/tee/stroke-r.webp",
@@ -7378,6 +8019,10 @@
        "chest": [
         307,
         367
+       ],
+       "deck": [
+        326,
+        412
        ]
       },
       "chestR": 19,
@@ -7385,7 +8030,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -14
      },
      "hey": {
       "src": "critters/armadillo/tee/hey.webp",
@@ -7419,6 +8067,10 @@
        "chest": [
         313,
         339
+       ],
+       "deck": [
+        220,
+        418
        ]
       },
       "chestR": 19,
@@ -7426,7 +8078,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 1,
+      "deckTilt": 6
      },
      "nice": {
       "src": "critters/armadillo/tee/nice.webp",
@@ -7460,6 +8115,10 @@
        "chest": [
         300,
         337
+       ],
+       "deck": [
+        194,
+        414
        ]
       },
       "chestR": 19,
@@ -7467,7 +8126,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "miss": {
       "src": "critters/armadillo/tee/miss.webp",
@@ -7501,6 +8163,10 @@
        "chest": [
         296,
         342
+       ],
+       "deck": [
+        218,
+        416
        ]
       },
       "chestR": 18,
@@ -7508,7 +8174,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "chug": {
       "src": "critters/armadillo/tee/chug.webp",
@@ -7542,6 +8211,10 @@
        "chest": [
         279,
         319
+       ],
+       "deck": [
+        322,
+        402
        ]
       },
       "chestR": 22,
@@ -7549,7 +8222,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -14
      },
      "cheer": {
       "src": "critters/armadillo/tee/cheer.webp",
@@ -7583,6 +8259,10 @@
        "chest": [
         265,
         357
+       ],
+       "deck": [
+        190,
+        410
        ]
       },
       "chestR": 22,
@@ -7590,7 +8270,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "out": {
       "src": "critters/armadillo/tee/out.webp",
@@ -7624,6 +8307,10 @@
        "chest": [
         299,
         371
+       ],
+       "deck": [
+        322,
+        424
        ]
       },
       "chestR": 18,
@@ -7631,7 +8318,10 @@
        "headW": 111,
        "eyeSpan": 74,
        "tilt": 0
-      }
+      },
+      "deckR": 17,
+      "chestShown": 1,
+      "deckTilt": 2
      }
     }
    }
@@ -8010,13 +8700,19 @@
      "eyes": [
       530,
       536
+     ],
+     "deck": [
+      395,
+      876
      ]
     },
     "measure": {
      "headW": 360,
      "eyeSpan": 149,
      "tilt": 5.3
-    }
+    },
+    "deckR": 55,
+    "deckTilt": 6
    },
    "kayak": true,
    "tee": {
@@ -8058,6 +8754,10 @@
        "chest": [
         286,
         359
+       ],
+       "deck": [
+        202,
+        414
        ]
       },
       "chestR": 18,
@@ -8065,7 +8765,10 @@
        "headW": 129,
        "eyeSpan": 58,
        "tilt": 5.4
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.99,
+      "deckTilt": 10
      },
      "stroke": {
       "src": "critters/coyote/tee/stroke.webp",
@@ -8099,6 +8802,10 @@
        "chest": [
         232,
         365
+       ],
+       "deck": [
+        206,
+        408
        ]
       },
       "chestR": 18,
@@ -8106,7 +8813,10 @@
        "headW": 123,
        "eyeSpan": 56,
        "tilt": 16.7
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "stroke-r": {
       "src": "critters/coyote/tee/stroke-r.webp",
@@ -8140,6 +8850,10 @@
        "chest": [
         278,
         371
+       ],
+       "deck": [
+        248,
+        416
        ]
       },
       "chestR": 18,
@@ -8147,7 +8861,10 @@
        "headW": 128,
        "eyeSpan": 56,
        "tilt": 9.4
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "hey": {
       "src": "critters/coyote/tee/hey.webp",
@@ -8181,6 +8898,10 @@
        "chest": [
         280,
         359
+       ],
+       "deck": [
+        212,
+        412
        ]
       },
       "chestR": 18,
@@ -8188,7 +8909,10 @@
        "headW": 134,
        "eyeSpan": 57,
        "tilt": 13.8
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.94,
+      "deckTilt": 14
      },
      "nice": {
       "src": "critters/coyote/tee/nice.webp",
@@ -8222,6 +8946,10 @@
        "chest": [
         275,
         360
+       ],
+       "deck": [
+        240,
+        418
        ]
       },
       "chestR": 18,
@@ -8229,7 +8957,10 @@
        "headW": 129,
        "eyeSpan": 58,
        "tilt": 0
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.96,
+      "deckTilt": 10
      },
      "miss": {
       "src": "critters/coyote/tee/miss.webp",
@@ -8263,6 +8994,10 @@
        "chest": [
         242,
         368
+       ],
+       "deck": [
+        226,
+        418
        ]
       },
       "chestR": 18,
@@ -8270,7 +9005,10 @@
        "headW": 129,
        "eyeSpan": 58,
        "tilt": 0
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.85,
+      "deckTilt": 10
      },
      "chug": {
       "src": "critters/coyote/tee/chug.webp",
@@ -8304,6 +9042,10 @@
        "chest": [
         288,
         352
+       ],
+       "deck": [
+        220,
+        410
        ]
       },
       "chestR": 18,
@@ -8311,7 +9053,10 @@
        "headW": 129,
        "eyeSpan": 58,
        "tilt": 0
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "cheer": {
       "src": "critters/coyote/tee/cheer.webp",
@@ -8345,6 +9090,10 @@
        "chest": [
         280,
         362
+       ],
+       "deck": [
+        274,
+        414
        ]
       },
       "chestR": 18,
@@ -8352,7 +9101,10 @@
        "headW": 126,
        "eyeSpan": 54,
        "tilt": 8.2
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "out": {
       "src": "critters/coyote/tee/out.webp",
@@ -8386,6 +9138,10 @@
        "chest": [
         194,
         367
+       ],
+       "deck": [
+        186,
+        400
        ]
       },
       "chestR": 18,
@@ -8393,7 +9149,10 @@
        "headW": 129,
        "eyeSpan": 46,
        "tilt": 6.4
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.67,
+      "deckTilt": 14
      }
     }
    }
@@ -8772,13 +9531,19 @@
      "eyes": [
       504,
       453
+     ],
+     "deck": [
+      668,
+      886
      ]
     },
     "measure": {
      "headW": 396,
      "eyeSpan": 192,
      "tilt": -1.7
-    }
+    },
+    "deckR": 65,
+    "deckTilt": -6
    },
    "kayak": true,
    "tee": {
@@ -8820,6 +9585,10 @@
        "chest": [
         275,
         341
+       ],
+       "deck": [
+        326,
+        412
        ]
       },
       "chestR": 21,
@@ -8827,7 +9596,10 @@
        "headW": 171,
        "eyeSpan": 81,
        "tilt": -0.1
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "stroke": {
       "src": "critters/otter/tee/stroke.webp",
@@ -8861,6 +9633,10 @@
        "chest": [
         219,
         351
+       ],
+       "deck": [
+        202,
+        402
        ]
       },
       "chestR": 24,
@@ -8868,7 +9644,10 @@
        "headW": 158,
        "eyeSpan": 76,
        "tilt": 9.3
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "stroke-r": {
       "src": "critters/otter/tee/stroke-r.webp",
@@ -8902,6 +9681,10 @@
        "chest": [
         304,
         358
+       ],
+       "deck": [
+        280,
+        416
        ]
       },
       "chestR": 24,
@@ -8909,7 +9692,10 @@
        "headW": 150,
        "eyeSpan": 77,
        "tilt": -10.6
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "hey": {
       "src": "critters/otter/tee/hey.webp",
@@ -8943,6 +9729,10 @@
        "chest": [
         274,
         344
+       ],
+       "deck": [
+        320,
+        416
        ]
       },
       "chestR": 20,
@@ -8950,7 +9740,10 @@
        "headW": 129,
        "eyeSpan": 77,
        "tilt": 8
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "nice": {
       "src": "critters/otter/tee/nice.webp",
@@ -8984,6 +9777,10 @@
        "chest": [
         276,
         345
+       ],
+       "deck": [
+        326,
+        416
        ]
       },
       "chestR": 22,
@@ -8991,7 +9788,10 @@
        "headW": 171,
        "eyeSpan": 81,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -6
      },
      "miss": {
       "src": "critters/otter/tee/miss.webp",
@@ -9025,6 +9825,10 @@
        "chest": [
         259,
         348
+       ],
+       "deck": [
+        212,
+        412
        ]
       },
       "chestR": 23,
@@ -9032,7 +9836,10 @@
        "headW": 171,
        "eyeSpan": 81,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "chug": {
       "src": "critters/otter/tee/chug.webp",
@@ -9066,6 +9873,10 @@
        "chest": [
         294,
         341
+       ],
+       "deck": [
+        258,
+        416
        ]
       },
       "chestR": 24,
@@ -9073,7 +9884,10 @@
        "headW": 171,
        "eyeSpan": 81,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "cheer": {
       "src": "critters/otter/tee/cheer.webp",
@@ -9107,6 +9921,10 @@
        "chest": [
         296,
         358
+       ],
+       "deck": [
+        322,
+        416
        ]
       },
       "chestR": 24,
@@ -9114,7 +9932,10 @@
        "headW": 154,
        "eyeSpan": 74,
        "tilt": 3.1
-      }
+      },
+      "deckR": 23,
+      "chestShown": 1,
+      "deckTilt": -10
      },
      "out": {
       "src": "critters/otter/tee/out.webp",
@@ -9148,6 +9969,10 @@
        "chest": [
         183,
         355
+       ],
+       "deck": [
+        282,
+        420
        ]
       },
       "chestR": 20,
@@ -9155,7 +9980,10 @@
        "headW": 160,
        "eyeSpan": 75,
        "tilt": 9.9
-      }
+      },
+      "deckR": 19,
+      "chestShown": 0.77,
+      "deckTilt": 10
      }
     }
    }
@@ -9534,13 +10362,19 @@
      "eyes": [
       513,
       440
+     ],
+     "deck": [
+      658,
+      893
      ]
     },
     "measure": {
      "headW": 477,
      "eyeSpan": 298,
      "tilt": -0.1
-    }
+    },
+    "deckR": 56,
+    "deckTilt": -6
    },
    "kayak": true,
    "tee": {
@@ -9582,6 +10416,10 @@
        "chest": [
         289,
         352
+       ],
+       "deck": [
+        284,
+        416
        ]
       },
       "chestR": 18,
@@ -9589,7 +10427,10 @@
        "headW": 183,
        "eyeSpan": 114,
        "tilt": 0.1
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "stroke": {
       "src": "critters/frog/tee/stroke.webp",
@@ -9623,6 +10464,10 @@
        "chest": [
         223,
         363
+       ],
+       "deck": [
+        212,
+        414
        ]
       },
       "chestR": 18,
@@ -9630,7 +10475,10 @@
        "headW": 167,
        "eyeSpan": 104,
        "tilt": 13.1
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 6
      },
      "stroke-r": {
       "src": "critters/frog/tee/stroke-r.webp",
@@ -9664,6 +10512,10 @@
        "chest": [
         284,
         368
+       ],
+       "deck": [
+        256,
+        420
        ]
       },
       "chestR": 18,
@@ -9671,7 +10523,10 @@
        "headW": 165,
        "eyeSpan": 103,
        "tilt": -12.1
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": -2
      },
      "hey": {
       "src": "critters/frog/tee/hey.webp",
@@ -9705,6 +10560,10 @@
        "chest": [
         272,
         359
+       ],
+       "deck": [
+        200,
+        414
        ]
       },
       "chestR": 18,
@@ -9712,7 +10571,10 @@
        "headW": 163,
        "eyeSpan": 102,
        "tilt": 11.5
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.95,
+      "deckTilt": 10
      },
      "nice": {
       "src": "critters/frog/tee/nice.webp",
@@ -9746,6 +10608,10 @@
        "chest": [
         286,
         351
+       ],
+       "deck": [
+        210,
+        412
        ]
       },
       "chestR": 18,
@@ -9753,7 +10619,10 @@
        "headW": 183,
        "eyeSpan": 114,
        "tilt": 0
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 2
      },
      "miss": {
       "src": "critters/frog/tee/miss.webp",
@@ -9787,6 +10656,10 @@
        "chest": [
         260,
         370
+       ],
+       "deck": [
+        256,
+        420
        ]
       },
       "chestR": 18,
@@ -9794,7 +10667,10 @@
        "headW": 170,
        "eyeSpan": 106,
        "tilt": 7.5
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.98,
+      "deckTilt": 2
      },
      "chug": {
       "src": "critters/frog/tee/chug.webp",
@@ -9828,6 +10704,10 @@
        "chest": [
         273,
         362
+       ],
+       "deck": [
+        194,
+        410
        ]
       },
       "chestR": 18,
@@ -9835,7 +10715,10 @@
        "headW": 167,
        "eyeSpan": 104,
        "tilt": 5
-      }
+      },
+      "deckR": 21,
+      "chestShown": 0.91,
+      "deckTilt": 14
      },
      "cheer": {
       "src": "critters/frog/tee/cheer.webp",
@@ -9869,6 +10752,10 @@
        "chest": [
         303,
         363
+       ],
+       "deck": [
+        216,
+        414
        ]
       },
       "chestR": 18,
@@ -9876,7 +10763,10 @@
        "headW": 155,
        "eyeSpan": 97,
        "tilt": 6.7
-      }
+      },
+      "deckR": 21,
+      "chestShown": 1,
+      "deckTilt": 6
      },
      "out": {
       "src": "critters/frog/tee/out.webp",
@@ -9910,6 +10800,10 @@
        "chest": [
         207,
         350
+       ],
+       "deck": [
+        280,
+        424
        ]
       },
       "chestR": 18,
@@ -9917,7 +10811,10 @@
        "headW": 168,
        "eyeSpan": 105,
        "tilt": 16.8
-      }
+      },
+      "deckR": 16,
+      "chestShown": 0.83,
+      "deckTilt": 14
      }
     }
    }
@@ -10296,13 +11193,19 @@
      "eyes": [
       558,
       522
+     ],
+     "deck": [
+      314,
+      865
      ]
     },
     "measure": {
      "headW": 433,
      "eyeSpan": 145,
      "tilt": 1.6
-    }
+    },
+    "deckR": 54,
+    "deckTilt": 14
    },
    "kayak": true,
    "tee": {
@@ -10344,6 +11247,10 @@
        "chest": [
         282,
         355
+       ],
+       "deck": [
+        198,
+        412
        ]
       },
       "chestR": 18,
@@ -10351,7 +11258,10 @@
        "headW": 179,
        "eyeSpan": 57,
        "tilt": 1.3
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.95,
+      "deckTilt": 6
      },
      "stroke": {
       "src": "critters/winnie/tee/stroke.webp",
@@ -10385,6 +11295,10 @@
        "chest": [
         241,
         366
+       ],
+       "deck": [
+        198,
+        400
        ]
       },
       "chestR": 18,
@@ -10392,7 +11306,10 @@
        "headW": 172,
        "eyeSpan": 53,
        "tilt": 10.4
-      }
+      },
+      "deckR": 24,
+      "chestShown": 0.95,
+      "deckTilt": 14
      },
      "stroke-r": {
       "src": "critters/winnie/tee/stroke-r.webp",
@@ -10426,6 +11343,10 @@
        "chest": [
         293,
         363
+       ],
+       "deck": [
+        306,
+        408
        ]
       },
       "chestR": 18,
@@ -10433,7 +11354,10 @@
        "headW": 175,
        "eyeSpan": 54,
        "tilt": -9.9
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": -14
      },
      "hey": {
       "src": "critters/winnie/tee/hey.webp",
@@ -10467,6 +11391,10 @@
        "chest": [
         281,
         348
+       ],
+       "deck": [
+        192,
+        406
        ]
       },
       "chestR": 18,
@@ -10474,7 +11402,10 @@
        "headW": 169,
        "eyeSpan": 58,
        "tilt": 12.2
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "nice": {
       "src": "critters/winnie/tee/nice.webp",
@@ -10508,6 +11439,10 @@
        "chest": [
         276,
         353
+       ],
+       "deck": [
+        216,
+        412
        ]
       },
       "chestR": 18,
@@ -10515,7 +11450,10 @@
        "headW": 179,
        "eyeSpan": 57,
        "tilt": 0
-      }
+      },
+      "deckR": 22,
+      "chestShown": 0.99,
+      "deckTilt": 10
      },
      "miss": {
       "src": "critters/winnie/tee/miss.webp",
@@ -10549,6 +11487,10 @@
        "chest": [
         277,
         361
+       ],
+       "deck": [
+        204,
+        410
        ]
       },
       "chestR": 18,
@@ -10556,7 +11498,10 @@
        "headW": 179,
        "eyeSpan": 57,
        "tilt": 0
-      }
+      },
+      "deckR": 23,
+      "chestShown": 0.98,
+      "deckTilt": 10
      },
      "chug": {
       "src": "critters/winnie/tee/chug.webp",
@@ -10590,6 +11535,10 @@
        "chest": [
         293,
         356
+       ],
+       "deck": [
+        186,
+        408
        ]
       },
       "chestR": 18,
@@ -10597,7 +11546,10 @@
        "headW": 179,
        "eyeSpan": 57,
        "tilt": 0
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 14
      },
      "cheer": {
       "src": "critters/winnie/tee/cheer.webp",
@@ -10631,6 +11583,10 @@
        "chest": [
         277,
         368
+       ],
+       "deck": [
+        190,
+        410
        ]
       },
       "chestR": 18,
@@ -10638,7 +11594,10 @@
        "headW": 153,
        "eyeSpan": 54,
        "tilt": 8.7
-      }
+      },
+      "deckR": 24,
+      "chestShown": 1,
+      "deckTilt": 10
      },
      "out": {
       "src": "critters/winnie/tee/out.webp",
@@ -10672,6 +11631,10 @@
        "chest": [
         168,
         366
+       ],
+       "deck": [
+        186,
+        410
        ]
       },
       "chestR": 18,
@@ -10679,7 +11642,10 @@
        "headW": 159,
        "eyeSpan": 51,
        "tilt": 5.5
-      }
+      },
+      "deckR": 18,
+      "chestShown": 0.47,
+      "deckTilt": 14
      }
     }
    }

@@ -16,7 +16,8 @@
                                            (object URLs, cached per everything that changes them;
                                            size one of SPRITE_SIZES, spriteSize(drawn, dpr) picks it)
      riderSpritesNow({ ... })           -> the same, if already painted, else null
-     riderPortrait(entrant, { size })   -> Promise<PNG data URL | null> (null without a DOM)
+     riderPortrait(entrant, { size, frame }) -> Promise<PNG data URL | null> (null without a DOM);
+                                           frame "head" crops to the head, so a hat or glasses chip reads small
      sceneOf(id) / propOf(id) / hostSprites() / bartenderSprites()
                                         -> the manifest's entry with absolute URLs
                                            (null until loadGrooveArt has resolved)
@@ -196,6 +197,8 @@ export function hatOf(look, m = manifest) {
 const DEFAULT_MEASURE = Object.freeze({ headW:180, eyeSpan:80, tilt:0 });
 /* a head is never taken as narrower than this share of the box (a hat on a small head still reads on a TV) */
 const MIN_HEAD_SHARE = 0.2;
+/* the photo window on a kayak's hull: this many times as wide as tall (scripts/float-art-deck.mjs ASPECT) */
+export const DECK_ASPECT = 1.7;
 /* glasses: as wide as the eyes ask, within these shares of the head */
 const SHADES_MIN = 0.62, SHADES_MAX = 0.95;
 const measureOf = (entry, fallback = DEFAULT_MEASURE) => ({ ...fallback, ...(entry?.measure || {}) });
@@ -259,11 +262,11 @@ function tinted(src, mask, color) {
 
 /* Paint one pose onto a new canvas of w x h: src with its masks (the tube,
    the tee's shirt) in the colour, then the photo printed round on the
-   chest, the glasses at the eyes, the hat on the head. Anchors and sizes
+   chest (on a kayak, a sticker on the hull at anchor.deck, deckR), the glasses at the eyes, the hat on the head. Anchors and sizes
    are in the art's own px (boxW wide). layers: { photo, shades:{ img, w,
    h, anchor, span }, hat:{ img, w, h, anchor (its base), fit, depth, gap } }. `crown` is
    the old single-crown form ({ img, at, anchor:[share x, share y], share }). */
-export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, anchor = null, measure = DEFAULT_MEASURE, chestR = 0, layers = {}, crown = null }) {
+export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, anchor = null, measure = DEFAULT_MEASURE, chestR = 0, deckR = 0, deckTilt = 0, layers = {}, crown = null }) {
   const out = canvas(w, h);
   const g = out.getContext("2d");
   g.drawImage(src, 0, 0, w, h);
@@ -271,26 +274,46 @@ export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, an
   tintInto(g, src, shirt, color, w, h);
   const k = w / boxW;
   const { photo, shades, hat } = layers || {};
-  if (photo && anchor?.chest && chestR > 0) {
-    /* printed on the tee: the photo's middle square in a ringed circle, kept to the shirt (the arms cross it) */
-    const [cx, cy] = anchor.chest, r = chestR * k;
+  /* the photo: on a kayak, a sticker on the hull's side (deckR), the one place every pose shows whole;
+     else printed on the tee's chest, kept to the shirt (the arms cross it) */
+  const onDeck = photo && anchor?.deck && deckR > 0;
+  const at = onDeck ? anchor.deck : anchor?.chest;
+  const pr = onDeck ? deckR : chestR;
+  /* the deck circle lies inside the hull by its measure (the mask, thinned at the shine, would fade it) */
+  const keep = onDeck ? null : shirt;
+  if (photo && at && pr > 0) {
+    const [cx, cy] = at, r = pr * k;
+    /* the deck's window is wide (DECK_ASPECT), turned with the hull; the chest's is round */
+    const rx = onDeck ? r * DECK_ASPECT : r, turn = onDeck ? (Number(deckTilt) || 0) * Math.PI / 180 : 0;
     const p = canvas(w, h);
     const pg = p.getContext("2d");
+    const shape = (sx, sy) => { pg.beginPath(); pg.ellipse(cx * k, cy * k, sx, sy, turn, 0, Math.PI * 2); };
+    if (onDeck) {
+      /* a white rim, then the photo's middle, then the ink line */
+      shape(rx, r);
+      pg.fillStyle = "#fffdf8";
+      pg.fill();
+    }
+    const inset = onDeck ? r * 0.16 : 0;
+    const iy = r - inset, ix = rx - inset;
     pg.save();
-    pg.beginPath();
-    pg.arc(cx * k, cy * k, r, 0, Math.PI * 2);
+    shape(ix, iy);
     pg.clip();
-    const side = Math.min(photo.width, photo.height);
-    pg.drawImage(photo, (photo.width - side) / 2, (photo.height - side) / 2, side, side, cx * k - r, cy * k - r, r * 2, r * 2);
+    /* the photo's middle band (a face sits a little over the middle of a profile photo), as wide as the window */
+    const pw = photo.width, ph = photo.height;
+    const sw = Math.min(pw, ph * (ix / iy)), sh = sw * (iy / ix);
+    const sx = (pw - sw) / 2, sy = Math.max(0, Math.min(ph - sh, ph * (onDeck ? 0.46 : 0.5) - sh / 2));
+    pg.translate(cx * k, cy * k);
+    pg.rotate(turn);
+    pg.drawImage(photo, sx, sy, sw, sh, -ix, -iy, ix * 2, iy * 2);
     pg.restore();
-    pg.beginPath();
-    pg.arc(cx * k, cy * k, r, 0, Math.PI * 2);
-    pg.lineWidth = Math.max(1, r * 0.1);
+    shape(rx, r);
+    pg.lineWidth = Math.max(1, r * (onDeck ? 0.12 : 0.1));
     pg.strokeStyle = "#1d1b22";
     pg.stroke();
-    if (shirt) {
+    if (keep) {
       pg.globalCompositeOperation = "destination-in";
-      pg.drawImage(shirt, 0, 0, w, h);
+      pg.drawImage(keep, 0, 0, w, h);
     }
     g.drawImage(p, 0, 0);
   }
@@ -455,7 +478,7 @@ export function riderSprites(raw = {}) {
           loadImage(grooveUrl(art.tube)).catch(() => null),
           art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null,
         ]);
-        const out = paintSprite({ src, tube, shirt, color:look.color, w:Math.round(px * box[0] / BOX), h:Math.round(px * box[1] / BOX), boxW:box[0], anchor:at, measure, chestR:art.chestR || 0, layers });
+        const out = paintSprite({ src, tube, shirt, color:look.color, w:Math.round(px * box[0] / BOX), h:Math.round(px * box[1] / BOX), boxW:box[0], anchor:at, measure, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers });
         urls[pose] = await canvasUrl(out);
         /* poses that share one file and anchors (the placeholders) are painted once */
         done.set(fileKey, urls[pose]);
@@ -485,7 +508,15 @@ const portraits = new Map();
    null without a DOM. entrant: { color, groom, photo, look:{ critter, hat,
    shades, shirt } }. With the photo tee the still is the tee's idle pose,
    cut to the portrait's framing (tee.frame). */
-export async function riderPortrait(entrant = {}, { size = 256 } = {}) {
+/* a square about the head (frame "head"): room over it for the tallest hat, the face and glasses inside */
+function headSquare(anchor, measure, W) {
+  const hw = Math.max(measure.headW || DEFAULT_MEASURE.headW, W * MIN_HEAD_SHARE);
+  const side = Math.min(W, hw * 1.8);
+  const cx = anchor?.head?.[0] ?? W / 2, top = (anchor?.head?.[1] ?? W * 0.3) - hw * 0.7;
+  const x = Math.max(0, Math.min(W - side, cx - side / 2)), y = Math.max(0, Math.min(W - side, top));
+  return [x, y, side];
+}
+export async function riderPortrait(entrant = {}, { size = 256, frame = "full" } = {}) {
   if (!hasCanvas() || typeof fetch !== "function") return null;
   const m = await loadGrooveArt().catch(() => null);
   if (!m) return null;
@@ -494,7 +525,8 @@ export async function riderPortrait(entrant = {}, { size = 256 } = {}) {
   const c = critterArt(id, m);
   if (!c?.portrait) return null;
   const px = Math.max(16, Math.min(1024, Math.round(Number(size) || 256)));
-  const key = `${spriteKey({ ...look, size:BOX })}|${px}`;
+  const head = frame === "head";
+  const key = `${spriteKey({ ...look, size:BOX })}|${px}${head ? "|head" : ""}`;
   if (portraits.has(key)) return portraits.get(key);
   const job = (async () => {
     const layers = await layersOf(m, look);
@@ -503,15 +535,23 @@ export async function riderPortrait(entrant = {}, { size = 256 } = {}) {
       const art = tee.poses.idle;
       const box = m.box || [BOX, BOX];
       const [src, tube, shirt] = await Promise.all([loadImage(grooveUrl(art.src)), loadImage(grooveUrl(art.tube)).catch(() => null), art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null]);
-      const full = paintSprite({ src, tube, shirt, color:look.color, w:box[0], h:box[1], boxW:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor }, measure:measureOf(art, measureOf(c)), chestR:art.chestR || 0, layers });
-      const [fx, fy, fw] = tee.frame || [0, 0, box[0]];
+      const full = paintSprite({ src, tube, shirt, color:look.color, w:box[0], h:box[1], boxW:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor }, measure:measureOf(art, measureOf(c)), chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers });
+      const [fx, fy, fw] = head ? headSquare({ ...c.anchor, ...art.anchor }, measureOf(art, measureOf(c)), box[0]) : tee.frame || [0, 0, box[0]];
       const out = canvas(px, px);
       out.getContext("2d").drawImage(full, fx, fy, fw, fw, 0, 0, px, px);
       return canvasDataUrl(out);
     }
     const [src, tube] = await Promise.all([loadImage(grooveUrl(c.portrait.src)), loadImage(grooveUrl(c.portrait.tube)).catch(() => null)]);
     const pm = measureOf(c.portrait, { headW:DEFAULT_MEASURE.headW * 2, eyeSpan:DEFAULT_MEASURE.eyeSpan * 2 });
-    const out = paintSprite({ src, tube, color:look.color, w:px, h:px, boxW:c.portrait.w || 1024, anchor:c.portrait.anchor, measure:pm, layers });
+    const PW = c.portrait.w || 1024;
+    if (head) {
+      const full = paintSprite({ src, tube, color:look.color, w:PW, h:PW, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
+      const [fx, fy, fw] = headSquare(c.portrait.anchor, pm, PW);
+      const out = canvas(px, px);
+      out.getContext("2d").drawImage(full, fx, fy, fw, fw, 0, 0, px, px);
+      return canvasDataUrl(out);
+    }
+    const out = paintSprite({ src, tube, color:look.color, w:px, h:px, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
     return canvasDataUrl(out);
   })();
   job.catch(() => portraits.delete(key));

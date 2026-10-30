@@ -436,3 +436,18 @@ test("the kayaks: every idle hull sits on the waterline at one width, and stroke
     assert.ok(alphaAt(tl, L) > 100 && alphaAt(tr, Rb) > 100, `${id}: the blades are in the tube mask`);
   }
 });
+
+/* v4 polish: on a kayak the photo rides the hull (the paddle and deck cover the tee's chest) */
+test("the photo tee on a kayak: every tee pose and portrait has a photo window inside its hull", async () => {
+  for (const id of ALL_CRITTER_IDS) {
+    const c = manifest.critters[id];
+    for (const pose of POSES) {
+      const p = c.tee.poses[pose];
+      assert.ok(isPoint(p.anchor.deck, 512, 512) && p.deckR >= 14 && p.deckR <= 34 && Math.abs(p.deckTilt || 0) <= 14, `${id} ${pose} deck`);
+      /* on the hull: under the critter, over the waterline */
+      assert.ok(p.anchor.deck[1] < p.anchor.water[1] && p.anchor.deck[1] > p.anchor.water[1] - 110, `${id} ${pose} deck on the hull`);
+    }
+    assert.ok(isPoint(c.portrait.anchor.deck, c.portrait.w, c.portrait.h) && c.portrait.deckR > 20, `${id} portrait deck`);
+  }
+  assert.ok(groove.DECK_ASPECT > 1);
+});

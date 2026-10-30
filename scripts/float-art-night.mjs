@@ -19,7 +19,7 @@ import { OUT, WEBP, editManifest } from "./float-art-lib.mjs";
 
 const W = 1920, H = 1080;
 export const NIGHT = { sky:["#1b2463", "#5a3f9e", "#8d5fb8"], moon:"#fff4cf", star:"#fffbe8", far:"#3b2f78", near:"#241b52", bank:"#2d2361",
-  water:["#2a2f7a", "#5b4aa6"], check:"#7d6cd0", water0:0.56 };
+  water:["#182a6e", "#3b4aa8"], check:"#8fa6ff", water0:0.56 };
 const rand = seed => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const f = n => n.toFixed(1);
 
@@ -85,7 +85,7 @@ function waterSvg(p, top) {
   let rows = "", y = top, h = 12, k = 0;
   while (y < H) {
     const cols = Math.max(8, Math.round(40 * Math.pow(0.83, k)));
-    const cw = W / cols, t = (y - top) / (H - top), a = Math.min(0.42, 0.05 + t * 0.5);
+    const cw = W / cols, t = (y - top) / (H - top), a = Math.min(0.34, 0.08 + t * 0.4);
     for (let c = 0; c < cols; c++) if ((c + k) % 2 === 0) rows += `<rect x="${f(c * cw)}" y="${y}" width="${f(cw)}" height="${Math.min(h, H - y)}" fill="${p.check}" fill-opacity="${a.toFixed(2)}"/>`;
     y += h; h = Math.round(h * 1.2 + 3); k++;
   }

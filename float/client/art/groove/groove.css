@@ -4,7 +4,18 @@
 @font-face {
   font-family: "Float Pixel";
   src: url("/fonts/pixelify-sans-latin.woff2") format("woff2");
-  font-weight: 400 700;
+  font-weight: 400 650;
+  font-style: normal;
+  font-display: block;
+}
+/* the bold, the one nearly every lettering uses: a static copy of Pixelify
+   Sans at 700 with its 3 and C opened (the variable bold closes their gaps
+   to 35 units, so "3rd" and "+0.03" read as 8s and "Chug" as "Ohug" under
+   an outline; scripts/float-pixel-bold.py rebuilds it) */
+@font-face {
+  font-family: "Float Pixel";
+  src: url("/fonts/float-pixel-bold.woff2") format("woff2");
+  font-weight: 651 900;
   font-style: normal;
   font-display: block;
 }

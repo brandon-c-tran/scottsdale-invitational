@@ -70,6 +70,7 @@ import { geoPhotoId, geoShownIds } from "../shared/geo.js";
 import { triviaPhotoId } from "../shared/trivia.js";
 import { bankForDesk } from "./trivia.js";
 import { boardShown } from "./triviaBoard.js";
+import { qbankDesk } from "./qbank.js";
 import { FLOAT_INTERNAL } from "./float.js";
 import { cleanFloatFeedback, floatCup, floatCupBody, floatLive } from "../shared/float.js";
 
@@ -500,6 +501,10 @@ export class Tournament {
      GET  /api/trivia/photo/<id>     the commissioner always; anyone once its
                                      question has been shown
      GET  /api/trivia/bank           the built-in bank, answers and all (GM)
+     GET  /api/trivia/qbank          the question bank desk (GM): every record
+                                     with its edit merged and its mark, the
+                                     board, its status and warnings
+                                     (worker/qbank.js qbankDesk)
      GET  /api/trivia/clip/<qid>     a tune's 30-second clip address (Deezer,
                                      worker/previews.js): anyone once shown
      GET  /api/trivia/clip?title=&artist=&isrc=   the desk's clip check (GM)
@@ -537,6 +542,10 @@ export class Tournament {
       if (!bytes) return new Response("Not found", { status:404 });
       return new Response(bytes, { headers:{ "Content-Type":"image/jpeg",
         "Cache-Control":visible ? "public, max-age=86400" : "no-store" } });
+    }
+    if (parts[2] === "qbank" && parts.length === 3 && req.method === "GET") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      return json(qbankDesk(this.state));
     }
     if (parts[2] === "bank" && parts.length === 3 && req.method === "GET") {
       if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
@@ -2353,6 +2362,8 @@ export class Tournament {
       player: isActivePlayer(claimed, this.state) ? claimed : null,
       deviceId,
       actionId,
+      /* a TV's own report (the board's media ready) */
+      tv:meta?.tv === true,
       environment:this.environment,
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,

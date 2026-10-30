@@ -556,6 +556,9 @@ const EMPTY_STATE = { v:9, awardLadder:AWARD_LADDER, live:false, results:{}, wag
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, jerseysLocked:false,
   geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null, karaoke:null,
+  /* Trivia's question bank (shared/triviaQBank.js): the commissioner's
+     board, his edits to bank records, his marks */
+  triviaPlan:null, triviaBankEdits:{}, triviaBankMarks:{},
   /* Float (shared/float.js): the Cup Lock and start opened, and the mark
      that the slate's default (Beerio Kart standing by) is applied */
   float:null, floatSlate:0,
@@ -587,6 +590,10 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "triviaRounds",
   /* and which format it plays (Rounds or the Board) */
   "triviaFormat",
+  /* the question bank's board, edits and marks are configuration too */
+  "triviaPlan",
+  "triviaBankEdits",
+  "triviaBankMarks",
   /* the TV's Gags switch is a setting; a QA test gag (gagTest) is progress */
   "gagsOff",
 ]);

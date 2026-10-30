@@ -38,6 +38,8 @@ import {
 import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { geoActions } from "./geo.js";
 import { triviaActions } from "./trivia.js";
+import { qbankActions } from "./qbank.js";
+import { triviaConfigured } from "../shared/trivia.js";
 import { karaokeActions } from "./karaoke.js";
 import { floatActions } from "./float.js";
 import { teamNameActions } from "./teamNames.js";
@@ -547,6 +549,8 @@ export const ACTIONS = {
   ...geoActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* Trivia (worker/trivia.js): a finish posts through saveResult */
   ...triviaActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
+  /* Trivia's question bank desk (worker/qbank.js): the board, edits, marks */
+  ...qbankActions({ ok, err, gmOnly }),
   /* Karaoke (worker/karaoke.js): a finish posts through saveResult */
   ...karaokeActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* Float (worker/float.js): the room's result posts through saveResult */
@@ -1568,7 +1572,7 @@ export const ACTIONS = {
        game without content leaves the pill's Start beat in place. */
     if (ev.game === "where" && (state.geoRounds || []).length && !state.geo?.order)
       ACTIONS.geoStart(state, { evId }, ctx);
-    if (ev.game === "trivia" && (state.triviaRounds || []).length && !state.trivia)
+    if (ev.game === "trivia" && triviaConfigured(state) && !state.trivia)
       ACTIONS.triviaStart(state, { evId }, ctx);
     /* karaoke's pick window, when the capability is on; its start checks
        everything before it writes, so a refusal leaves the event as it is */

@@ -217,7 +217,7 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     note(1, `${players.filter(player => picks[player]?.locked).length} of ${players.length} locked in`);
   }
   /* karaoke counts the room itself: who is locked in, who is up, who voted */
-  if (beat.type === "karaoke-step") note(1, beat.note);
+  if (beat.type === "karaoke-step" || beat.type === "board-step") note(1, beat.note);
   /* Float: that the room posts the result, or why the room never took the Cup */
   if (beat.type === "float-live" || beat.type === "float-start") note(1, beat.note);
   if (beat.type === "setup-poker") {
@@ -259,7 +259,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   });
   if (sides) extras.push({ label:"Open event", run:{ open:"event", evId:ev.id } });
   /* karaoke's other moves at this moment: More time, Later, End song,
-     Next video, then Skip and Restart last */
+     Next video, then Skip and Restart last; a board clue's clip: Replay
+     clip, Pause clip */
   if (beat.type === "karaoke-step")
     (beat.tray || []).forEach(extra => extras.push({ label:extra.label, ...(extra.kind ? { kind:extra.kind } : {}),
       run:{ write:extra.write, payload:extra.payload, ...(extra.confirm ? { confirm:extra.confirm } : {}) } }));

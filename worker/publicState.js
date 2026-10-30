@@ -26,6 +26,8 @@
      commissioner's; a game sends only the questions shown so far, an answer
      once revealed, a team its own live pick and every team's locked or not,
      and every pick once revealed. A commissioner on a team plays it blind.
+   - The question bank desk (worker/qbank.js): the board, edits (answers)
+     and marks go to the commissioner only.
    - Karaoke (shared/karaoke.js projectKaraoke): the same game for everyone,
      the commissioner and the TV included: each song once its singer is up,
      who voted and when (never a tier), the ranking from the reveal; a
@@ -44,6 +46,9 @@ import { projectKaraoke } from "../shared/karaoke.js";
 import { publicMoments } from "./moments.js";
 
 const { isActivePlayer } = core;
+/* Trivia's question bank desk (worker/qbank.js): the commissioner's alone,
+   never a guest's or the TV's (edits carry answers) */
+const QBANK_STATE_KEYS = Object.freeze(["triviaPlan", "triviaBankEdits", "triviaBankMarks"]);
 
 /* contestMarkets is a leftover of the reverted July betting experiment; some
    stored states still carry it, with device ids inside its chips. `mvp` is
@@ -58,7 +63,7 @@ const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftComman
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
   "jerseyOk", "venmo", "drinking", "needs", "karaokeTrack"]);
 const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "geo", "geoRounds", "trivia", "triviaRounds", "logistics",
-  "karaoke"]);
+  "karaoke", ...QBANK_STATE_KEYS]);
 /* the host's own legs in the trip sheet are public as times only: his flight
    codes go to the commissioner and to him, never to another guest */
 const HOST = "Brandon";
@@ -172,6 +177,7 @@ function viewerProjection(state, viewer, extras = {}) {
     ...projectGeo(state?.geo, state?.geoRounds, { isGm, player }),
     ...projectTrivia(state?.trivia, state?.triviaRounds, { isGm, player }),
     karaoke:projectKaraoke(state, player),
+    ...(isGm ? Object.fromEntries(QBANK_STATE_KEYS.filter(key => state && key in state).map(key => [key, state[key]])) : {}),
     ...(moments.length ? { moments } : {}),
     ...(state && "logistics" in state ? { logistics:projectLogistics(state.logistics, { isGm, player }) } : {}),
   };

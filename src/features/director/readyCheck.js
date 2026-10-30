@@ -20,7 +20,8 @@ import { allEventsOf, rosterOf } from "../../../shared/core.js";
 import { checkInComplete } from "../../../shared/checkin.js";
 import { jerseyConfirmed } from "../../../shared/guestSetup.js";
 import { cleanWhen } from "../../../shared/geo.js";
-import { triviaQuestionTotal } from "../../../shared/trivia.js";
+import { triviaPlanCount, triviaPlanned, triviaQuestionTotal } from "../../../shared/trivia.js";
+import { QBANK_COLUMNS, QBANK_SLOTS } from "../../../shared/triviaQBank.js";
 import { hasKaraokeSong } from "../../../shared/karaoke.js";
 import { hasFloatLook } from "../../../shared/float.js";
 import { deskBallot } from "../awards/awardsModel.js";
@@ -80,8 +81,14 @@ function gameRows(state) {
   const events = allEventsOf(state);
   const rows = [];
   if (ahead(state, events, "trivia")) {
-    const questions = triviaQuestionTotal(state.triviaRounds);
-    rows.push(row("trivia", "Trivia", { have:questions, state:questions ? "ready" : "missing", opens:"trivia" }));
+    /* the question bank's board, once any slot is set, else the set list */
+    if (triviaPlanned(state)) {
+      const clues = triviaPlanCount(state);
+      rows.push(row("trivia", "Trivia", { have:clues, state:clues >= QBANK_COLUMNS * QBANK_SLOTS ? "ready" : "partial", opens:"trivia" }));
+    } else {
+      const questions = triviaQuestionTotal(state.triviaRounds);
+      rows.push(row("trivia", "Trivia", { have:questions, state:questions ? "ready" : "missing", opens:"trivia" }));
+    }
   }
   if (ahead(state, events, "where")) {
     const rounds = Array.isArray(state.geoRounds) ? state.geoRounds : [];

@@ -12,7 +12,8 @@
 .fd-qb-bank { scroll-margin-top:88px; }
 @media(min-width:1000px) {
   .fd-qb { grid-template-columns:minmax(560px, 600px) minmax(0, 1fr); align-items:start; gap:28px; }
-  .fd-qb-side { position:sticky; top:16px; max-height:calc(100dvh - 160px); overflow-y:auto; overscroll-behavior:contain;
+  /* under the sheet's own sticky header (72px) */
+  .fd-qb-side { position:sticky; top:88px; max-height:calc(100dvh - 160px); overflow-y:auto; overscroll-behavior:contain;
     padding-right:4px; scrollbar-width:thin; }
 }
 .fd-qb-hint { margin:8px 0; color:var(--muted2); font:500 14px/1.4 var(--fd-body); }
@@ -34,19 +35,20 @@
 
 /* ── the board ── */
 .fd-qb-boardwrap { container-type:inline-size; min-width:0; }
-.fd-qb-board { display:grid; gap:4px; grid-template-columns:78px repeat(5, minmax(0, 1fr)); }
+.fd-qb-board { display:grid; gap:3px; grid-template-columns:70px repeat(5, minmax(0, 1fr)); }
 .fd-qb-corner { grid-row:1; grid-column:1; }
 .fd-qb-val { grid-row:1; grid-column:var(--s); align-self:end; padding:0 0 2px; color:var(--muted2); text-align:center;
   font:800 14px/1.1 var(--fd-display); letter-spacing:.04em; font-variant-numeric:tabular-nums; }
-.fd-qb-cat { grid-row:var(--c); grid-column:1; align-self:center; min-width:0; color:var(--ink); font:800 14px/1.15 var(--fd-display);
+.fd-qb-cat { grid-row:var(--c); grid-column:1; align-self:center; min-width:0; color:var(--ink); font:800 13px/1.15 var(--fd-display);
   letter-spacing:.01em; overflow-wrap:anywhere; text-wrap:balance; }
 .fd-qb-cell { position:relative; grid-row:var(--c); grid-column:var(--s); min-width:0; min-height:58px; display:grid; align-content:start;
-  justify-items:start; gap:4px; padding:7px 6px 6px; border:1px solid var(--ghost-line); border-radius:8px; background:var(--bg); color:var(--ink);
+  justify-items:start; gap:3px; padding:6px 4px 5px; border:1px solid var(--ghost-line); border-radius:8px; background:var(--bg); color:var(--ink);
   text-align:left; cursor:pointer; box-shadow:inset 0 2px 4px color-mix(in srgb, var(--ink0) 45%, transparent);
   -webkit-tap-highlight-color:transparent; transition:transform .1s ease; }
 .fd-qb-cell:active { transform:scale(.97); }
-.fd-qb-cell-label { min-width:0; max-width:100%; font:700 12px/1.15 var(--fd-display); letter-spacing:.01em; overflow-wrap:anywhere;
+.fd-qb-cell-label { min-width:0; max-width:100%; font:700 12px/1.15 var(--fd-display); letter-spacing:0; overflow-wrap:break-word;
   hyphens:auto; }
+.fd-qb-cell-label.is-long { display:none; }
 .fd-qb-cell .fd-qb-lamp { width:10px; height:10px; }
 .fd-qb-cell .fd-qb-dot { position:absolute; top:5px; right:5px; width:8px; height:8px; }
 .fd-qb-cell.is-empty { place-content:center; place-items:center; border-style:dashed; background:transparent; box-shadow:none; color:var(--muted); }
@@ -58,6 +60,8 @@
   .fd-qb-cat { grid-row:1; grid-column:var(--c); align-self:end; padding:0 2px 4px; text-align:center; font-size:13px; }
   .fd-qb-cell { grid-row:var(--s); grid-column:var(--c); min-height:66px; }
   .fd-qb-cell-label { font-size:13px; }
+  .fd-qb-cell-label.is-long { display:block; }
+  .fd-qb-cell-label.is-short { display:none; }
 }
 
 /* the lamps by status */
@@ -97,8 +101,7 @@
 .fd-qb-selects label.is-set select { border-color:var(--lamp-info); color:var(--lamp-info); }
 .fd-qb-selects svg { position:absolute; right:10px; color:var(--muted2); pointer-events:none; }
 .fd-qb-count { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; color:var(--muted2);
-  font:800 13px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
-.fd-qb-count button { text-transform:none; letter-spacing:0; }
+  font:600 14px/1.2 var(--fd-body); }
 .fd-qb-statusline { display:flex; flex-wrap:wrap; gap:6px 14px; margin:0; color:var(--muted2); font:500 13px/1.3 var(--fd-body); }
 .fd-qb-statusline span { display:inline-flex; align-items:center; gap:6px; }
 .fd-qb-compare { display:grid; gap:0; padding:10px 12px 0; border:1px solid var(--lamp-info); border-radius:12px; background:var(--info-tint); }
@@ -217,3 +220,5 @@
 .fd-qb-window { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:8px; }
 .fd-qb-window label { display:grid; min-width:0; }
 .fd-qb-window input { font-variant-numeric:tabular-nums; }
+.fd-qb-editor-actions { display:flex; gap:8px; }
+.fd-qb-editor-actions > button:first-child { flex:1 1 auto; }

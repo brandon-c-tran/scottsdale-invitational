@@ -53,7 +53,7 @@ const compiled = await build({
       ${refuse(["dispatch", "uploadPhoto", "downloadSnapshot", "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize",
         "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet",
         "spotifyRetry", "spotifyLatency", "spotifyCalibrate", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "triviaUploadPhoto",
-        "triviaBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "reportTvSound", "setTvView", "karaokeVideos", "karaokeVideo",
+        "triviaBank", "triviaQBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "reportTvSound", "setTvView", "karaokeVideos", "karaokeVideo",
         "karaokeCheck", "reportTvVideo"])}` }));
   } }],
 });

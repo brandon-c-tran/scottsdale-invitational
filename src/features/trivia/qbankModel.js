@@ -17,6 +17,8 @@ export const REACH_NAMES = Object.freeze({ broad:"Broad", shared:"Shared", deep:
 export const VERIFIED_NAMES = Object.freeze({ web:"Checked on the web", provided:"Brandon provided", suggested:"Suggested" });
 export const PAGE_SIZE = 30;
 export const LABEL_MAX = 28;
+/* a phone's narrow slot */
+export const LABEL_SHORT = 16;
 
 export const categoryOf = id => QBANK_CATEGORIES.find(category => category.id === id) || null;
 export const categoryName = id => categoryOf(id)?.name || id || "";
@@ -179,7 +181,8 @@ export function slotAlternatives(records, plan, { col, slot }) {
   if (!column) return [];
   const tier = tierOfSlot(slot);
   const current = column.slots[slot];
-  const list = records.filter(record => record.category === column.category && Number(record.tier) === tier);
+  /* what sits there counts as an alternative even at another value */
+  const list = records.filter(record => record.id === current || (record.category === column.category && Number(record.tier) === tier));
   return groupVariants(sortRecords(list, { byCategory:false }).sort((a, b) => (a.id === current ? -1 : b.id === current ? 1 : 0)));
 }
 
@@ -220,6 +223,7 @@ export function boardView(plan, byId, warnings) {
       const record = qid ? byId.get(qid) || null : null;
       const own = (warned.get(slotKey(col, slot)) || []).filter(warning => warning.code !== "empty");
       return { col, slot, qid, record, value:QBANK_VALUES[slot], label:record ? slotLabel(record) : qid ? "Missing" : "",
+        short:record ? slotLabel(record, LABEL_SHORT) : qid ? "Missing" : "",
         lamp:!qid ? "empty" : !record ? "rejected" : record.mark === "reject" ? "rejected" : record.status,
         warnings:own };
     }),

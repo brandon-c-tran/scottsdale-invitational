@@ -271,9 +271,9 @@ test("the desk renders the board, the bank's cards and a slot's alternatives", a
   assert.match(html, /Show \d+ more/);
   const alts = renderToStaticMarkup(React.createElement(QBankDesk, { state, onAct:async () => ({ ok:true }), preloaded:qbankFixtureResponse(),
     initial:{ slot:{ col:0, slot:2 } } }));
-  assert.match(alts, /3 alternatives/);
+  assert.match(alts, /2 others/);
   assert.match(alts, /Whole bank/);
-  assert.match(alts, /Clear slot/);
+  assert.match(alts, /Take off board/, "what sits there leads, and comes off in one tap");
   assert.equal((alts.match(/<article class="fd-qb-card/g) || []).length, 3);
   const loading = renderToStaticMarkup(React.createElement(QBankDesk, { state, onAct:async () => ({ ok:true }), loadQBank:async () => ({ ok:true, records:[] }) }));
   assert.match(loading, /Loading the question bank/);

@@ -12,9 +12,11 @@
    the plan, edits and marks ride his frame. */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { triviaQBank } from "../../lib/client.js";
+import { useReducedMotion } from "../../lib/motion.js";
 import { writeError } from "../../lib/writeErrors.js";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { OneSafe } from "../../ui/OneSafe.jsx";
 import {
   QBANK_CATEGORIES, QBANK_OPTION_MAX, QBANK_PROMPT_MAX, QBANK_REVEAL_MAX, QBANK_NOTES_MAX, QBANK_STATUSES, QBANK_TIERS,
   QBANK_VALUES, qbankWarnings,
@@ -66,7 +68,7 @@ function Board({ board, selected, onSelect }) {
       <span className="fd-qb-corner" aria-hidden="true" />
       {QBANK_VALUES.map((value, slot) => <span key={`v${slot}`} className="fd-qb-val" style={{ "--s":slot + 2 }} aria-hidden="true">{value}</span>)}
       {board.map((column, col) => <React.Fragment key={column.category}>
-        <span className="fd-qb-cat" style={{ "--c":col + 2 }}>{column.name}</span>
+        <span className="fd-qb-cat" style={{ "--c":col + 2 }}><OneSafe text={column.name} /></span>
         {column.cells.map(cell => {
           const on = selected?.col === col && selected?.slot === cell.slot;
           return <button type="button" key={cell.slot} style={{ "--c":col + 2, "--s":cell.slot + 2 }}
@@ -75,7 +77,8 @@ function Board({ board, selected, onSelect }) {
             aria-label={`${column.name} ${cell.value}: ${cell.qid ? cell.label : "empty"}${cell.qid ? `, ${SPOKEN[cell.lamp]}` : ""}`
               + `${cell.warnings.length ? `, ${plural(cell.warnings.length, "warning")}` : ""}`}>
             {cell.qid ? <Lamp status={cell.lamp} /> : <Icon name="plus" size={16} />}
-            {cell.qid && <span className="fd-qb-cell-label">{cell.label}</span>}
+            {cell.qid && <span className="fd-qb-cell-label is-long"><OneSafe text={cell.label} /></span>}
+            {cell.qid && <span className="fd-qb-cell-label is-short" aria-hidden="true"><OneSafe text={cell.short} /></span>}
             {cell.warnings.length > 0 && <b className="fd-qb-dot" aria-hidden="true" />}
           </button>;
         })}
@@ -234,11 +237,7 @@ function Editor({ record, pending, onSave, onRevert, onClose }) {
     if (result?.ok) onClose(); else setError(writeError(result));
   };
   const busy = !!pending;
-  return <Sheet title="Edit question" onClose={onClose} busy={busy} layer={130} className="fd-qb-editor-sheet"
-    footer={<>
-      <ActionButton onClick={save} disabled={busy} pending={pending === `edit:${record.id}`}>Save</ActionButton>
-      <ActionButton variant="tertiary" onClick={onClose} disabled={busy}>Cancel</ActionButton>
-    </>}>
+  return <Sheet title="Edit question" onClose={onClose} busy={busy} layer={130} className="fd-qb-editor-sheet">
     <div className="fd-qb-editor">
       <label className="fd-qb-field"><span>Question <small>{draft.prompt.length}/{QBANK_PROMPT_MAX}</small></span>
         <textarea rows={3} maxLength={QBANK_PROMPT_MAX} value={draft.prompt} onChange={event => set({ prompt:event.target.value })} /></label>
@@ -280,6 +279,10 @@ function Editor({ record, pending, onSave, onRevert, onClose }) {
       <label className="fd-qb-field"><span>Notes</span>
         <textarea rows={2} maxLength={QBANK_NOTES_MAX} value={draft.notes} onChange={event => set({ notes:event.target.value })} /></label>
       {error && <p className="fd-qb-error" role="alert">{error}</p>}
+      <div className="fd-qb-editor-actions">
+        <ActionButton onClick={save} disabled={busy} pending={pending === `edit:${record.id}`}>Save</ActionButton>
+        <ActionButton variant="tertiary" onClick={onClose} disabled={busy}>Cancel</ActionButton>
+      </div>
       {record.edited && <ActionButton variant="destructive" compact disabled={busy} pending={pending === `revert:${record.id}`}
         onClick={async () => {
           const result = await onRevert(record);
@@ -320,6 +323,7 @@ function Filters({ filters, onChange, count }) {
    `preloaded` is the bank's answer already in hand (a test) */
 export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initial = null, preloaded = null }) {
   const { bank, error:loadError, retry } = useQBank(loadQBank, preloaded);
+  const reduced = useReducedMotion();
   /* the plan, edits and marks ride the commissioner's frame; a frame
      without them falls back to what the bank's answer carried */
   const live = !!state && "triviaPlan" in state;
@@ -377,7 +381,7 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
   const selectSlot = slot => {
     stopClip();
     setSelected(slot);
-    if (slot) requestAnimationFrame(() => bankTop.current?.scrollIntoView?.({ block:"start", behavior:"smooth" }));
+    if (slot) requestAnimationFrame(() => bankTop.current?.scrollIntoView?.({ block:"start", behavior:reduced ? "auto" : "smooth" }));
   };
 
   const exportPlan = () => {
@@ -459,8 +463,8 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
           <span className="fd-qb-compare-title"><b>{column.name}</b><span>{QBANK_VALUES[selected.slot]}</span></span>
           <button type="button" className="fd-qb-link" onClick={() => selectSlot(null)}>Whole bank</button>
         </div>
-        <div className="fd-qb-count"><span>{plural(groups.length, "alternative")}</span>
-          {current && <button type="button" disabled={!!pending} onClick={() => clear(selected, current)}>Clear slot</button>}</div>
+        <div className="fd-qb-count"><span>{current ? plural(groups.length - 1, "other") : plural(groups.length, "alternative")}</span>
+          {!current && <span>Empty slot</span>}</div>
       </div> : <Filters filters={filters} count={groups.length} onChange={patch => setFilters(f => ({ ...f, ...patch }))} />}
       {!selected && !filters.query && filters.status === "all" && <p className="fd-qb-statusline">
         {QBANK_STATUSES.filter(status => counts[status]).map(status => <span key={status}><Lamp status={status} />{counts[status]} {STATUS_COUNTED[status]}</span>)}

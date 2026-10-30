@@ -576,7 +576,11 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
 
 /* ─────────── helpers ─────────── */
 /* built-ins can be edited (name, desc, value, session) via state.eventEdits and
-   reordered via state.eventOrder; results and wagers key off ids so both are safe */
+   reordered via state.eventOrder; results and wagers key off ids so both are safe.
+   The slate reads by day first (SESSIONS order; an event with no session
+   after them all), then the stored order, then the slate number: an event
+   moved to another day (rain) takes that day's turn on the schedule AND in
+   the pill's "next", which is open[0] of this order. */
 function allEventsOf(state) {
   const evs = [
     ...BUILTIN_EVENTS.map(e => {
@@ -589,10 +593,9 @@ function allEventsOf(state) {
     })),
   ];
   const ord = state.eventOrder || [];
-  if (ord.length) {
-    const idx = id => { const i = ord.indexOf(id); return i < 0 ? 999 : i; };
-    evs.sort((a, b) => idx(a.id) - idx(b.id) || (a.n || 99) - (b.n || 99));
-  }
+  const day = ev => { const i = SESSIONS.findIndex(session => session.id === ev.session); return i < 0 ? SESSIONS.length : i; };
+  const idx = id => { const i = ord.indexOf(id); return i < 0 ? 999 : i; };
+  evs.sort((a, b) => day(a) - day(b) || idx(a.id) - idx(b.id) || (a.n || 99) - (b.n || 99));
   return evs;
 }
 /* The shape a team event actually plays with the people present. A full

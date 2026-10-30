@@ -40,7 +40,11 @@ const stored = (order, extra = {}) => ({ ...structuredClone(EMPTY_STATE), eventO
 test("a slate saved before Karaoke loads with it on Friday night, after Where and When, never after the finale", () => {
   const before = savedBefore();
   const old = stored(before);
-  assert.equal(ids(old).at(-1), "karaoke", "unplaced, a missing id sorts after everything, the poker finale included");
+  /* unplaced, a missing id sorts after the stored ids of its own day (the
+     slate reads by day first), so even before placement it is Friday's last,
+     never after the finale */
+  assert.equal(ids(old).indexOf("karaoke"), ids(old).indexOf("where") + 1, "unplaced: after the stored Friday events");
+  assert.notEqual(ids(old).at(-1), "karaoke");
 
   const loaded = hydrateStoredState(old);
   assert.deepEqual(loaded.eventOrder, [...before.slice(0, before.indexOf("where") + 1), "karaoke",

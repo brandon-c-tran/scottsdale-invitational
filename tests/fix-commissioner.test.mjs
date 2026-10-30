@@ -68,7 +68,7 @@ const compiled = await build({
       export const hasGmToken=()=>true;
       ${blocked(["dispatch", "uploadPhoto", "downloadSnapshot", "localSet", "getDeviceId", "setGmToken",
         "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize", "spotifyDisconnect",
-        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "spotifyLatency", "spotifyCalibrate", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "triviaUploadPhoto", "triviaBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "reportTvSound", "setTvView", "karaokeVideos", "karaokeVideo", "karaokeCheck", "reportTvVideo"])}
+        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "spotifyLatency", "spotifyCalibrate", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "triviaUploadPhoto", "triviaBank", "triviaQBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "reportTvSound", "setTvView", "karaokeVideos", "karaokeVideo", "karaokeCheck", "reportTvVideo"])}
     ` }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({ loader:"js", contents:
       `export const installEvt=null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}` }));

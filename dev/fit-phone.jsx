@@ -12,6 +12,7 @@ import { bankForDesk } from "../worker/trivia.js";
 import { publishFrame } from "../src/lib/frameGate.js";
 import { provideFloatPart } from "../src/features/float/floatParts.js";
 import { FIT_ARRIVE_CODE, FIT_GM, FIT_GUEST, PHONE_SCENARIOS, buildScenario } from "./fit/scenarios.js";
+import { qbankFixtureResponse } from "./fit/qbankDeskFixtures.js";
 import qrcode from "qrcode-generator";
 import FloatController from "../float/client/controller/FloatController.jsx";
 import { createMockRoom } from "../float/client/controller/mockRoom.js";
@@ -61,6 +62,8 @@ globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 /* the Karaoke desk and its Ready check row (`karaoke`), and its stubbed video check */
 if (gm && scenario.karaoke) capabilities.karaoke = true;
 globalThis.__FIT_KARAOKE_CHECK__ = scenario.karaokeCheck || null;
+/* the Question bank desk's records (`qbank`), as GET /api/trivia/qbank answers */
+globalThis.__FIT_QBANK__ = gm && scenario.qbank ? () => qbankFixtureResponse(state) : null;
 let version = 1;
 const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
   ...(gm && scenario.tvs ? { tvs:scenario.tvs, tvsAt:Date.now() } : {}) });
@@ -444,6 +447,34 @@ async function openSheet(kind) {
     const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === "Trivia"));
     return ok && !!(await until(() => document.querySelector(".fd-trivia-desk")));
+  }
+  /* the Question bank desk, from Trivia's desk: as it opens, a slot's
+     alternatives (the Pass the Aux 200 slot, a variant and a repeat), the
+     editor (the first card's Edit), the warnings list */
+  if (kind.startsWith("qbank-")) {
+    if (!await openSheet("trivia-desk")) return false;
+    await sleep(400);
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
+      && b.querySelector(".fd-menu-name")?.textContent.trim() === "Question bank"));
+    if (!ok || !(await until(() => document.querySelector(".fd-qb:not(.is-loading)")))) return false;
+    if (kind === "qbank-desk") return true;
+    if (kind === "qbank-compare") {
+      await tap(() => [...document.querySelectorAll(".fd-qb-cell")].find(b => /^Pass the Aux 200/.test(b.getAttribute("aria-label") || "")));
+      const open = !!(await until(() => document.querySelector(".fd-qb-compare")));
+      /* the tap scrolls the alternatives into view; audit the sheet from its top */
+      await sleep(700);
+      document.querySelectorAll(".si-sheet").forEach(sheet => { sheet.scrollTop = 0; });
+      return open;
+    }
+    if (kind === "qbank-edit") {
+      await tap(() => [...document.querySelectorAll(".fd-qb-act")].find(b => b.textContent.trim() === "Edit"));
+      return !!(await until(() => document.querySelector(".fd-qb-editor")));
+    }
+    if (kind === "qbank-warnings") {
+      await tap(() => document.querySelector(".fd-qb-warnbtn"));
+      return !!(await until(() => document.querySelector(".fd-qb-warnings")));
+    }
+    return false;
   }
   /* the commissioner's Karaoke desk, from its menu row: as it opens (songs
      hidden), and with Show songs and Check videos tapped (the scenario's

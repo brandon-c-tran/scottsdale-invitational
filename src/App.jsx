@@ -127,6 +127,7 @@ const QABar = /* @__PURE__ */ lazyPart(() => import("./features/qa/QABar.jsx"), 
 const QASheet = /* @__PURE__ */ lazyPart(() => import("./features/qa/QASheet.jsx"), "QASheet");
 const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.jsx"), "GeoDesk");
 const TriviaDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/TriviaDesk.jsx"), "TriviaDesk");
+const QBankDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/QBankDesk.jsx"), "QBankDesk");
 const KaraokeDesk = /* @__PURE__ */ lazyPart(() => import("./features/karaoke/KaraokeDesk.jsx"), "KaraokeDesk");
 const FloatDesk = /* @__PURE__ */ lazyPart(() => import("./features/float/FloatDesk.jsx"), "FloatDesk");
 const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
@@ -137,7 +138,7 @@ const SpeakerSheet = /* @__PURE__ */ lazyPart(() => import("./features/speaker/S
 const ReadyCheck = /* @__PURE__ */ lazyPart(() => import("./features/director/ReadyCheck.jsx"), "ReadyCheck");
 /* Scan the TV: the scanner (and its decoder, loaded inside it) only once a guest opens it */
 const ArriveScanner = /* @__PURE__ */ lazyPart(() => import("./features/arrivals/Scanner.jsx"), "ArriveScanner");
-const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
+const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, QBankDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
   FloatDesk, KaraokeDesk, ReadyCheck];
 
 
@@ -1815,7 +1816,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
       </Sheet>}
       {gmView && modal?.type === "triviaDesk" && <Sheet title="Trivia" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><TriviaDesk state={state} me={me} events={events} notify={notify}
-          onAct={(type, payload) => act(type, payload)} /></Suspense>
+          onAct={(type, payload) => act(type, payload)} onOpenBank={() => pushModal({ type:"qbankDesk" })} /></Suspense>
+      </Sheet>}
+      {gmView && modal?.type === "qbankDesk" && <Sheet title="Question bank" className="fd-qb-sheet" onClose={() => setModal(null)} onBack={modalBack}>
+        <Suspense fallback={null}><QBankDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload, null, { quiet:true })} /></Suspense>
       </Sheet>}
       {gmView && modal?.type === "karaokeDesk" && <Sheet title="Karaoke" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><KaraokeDesk state={state} /></Suspense>

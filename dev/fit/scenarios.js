@@ -19,6 +19,7 @@ import { bitById } from "../../src/features/gags/bits/registry.js";
 import { recordCards } from "../../src/features/tv/recordsModel.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
 import { bankStage } from "./qbankFixtures.js";
+import { qbankFixtureState, useDeskBank } from "./qbankDeskFixtures.js";
 import { karaokeStage } from "./karaokeFixtures.js";
 import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
 import {
@@ -1686,6 +1687,12 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-final-wager", build:() => boardStage("final-wager"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-final-clue", build:() => boardStage("final-clue"), settle:false, freeze:true, tabs:["home"] },
   { id:"desk-board", build:boardDeskStage, viewer:"gm", tabs:[], sheets:["trivia-desk"] },
+  /* the Question bank desk (docs/TRIVIA-QBANK.md) over the fixture bank
+     (dev/fit/qbankDeskFixtures.js): the board and bank, a slot's alternatives,
+     the editor, the warnings; and a desk with nothing picked yet */
+  { id:"qbank", build:() => { useDeskBank(); return qbankFixtureState("worked", fresh("locker")); }, viewer:"gm", qbank:true, tabs:[],
+    sheets:["qbank-desk", "qbank-compare", "qbank-edit", "qbank-warnings"], sheetSizes:["375"] },
+  { id:"qbank-empty", build:() => { useDeskBank(); return qbankFixtureState("empty", fresh("locker")); }, viewer:"gm", qbank:true, tabs:[], sheets:["qbank-desk"] },
   /* and through the real writes */
   { id:"board-real-buzz", build:() => boardPlayed("armed"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-rebound", build:() => boardPlayed("rebound"), settle:false, freeze:true, tabs:["home"] },

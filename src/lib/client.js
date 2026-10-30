@@ -590,6 +590,10 @@ export function triviaUploadPhoto(photo) {
 }
 export const triviaBank = () => momentRequest("/api/trivia/bank", { headers:momentHeaders(), cache:"no-store" },
   { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't load the bank" });
+/* the question bank (docs/TRIVIA-QBANK.md): its records and the
+   recommended board, the commissioner's alone */
+export const triviaQBank = () => momentRequest("/api/trivia/qbank", { headers:momentHeaders(), cache:"no-store" },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't load the question bank. Try again." });
 export const triviaClip = questionId => momentRequest(`/api/trivia/clip/${encodeURIComponent(questionId)}`,
   { headers:momentHeaders(), cache:"no-store" }, { ms:MOMENT_EDIT_MS, timeout:"No clip", failed:"No clip" });
 export const triviaClipCheck = ({ title = "", artist = "", isrc = "" } = {}) =>

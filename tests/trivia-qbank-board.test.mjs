@@ -363,3 +363,115 @@ test("the autopilot plays a plan game to its result: every cell, media clues rea
     assert.ok(boardStandings(game).every(row => Math.abs(row.preFinal) % 100 === 0));
   } finally { restore(); }
 });
+
+/* ── end to end, through the Durable Object's sockets ── */
+
+test("end to end over the sockets: the host picks each kind of clue, the TV readies it, a phone buzzes and answers, the reveal, the score, the board", async () => {
+  const restore = withFixtureBank();
+  const realNow = Date.now;
+  const clock = { t:realNow() };
+  Date.now = () => clock.t;
+  try {
+    const { Tournament } = await import("../worker/tournament.js");
+    const entries = new Map(), sockets = [];
+    const storage = {
+      async get(key) { return structuredClone(entries.get(key)); },
+      async put(key, value) {
+        if (typeof key === "object") for (const [k, v] of Object.entries(key)) entries.set(k, structuredClone(v));
+        else entries.set(key, structuredClone(value));
+      },
+      async delete(key) { for (const item of [].concat(key)) entries.delete(item); },
+      async list({ prefix = "" } = {}) { return new Map([...entries].filter(([k]) => k.startsWith(prefix))); },
+      async transaction(fn) { return fn(storage); }, async setAlarm() {}, async getAlarm() { return null; }, async deleteAlarm() {},
+    };
+    const tournament = new Tournament({ blockConcurrencyWhile() {}, getWebSockets:() => sockets, storage, waitUntil() {} },
+      { APP_ENV:"local" });
+    await tournament.hydrateFromStorage();
+    tournament.gmToken = "gm-secret";
+    const socket = () => {
+      let attachment = null;
+      const ws = { raw:[], send(frame) { ws.raw.push(frame); }, serializeAttachment(v) { attachment = structuredClone(v); },
+        deserializeAttachment() { return attachment; }, close() {} };
+      sockets.push(ws);
+      return ws;
+    };
+    const frames = ws => ws.raw.map(frame => JSON.parse(frame));
+    const lastState = ws => frames(ws).filter(frame => frame.type === "state").at(-1).state;
+    const lastAck = ws => frames(ws).filter(frame => frame.type === "ack").at(-1);
+    let seq = 0;
+    const send = (ws, device, type, payload = {}, { gm = false, actionId = `e${++seq}` } = {}) => tournament.webSocketMessage(ws,
+      JSON.stringify({ actionId, type, payload, deviceId:device, ...(gm ? { gmToken:"gm-secret" } : {}) }));
+    const DEV = name => `device-${name}-7f1c2a9e-0000-4000-8000-000000000001`;
+
+    /* a plan game under way */
+    const built = room();
+    tournament.state = built;
+    const player = built.trivia.players.find(item => item !== "Brandon");
+    const tv = socket(), phone = socket(), host = socket();
+    await send(tv, DEV("tv"), "hello", { view:"tv", nonce:1 });
+    await send(phone, DEV("phone"), "hello", { nonce:1 });
+    await send(phone, DEV("phone"), "claim", { player });
+    await send(host, DEV("host"), "hello", { nonce:1 }, { gm:true });
+
+    const kinds = [["fx-lore-2", "text"], ["fx-nba-1", "image"], ["fx-sound-1", "audio"], ["fx-web-1", "video"], ["fx-sil-1", "image"],
+      ["fx-web-2", "image"]];
+    let expected = 0;
+    for (const [qid, kind] of kinds) {
+      const game = () => tournament.state.trivia;
+      const clue = Object.values(game().clues).find(item => item.source === qid);
+      clock.t = Math.max(clock.t, game().pickAt) + 200;
+      await send(host, DEV("host"), "boardPick", { clueId:clue.id }, { gm:true });
+      assert.equal(lastAck(host).ok, true, `${qid} pick: ${lastAck(host).error}`);
+      const log = () => game().log[clue.id];
+      if (kind !== "text") {
+        /* only the TV (or the host) says the media is ready */
+        await send(phone, DEV("phone"), "boardMediaReady", { clueId:clue.id });
+        assert.equal(lastAck(phone).ok, false);
+        const capped = log().armAt;
+        clock.t += 300;
+        await send(tv, DEV("tv"), "boardMediaReady", { clueId:clue.id });
+        assert.equal(lastAck(tv).ok, true, `${qid} ready: ${lastAck(tv).error}`);
+        assert.ok(log().armAt < capped, "the TV's ready brought the arm forward");
+        const seen = lastState(phone).trivia.clues[clue.id];
+        assert.equal(seen.media.src, clue.media.src, "the phone has the media once picked");
+        assert.equal(seen.revealMedia, undefined);
+        assert.equal(seen.answer, undefined);
+        assert.equal(lastState(tv).trivia.clues[clue.id].media.kind, kind);
+      }
+      /* a phone reconnecting mid-clue rebuilds it from its first frame */
+      const again = socket();
+      await send(again, DEV("phone"), "hello", { nonce:2 });
+      assert.equal(lastState(again).trivia.current, clue.id);
+      assert.equal(boardScreen(boardView(lastState(again), player, log().armAt + 50)), "buzzer");
+      /* the buzz, the close, the answer (sent twice: one tap) */
+      clock.t = log().armAt + 120;
+      await send(phone, DEV("phone"), "boardBuzz", { clueId:clue.id, ms:233, race:0 });
+      assert.equal(lastAck(phone).ok, true, `${qid} buzz: ${lastAck(phone).error}`);
+      clock.t = buzzCloseAt(log());
+      await send(host, DEV("host"), "boardCloseBuzz", { clueId:clue.id }, { gm:true });
+      clock.t = log().turnAt + 400;
+      const tap = { actionId:`tap-${qid}` };
+      await send(phone, DEV("phone"), "boardAnswer", { clueId:clue.id, choice:clue.answer }, tap);
+      await send(phone, DEV("phone"), "boardAnswer", { clueId:clue.id, choice:clue.answer }, tap);
+      expected += clue.value;
+      const revealed = lastState(phone).trivia;
+      assert.equal(revealed.phase, "reveal");
+      assert.equal(revealed.clues[clue.id].answer, clue.answer);
+      assert.equal(revealed.clues[clue.id].reveal, clue.reveal);
+      if (clue.revealMedia) assert.equal(revealed.clues[clue.id].revealMedia.src, clue.revealMedia.src, "the reveal image at the reveal");
+      assert.equal(boardStandings(revealed).find(row => row.player === player).score, expected, "the value once");
+      clock.t = log().revealedAt + 500;
+      await send(host, DEV("host"), "boardNext", { clueId:clue.id }, { gm:true });
+      assert.equal(lastState(tv).trivia.phase, "pick", "back to the board");
+    }
+    assert.equal(lastState(tv).trivia.played.length, kinds.length);
+    /* the TV and the phones never saw an unplayed clue's media or anything the bank keeps */
+    const tvText = JSON.stringify(lastState(tv));
+    const unplayed = Object.values(tournament.state.trivia.clues).filter(clue => !tournament.state.trivia.played.includes(clue.id) && clue.media);
+    for (const clue of unplayed) assert.ok(!tvText.includes(clue.media.src));
+    assert.ok(!tvText.includes("example.com") && !tvText.includes("triviaBankEdits"));
+  } finally {
+    Date.now = realNow;
+    restore();
+  }
+});

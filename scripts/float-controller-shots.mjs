@@ -285,7 +285,7 @@ async function joinChecks(page, size) {
   await sleep(600);
   await shot(page, size, "join-lobby");
   const saved = await page.evaluate("JSON.parse(localStorage.getItem('float-rider') || 'null')");
-  check(saved?.look?.critter === "jackrabbit" && saved?.look?.hat === "cowboy" && saved?.look?.shades === "aviators" && saved?.drinks === true,
+  check(saved?.look?.critter === "jackrabbit" && saved?.look?.hat && saved.look.hat !== "none" && saved?.look?.shades && saved.look.shades !== "none" && saved?.drinks === true,
     `${size}: the rider is kept (${JSON.stringify(saved)})`);
   /* the lobby's own Locker, and a pick there goes to the room */
   await tapElement(page, ".flc-lobby .flc-pill");

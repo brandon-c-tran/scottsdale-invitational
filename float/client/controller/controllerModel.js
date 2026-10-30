@@ -433,7 +433,7 @@ export function seatView({ room, idx }) {
    and the beat now. Practice only (null elsewhere). A demo bar (the host
    shows it) lights its beats as the host's: `demo`.
    { bar, now, beats:[{ n, on, kinds, and, demo, row, move, word }] } */
-export const COUNTER_WORDS = Object.freeze({ paddle:"Row", hey:"Hey!", hop:"Hop", spin:"Spin", drop:"Drop", rocket:"Launch" });
+export const COUNTER_WORDS = Object.freeze({ paddle:"Paddle", hey:"Hey!", hop:"Hop", spin:"Spin", drop:"Drop", rocket:"Launch" });
 export function beatCounter(chart, view) {
   if (!chart || view?.moment !== "practice" || !Number.isFinite(view.beat)) return null;
   const perBar = 4;

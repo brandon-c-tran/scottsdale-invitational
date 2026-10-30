@@ -72,7 +72,8 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-screen[data-scene="whirlpool"], .flc-scenery.is-whirlpool { --sky-a: #e3d8ff; --sky-b: #ffd3e7; --mesa-far: #dcb3d6; --mesa-near: #c793c4; --water-a: #6cbdf0; --water-b: #95d0f6; }
 /* Fireworks (v3 wave B): the final three at night on the lake */
 .flc-screen[data-scene="night"], .flc-scenery.is-night { --sky-a: #141a3d; --sky-b: #3b2f6b; --mesa-far: #2a2652; --mesa-near: #1f1c40; --water-a: #1d3e6e; --water-b: #2b558a; --sun: #f4efd2; }
-.flc-screen[data-scene="night"] .flc-songname, .flc-screen[data-scene="night"] .flc-card-kicker { color: var(--paper); }
+.flc-screen[data-scene="night"] .flc-songname, .flc-screen[data-scene="night"] .flc-card-kicker, .flc-screen[data-scene="night"] .flc-kicker,
+.flc-screen[data-scene="night"] .flc-meter-side { color: var(--paper); }
 .flc-screen[data-scene="falls"], .flc-scenery.is-falls { --sky-a: #ffd9ad; --sky-b: #ff9fae; --mesa-far: #f0988a; --mesa-near: #d9776c; --water-a: #49b0e2; --water-b: #78c8ee; }
 .flc-scenery.is-lobby { --sky-a: #d6f0ff; --sky-b: #f3e1ff; --mesa-far: #d9c3ec; --mesa-near: #c4a8e0; }
 .flc-scenery.is-podium { --sky-a: #fff0b3; --sky-b: #ffd2e6; --mesa-far: #f5c6a0; --mesa-near: #eaa983; }
@@ -565,8 +566,18 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-popup[data-q="early"] .fg-popup-word, .flc-popup[data-q="late"] .fg-popup-word { font-size: 1.12em; }
 
 /* the foot: practice's count, then the streak and the coach, then the meter */
-.flc-foot { position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 3%);
+/* up off the very bottom, where a thumb rests while it taps; lower in practice, where the count joins it */
+.flc-foot { position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 11%);
   display: grid; gap: 10px; z-index: 2; pointer-events: none; }
+.flc-foot.has-counter { bottom: calc(var(--sa-bottom) + 4%); }
+/* no streak and no coach: the row takes no room */
+.flc-foot-row:has(> .flc-streak.is-empty:only-child) { display: none; }
+@media (orientation: portrait) and (max-height: 700px) {
+  .flc-foot { bottom: calc(var(--sa-bottom) + 4%); }
+  .flc-foot.has-counter { bottom: calc(var(--sa-bottom) + 2%); gap: 8px; }
+  .flc-count { gap: 6px; }
+  .flc-count i { width: 50px; height: 50px; font-size: 25px; }
+}
 .flc-foot-row { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; }
 .flc-streak {
   display: inline-flex; align-items: center; min-height: 40px; padding: 4px 16px 5px; border-radius: 999px; white-space: nowrap;

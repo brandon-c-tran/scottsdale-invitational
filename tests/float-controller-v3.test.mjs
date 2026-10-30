@@ -69,7 +69,7 @@ test("practice's counter: the bar's beats with a tap lit (Hey! on 4 over the pad
   for (let beat = practice.from; beat < practice.to; beat += 4) {
     assert.ok([1, 3].every(n => lit(beat).includes(n)), "paddle on 1 and 3");
     const one = beatCounter(paddle, { moment:"practice", beat }).beats[0];
-    assert.deepEqual([one.row, one.move, one.word], [true, null, "Row"]);
+    assert.deepEqual([one.row, one.move, one.word], [true, null, "Paddle"]);
   }
   /* a bar with a Hey! says it on its beat, over the paddle */
   const hey = paddle.cues.find(cue => !cue.scored && cue.kind === "hey");
